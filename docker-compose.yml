@@ -1,0 +1,10 @@
+version: '3.1'
+services:
+  prefect:
+    image: 'prefecthq/prefect:0.15.9-python3.9'
+    ports:
+      - '8080:8080'
+    volumes:
+      - ./src:/app
+    environment:
+      - FLASK_APP=main.py
