@@ -27,9 +27,6 @@ class DataFlows extends TerraformStack {
 
     const region = new DataSources.DataAwsRegion(this, 'region');
     const caller = new DataSources.DataAwsCallerIdentity(this, 'caller');
-    const secretsManager = new KMS.DataAwsKmsAlias(this, 'kms_alias', {
-      name: 'alias/aws/secretsmanager',
-    });
 
     const pocketApp = this.createPocketAlbApplication({
       secretsManagerKmsAlias: this.getSecretsManagerKmsAlias(),
