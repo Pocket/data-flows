@@ -12,12 +12,16 @@ import {
   KMS,
   SNS,
 } from '@cdktf/provider-aws';
+import { LocalProvider } from '@cdktf/provider-local';
+import { NullProvider } from '@cdktf/provider-null';
 
 class DataFlows extends TerraformStack {
   constructor(scope: Construct, name: string) {
     super(scope, name);
 
     new AwsProvider(this, 'aws', { region: 'us-east-1' });
+    new NullProvider(this, 'null', {});
+    new LocalProvider(this, 'local', {});
 
     new RemoteBackend(this, {
       hostname: 'app.terraform.io',
