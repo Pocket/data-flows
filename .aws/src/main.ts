@@ -91,8 +91,11 @@ class DataFlows extends TerraformStack {
       snsTopic,
     } = dependencies;
 
-    const parameter_arn_prefix: string =
+    const parameterArnPrefix: string =
       `arn:aws:ssm:${region.name}:${caller.accountId}:parameter/${config.name}/${config.environment}`
+
+    //Our shared dockerhub credentials in Secrets Manager to bypass docker hub pull limits
+    const repositoryCredentials = `arn:aws:secretsmanager:${region.name}:${caller.accountId}:secret:Shared/DockerHub`;
 
     return new PocketALBApplication(this, 'application', {
       internal: true,
@@ -105,13 +108,14 @@ class DataFlows extends TerraformStack {
         {
           name: 'prefect',
           containerImage: 'prefecthq/prefect:0.15.9-python3.9',
+          repositoryCredentialsParam: repositoryCredentials,
           portMappings: [
             {
               hostPort: config.prefect.port,
               containerPort: config.prefect.port,
             },
           ],
-          command: ["prefect", "agent", "ecs", "start", "--agent-address http://localhost:8080"],
+          command: ["prefect", "agent", "ecs", "start", "--agent-address", "http://localhost:8080"],
           healthCheck: config.healthCheck,
           envVars: [
             {
@@ -130,7 +134,7 @@ class DataFlows extends TerraformStack {
           secretEnvVars: [
             {
               name: 'PREFECT__CLOUD__API_KEY',
-              valueFrom: `${parameter_arn_prefix}/PREFECT_API_KEY`,
+              valueFrom: `${parameterArnPrefix}/PREFECT_API_KEY`,
             },
           ],
         },
@@ -166,8 +170,8 @@ class DataFlows extends TerraformStack {
           {
             actions: ['ssm:GetParameter*'],
             resources: [
-              parameter_arn_prefix,
-              `${parameter_arn_prefix}/*`,
+              parameterArnPrefix,
+              `${parameterArnPrefix}/*`,
             ],
             effect: 'Allow',
           },
