@@ -3,7 +3,7 @@ services:
   prefect:
     build:
       dockerfile: Dockerfile
-      context: .docker/agent
+      context: .docker/app
     command:
       - "prefect"
       - "agent"

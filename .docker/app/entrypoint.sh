@@ -1,5 +1,6 @@
 # Prefect requires the run task kwargs to be stored in a YAML file, so we have a Python script to create it
-python "$POCKET_AGENT_DIR/create_run_task_kwargs.py" -o "$RUN_TASK_KWARGS_PATH" --verbose
+export RUN_TASK_KWARGS_PATH=$POCKET_APP_DIR/run_task_kwargs.yml
+python "$POCKET_APP_DIR/create_run_task_kwargs.py" -o "$RUN_TASK_KWARGS_PATH" --verbose
 
 # Start Prefect's entrypoint
 # - Prefect's entrypoint is located at /usr/local/bin/entrypoint.sh

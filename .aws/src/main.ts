@@ -94,9 +94,6 @@ class DataFlows extends TerraformStack {
     const parameterArnPrefix: string =
       `arn:aws:ssm:${region.name}:${caller.accountId}:parameter/${config.name}/${config.environment}`
 
-    //Our shared dockerhub credentials in Secrets Manager to bypass docker hub pull limits
-    const repositoryCredentials = `arn:aws:secretsmanager:${region.name}:${caller.accountId}:secret:Shared/DockerHub`;
-
     const pocketVPC = new PocketVPC(this, 'pocket-shared-vpc');
 
     return new PocketALBApplication(this, 'application', {
@@ -108,9 +105,7 @@ class DataFlows extends TerraformStack {
       domain: config.domain,
       containerConfigs: [
         {
-          name: 'prefect',
-          containerImage: 'prefecthq/prefect:0.15.9-python3.9',
-          repositoryCredentialsParam: repositoryCredentials,
+          name: 'app',
           portMappings: [
             {
               hostPort: config.prefect.port,
