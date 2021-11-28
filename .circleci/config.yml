@@ -49,7 +49,7 @@ jobs:
     #Sets up the code for the docker image to build in
     #Other repos at Pocket use this to install modules and or compile the code.
     docker:
-      - image: cimg/python:3.9.9
+      - image: cimg/python:3.9-node
     steps:
       - checkout
       # Define the working directory for this job
