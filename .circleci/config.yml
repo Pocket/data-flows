@@ -50,6 +50,9 @@ jobs:
     #Other repos at Pocket use this to install modules and or compile the code.
     docker:
       - image: cimg/python:3.9-node
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
     steps:
       - checkout
       # Define the working directory for this job
