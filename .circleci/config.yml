@@ -232,8 +232,8 @@ workflows:
           codepipeline-name: ${SERVICE_NAME}-Dev-CodePipeline
           codebuild-project-name: ${SERVICE_NAME}-Dev
           codebuild-project-branch: dev
-#          requires:
-#            - build_docker_dev
+          requires:
+            - build_docker_dev
 
       # # Build & Deploy the Prod Docker Image
       # - pocket/docker_build:
