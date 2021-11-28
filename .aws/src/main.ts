@@ -1,7 +1,8 @@
 import {Construct} from 'constructs';
-import {App, DataTerraformRemoteState, RemoteBackend, TerraformStack,} from 'cdktf';
+import {App, DataTerraformRemoteState, Fn, RemoteBackend, TerraformStack,} from 'cdktf';
 import {config} from './config';
-import {PocketALBApplication, PocketECSCodePipeline, PocketPagerDuty,} from '@pocket-tools/terraform-modules';
+import {PocketALBApplication, PocketECSCodePipeline, PocketVPC,} from '@pocket-tools/terraform-modules';
+import YAML from 'yaml'
 
 // Providers
 import {
@@ -97,6 +98,8 @@ class DataFlows extends TerraformStack {
     //Our shared dockerhub credentials in Secrets Manager to bypass docker hub pull limits
     const repositoryCredentials = `arn:aws:secretsmanager:${region.name}:${caller.accountId}:secret:Shared/DockerHub`;
 
+    const pocketVPC = new PocketVPC(this, 'pocket-shared-vpc');
+
     return new PocketALBApplication(this, 'application', {
       internal: true,
       prefix: config.prefix,
@@ -115,20 +118,38 @@ class DataFlows extends TerraformStack {
               containerPort: config.prefect.port,
             },
           ],
-          command: ["prefect", "agent", "ecs", "start", "--agent-address", "http://localhost:8080"],
+          command: ["prefect", "agent", "ecs", "start",
+            "--cluster", config.name,  // ECS cluster to use for launching tasks
+            "--launch-type", "FARGATE",  // Prefect launch type
+            "--agent-address", `http://0.0.0.0:${config.prefect.port}`,  // run a HTTP server for use as a health check
+          ],
           healthCheck: config.healthCheck,
           envVars: [
             {
               name: 'PREFECT__CLOUD__API',
-              value: 'https://api.prefect.io',
+              value: config.prefect.api,
             },
             {
               name: 'PREFECT__CLOUD__AGENT__LABELS',
-              value: JSON.stringify([config.environment]),
+              value: JSON.stringify(config.prefect.agentLabels),
             },
             {
               name: 'PREFECT__CLOUD__AGENT__LEVEL',
-              value: config.isDev ? 'DEBUG' : 'INFO',
+              value: config.prefect.agentLevel,
+            },
+            {
+              // The subnets that Prefect should start tasks in.
+              name: 'RUN_TASK_SUBNETS',
+              // Fn.join needs to be used instead of the Javascript .join function, because the VPC properties aren't
+              // known until `Terraform plan` is run.
+              value: Fn.join(',', pocketVPC.privateSubnetIds),
+            },
+            {
+              // The security groups that Prefect should start tasks with.
+              name: 'RUN_TASK_SECURITY_GROUPS',
+              // Fn.join needs to be used instead of the Javascript .join function, because the VPC properties aren't
+              // known until `Terraform plan` is run.
+              value: Fn.join(',', pocketVPC.defaultSecurityGroups.ids),
             },
           ],
           secretEnvVars: [

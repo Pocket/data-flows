@@ -11,7 +11,10 @@ const githubConnectionArn = isDev
   : 'arn:aws:codestar-connections:us-east-1:996905175585:connection/5fa5aa2b-a2d2-43e3-ab5a-72ececfc1870';
 const branch = isDev ? 'dev' : 'main';
 const prefect = {
-  port: 8080,
+  api: 'https://api.prefect.io',  // Use Prefect Cloud
+  port: 8080,  // Port for health check server
+  agentLabels: [environment],
+  agentLevel: isDev ? 'DEBUG' : 'INFO',
 }
 
 export const config = {
@@ -32,7 +35,7 @@ export const config = {
   healthCheck: {
     command: [
       'CMD-SHELL',
-      `curl -f http://localhost:${prefect.port}/api/health || exit 1`,
+      `python -c 'import requests; requests.get("http://localhost:${prefect.port}/api/health").raise_for_status()' || exit 1`,
     ],
     interval: 15,
     retries: 3,

@@ -1,21 +1,26 @@
 version: '3.1'
 services:
   prefect:
-    image: 'prefecthq/prefect:0.15.9-python3.9'
+    build:
+      dockerfile: Dockerfile
+      context: .docker/agent
     command:
       - "prefect"
       - "agent"
       - "ecs"
       - "start"
       - "--agent-address"
-      - "http://localhost:8080"
+      - "http://:8080"
     ports:
       - '8080:8080'
     volumes:
       - ./src:/app
       - ~/.aws:/root/.aws
+    env_file:
+      - .env
     environment:
       - PREFECT__CLOUD__API=https://api.prefect.io
-      - PREFECT__CLOUD__AGENT__LABELS=local
+      - PREFECT__CLOUD__AGENT__LABELS=["local"]
       - PREFECT__CLOUD__AGENT__LEVEL=DEBUG
       - AWS_DEFAULT_REGION=us-east-1
+      - RUN_TASK_KWARGS=foobar

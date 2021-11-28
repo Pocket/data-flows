@@ -44,50 +44,30 @@ only_dev: &only_dev
       only:
         - dev
 
-#jobs:
-#  build:
-#    docker:
-#      - image: circleci/node:16
-#    steps:
-#      - checkout
-#      # Define the working directory for this job
-#      - attach_workspace:
-#          at: /tmp/workspace
-#      - restore_cache:
-#          keys:
-#            # when lock file changes, use increasingly general patterns to restore cache
-#            # If this gets our of sync, you can increment the version (vX).  Just be
-#            # sure to match that version when saving the cache as well.
-#            - node-v1-{{ checksum "package-lock.json" }}
-#            - node-v1-
-#      # Add user to npmrc
-#      - run:
-#          name: Authenticate with GitHub package registry
-#          command: echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > ~/.npmrc
-#      - run:
-#          name: install node modules
-#          command: npm ci
-#      # Save the cache to avoid extraneous downloads
-#      - save_cache:
-#          key: node-v1-{{ checksum "package-lock.json" }}
-#          paths:
-#            - ./node_modules
-#      - run:
-#          name:
-#          command: |
-#            export NODE_ENV=production
-#            npm run build
-#      # Copy built files to app_prod folder
-#      - run:
-#          name: Setup workspace
-#          command: |
-#            mkdir -p /tmp/workspace/app_prod
-#            cp -r ./node_modules package.json Dockerfile schema.graphql ./dist /tmp/workspace/app_prod
-#      # Persist built files to workspace
-#      - persist_to_workspace:
-#          root: /tmp/workspace
-#          paths:
-#            - app_prod
+jobs:
+  build:
+    #Sets up the code for the docker image to build in
+    #Other repos at Pocket use this to install modules and or compile the code.
+    docker:
+      - image: cimg/python:3.9.9
+    steps:
+      - checkout
+      # Define the working directory for this job
+      - attach_workspace:
+          at: /tmp/workspace
+
+      # Copy built files to app_prod folder
+      - run:
+          name: Setup workspace
+          command: |
+            mkdir -p /tmp/workspace/app_prod
+            cp -r . /tmp/workspace/app_prod
+            cp .docker/agent/Dockerfile /tmp/workspace/app_prod/
+      # Persist built files to workspace
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - app_prod
 
   # test_integrations:
   #   # Example for running integration tests using a docker container
@@ -206,9 +186,9 @@ workflows:
       #     <<: *not_main
       #     context: pocket
       #     name: test_integrations
-#
-#      - build:
-#          context: pocket
+
+      - build:
+          context: pocket
 
       # # Try building the ECS docker image on each branch
       # - pocket/docker_build:
@@ -224,21 +204,21 @@ workflows:
       #     requires:
       #       - build
 
-      # # Build & Deploy the Dev Docker Image
-      # - pocket/docker_build:
-      #     <<: *only_dev
-      #     context: pocket
-      #     name: build_docker_dev
-      #     aws-access-key-id: Dev_AWS_ACCESS_KEY
-      #     aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
-      #     aws-region: Dev_AWS_DEFAULT_REGION
-      #     codebuild-project-name: ${SERVICE_NAME}-Dev
-      #     codebuild-project-branch: dev
-      #     repo-name: ${SERVICE_NAME_LOWER}-dev-app
-      #     ecr-url: ${ACCOUNT_ID_DEV}.dkr.ecr.us-east-1.amazonaws.com
-      #     push: true
-      #     requires:
-      #       - build
+      # Build & Deploy the Dev Docker Image
+      - pocket/docker_build:
+          <<: *only_dev
+          context: pocket
+          name: build_docker_dev
+          aws-access-key-id: Dev_AWS_ACCESS_KEY
+          aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
+          aws-region: Dev_AWS_DEFAULT_REGION
+          codebuild-project-name: ${SERVICE_NAME}-Dev
+          codebuild-project-branch: dev
+          repo-name: ${SERVICE_NAME_LOWER}-dev-app
+          ecr-url: ${ACCOUNT_ID_DEV}.dkr.ecr.us-east-1.amazonaws.com
+          push: true
+          requires:
+            - build
 
       # Dev
       - pocket/execute_codepipeline:
