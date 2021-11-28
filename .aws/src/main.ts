@@ -2,7 +2,6 @@ import {Construct} from 'constructs';
 import {App, DataTerraformRemoteState, Fn, RemoteBackend, TerraformStack,} from 'cdktf';
 import {config} from './config';
 import {PocketALBApplication, PocketECSCodePipeline, PocketVPC,} from '@pocket-tools/terraform-modules';
-import YAML from 'yaml'
 
 // Providers
 import {
