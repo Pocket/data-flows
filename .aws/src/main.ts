@@ -7,6 +7,7 @@ import {PocketALBApplication, PocketECSCodePipeline, PocketVPC,} from '@pocket-t
 import {
   AwsProvider,
   DataSources,
+  IAM,
   KMS,
   SNS,
   S3,
@@ -101,6 +102,69 @@ class DataFlows extends TerraformStack {
   }
 
   /**
+   * Returns a list of IAM policies that Prefect requires to start and manage tasks.
+   * @private
+   *
+   * List of ECS operations, their resource type and conditions:
+   * @see https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html
+   */
+  private getPrefectRunTaskPolicies(dependencies: {
+    region: DataSources.DataAwsRegion;
+    caller: DataSources.DataAwsCallerIdentity;
+  }): IAM.DataAwsIamPolicyDocumentStatement[] {
+    const {
+      region,
+      caller,
+    } = dependencies;
+
+    // This condition is added to operations to restrict them to the DataFlows ECS cluster.
+    const DataFlowsClusterCondition = {
+      test: 'ArnEquals',
+      variable: 'ecs:cluster',
+      values: [`arn:aws:ecs:${region.name}:${caller.accountId}:cluster/${config.prefix}`],
+    };
+
+    return [
+      // The Prefect ECS Agent will need permissions to create task definitions and start tasks in your ECS Cluster.
+      // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html
+      {
+        actions: [
+          'ecs:RunTask',
+        ],
+        resources: ['*'],
+        //resources: [`arn:aws:ecs:${region.name}:${caller.accountId}:task-definition/prefect-*:*`],
+        condition: [DataFlowsClusterCondition],
+        effect: 'Allow',
+      },
+      {
+        actions: [
+          'ecs:StopTask',
+        ],
+        resources: ['*'],
+        condition: [DataFlowsClusterCondition],
+        effect: 'Allow',
+      },
+      // When Prefect runs tasks, it registers a task definition that it infers from the Prefect configuration.
+      // Prefect only uses DeregisterTaskDefinition to clean up the task definition that Prefect creates:
+      // @see https://github.com/PrefectHQ/prefect/search?q=deregister_task_definition
+      //
+      // The TaskDefinition ECS operations do not support resource-level permissions.
+      // Policies granting access must specify "*" in the resource element.
+      // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html
+      {
+        actions: [
+          'ecs:DeregisterTaskDefinition',
+          'ecs:RegisterTaskDefinition',
+          'ecs:DescribeTaskDefinition',
+          'ecs:ListTaskDefinitions',
+        ],
+        resources: ['*'],
+        effect: 'Allow',
+      },
+    ];
+  }
+
+  /**
    * Create configuration for Prefect's --run-task-kwargs argument, to control how tasks are started by Prefect in ECS.
    * @see https://docs.prefect.io/orchestration/agents/ecs.html#custom-runtime-options
    * @see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.run_task
@@ -171,7 +235,7 @@ class DataFlows extends TerraformStack {
           ],
           // @see https://docs.prefect.io/orchestration/agents/ecs.html
           command: ['prefect', 'agent', 'ecs', 'start',
-            '--cluster', config.name,  // ECS cluster to use for launching tasks
+            '--cluster', config.prefix,  // ECS cluster to use for launching tasks
             '--launch-type', 'FARGATE',
             '--run-task-kwargs', `s3://${runTaskKwargsObject.bucket}/${runTaskKwargsObject.key}`,
             '--agent-address', `http://0.0.0.0:${config.prefect.port}`,  // run a HTTP server for use as a health check
@@ -237,32 +301,10 @@ class DataFlows extends TerraformStack {
           },
         ],
         taskRolePolicyStatements: [
-          // The Prefect ECS Agent will need permissions to create task definitions and start tasks in your ECS Cluster.
-          // @see https://docs.prefect.io/orchestration/agents/ecs.html#execution-role-arn
-          {
-            actions: [
-                'ecs:RunTask',
-                'ecs:StopTask',
-                // 'ecs:CreateCluster',
-                // 'ecs:DeleteCluster',
-                'ecs:RegisterTaskDefinition',
-                'ecs:DeregisterTaskDefinition',
-                'ecs:DescribeClusters',
-                'ecs:DescribeTaskDefinition',
-                'ecs:DescribeTasks',
-                'ecs:ListAccountSettings',
-                'ecs:ListClusters',
-                'ecs:ListTaskDefinitions',
-            ],
-            resources: [
-              `arn:aws:ecs:${region.name}:${caller.accountId}:cluster/${config.prefix}`,
-              `arn:aws:ecs:${region.name}:${caller.accountId}:task/${config.prefix}/*`,
-              `arn:aws:ecs:${region.name}:${caller.accountId}:container/${config.prefix}/*`,
-              `arn:aws:ecs:${region.name}:${caller.accountId}:task-definition/${config.prefix}:*`,
-              `arn:aws:ecs:${region.name}:${caller.accountId}:container/${config.prefix}/*`,
-            ],
-            effect: 'Allow',
-          },
+          ...this.getPrefectRunTaskPolicies({
+            region,
+            caller,
+          }),
           // Give read access to the configBucket, such that Prefect can load the config files from there.
           {
             actions: [
@@ -292,7 +334,7 @@ class DataFlows extends TerraformStack {
           'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy',
       },
       autoscalingConfig: {
-        targetMinCapacity: 2,
+        targetMinCapacity: 1,
         targetMaxCapacity: 10,
       },
       alarms: {

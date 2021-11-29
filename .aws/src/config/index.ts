@@ -35,6 +35,9 @@ export const config = {
   healthCheck: {
     command: [
       'CMD-SHELL',
+      // Prefect exposes a simple health check: https://docs.prefect.io/orchestration/agents/overview.html#health-checks
+      // The Prefect Docker image (based on python:3.9-slim) does not have curl or wget installed, so we'll use Python
+      // to make a request to the health check endpoint.
       `python -c 'import requests; requests.get("http://localhost:${prefect.port}/api/health").raise_for_status()' || exit 1`,
     ],
     interval: 15,
