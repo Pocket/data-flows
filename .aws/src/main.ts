@@ -1,16 +1,15 @@
 import {Construct} from 'constructs';
-import {App, DataTerraformRemoteState, Fn, RemoteBackend, TerraformStack,} from 'cdktf';
+import {App, Fn, RemoteBackend, TerraformStack,} from 'cdktf';
 import {config} from './config';
 import {PocketALBApplication, PocketECSCodePipeline, PocketVPC,} from '@pocket-tools/terraform-modules';
 
 // Providers
 import {
   AwsProvider,
-  ELB,
-  ACM,
   DataSources,
   KMS,
   SNS,
+  S3,
 } from '@cdktf/provider-aws';
 import { LocalProvider } from '@cdktf/provider-local';
 import { NullProvider } from '@cdktf/provider-null';
@@ -32,11 +31,18 @@ class DataFlows extends TerraformStack {
     const region = new DataSources.DataAwsRegion(this, 'region');
     const caller = new DataSources.DataAwsCallerIdentity(this, 'caller');
 
+    const pocketVPC = new PocketVPC(this, 'pocket-shared-vpc');
+
+    const configBucket = this.createConfigBucket();
+    const runTaskKwargsObject = this.createRunTaskKwargsObject(configBucket.id, pocketVPC);
+
     const pocketApp = this.createPocketAlbApplication({
       secretsManagerKmsAlias: this.getSecretsManagerKmsAlias(),
       snsTopic: this.getCodeDeploySnsTopic(),
       region,
       caller,
+      configBucket,
+      runTaskKwargsObject,
     });
 
     this.createApplicationCodePipeline(pocketApp);
@@ -78,23 +84,72 @@ class DataFlows extends TerraformStack {
     });
   }
 
+  /**
+   * Create an S3 bucket for Prefect configuration objects.
+   * @private
+   */
+  private createConfigBucket(): S3.S3Bucket {
+    return new S3.S3Bucket(this, 'prefect-config-bucket', {
+      bucket: `pocket-${config.name}-config-${config.environment}`.toLowerCase(),
+      acl: 'private',
+      forceDestroy: true, // Allow the bucket to be deleted even if it's not empty.
+      lifecycle: {
+        preventDestroy: false,
+      },
+      tags: config.tags,
+    });
+  }
+
+  /**
+   * Create configuration for Prefect's --run-task-kwargs argument, to control how tasks are started by Prefect in ECS.
+   * @see https://docs.prefect.io/orchestration/agents/ecs.html#custom-runtime-options
+   * @see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.run_task
+   * @private
+   */
+  private createRunTaskKwargsObject(bucket: string, vpc: PocketVPC): S3.S3BucketObject {
+    const runTaskKwargs = {
+        networkConfiguration: {
+            awsvpcConfiguration: {
+                subnets: vpc.privateSubnetIds,
+                securityGroups: vpc.defaultSecurityGroups.ids,
+                assignPublicIp: 'DISABLED'
+            }
+        }
+    };
+
+    const content = Fn.yamlencode(runTaskKwargs);
+
+    return new S3.S3BucketObject(this, 'run-task-kwargs-object', {
+      bucket,
+      key: 'run_task_kwargs.yml',
+      content,
+      etag: Fn.md5(content),
+    });
+  }
+
   private createPocketAlbApplication(dependencies: {
     region: DataSources.DataAwsRegion;
     caller: DataSources.DataAwsCallerIdentity;
     secretsManagerKmsAlias: KMS.DataAwsKmsAlias;
     snsTopic: SNS.DataAwsSnsTopic;
+    configBucket: S3.S3Bucket;
+    runTaskKwargsObject: S3.S3BucketObject;
   }): PocketALBApplication {
     const {
       region,
       caller,
       secretsManagerKmsAlias,
       snsTopic,
+      configBucket,
+      runTaskKwargsObject,
     } = dependencies;
 
+    //Our shared dockerhub credentials in Secrets Manager to bypass docker hub pull limits
+    const repositoryCredentials = `arn:aws:secretsmanager:${region.name}:${caller.accountId}:secret:Shared/DockerHub`;
+
+    // Parameter store ARN prefix for this service.
     const parameterArnPrefix: string =
       `arn:aws:ssm:${region.name}:${caller.accountId}:parameter/${config.name}/${config.environment}`
-
-    const pocketVPC = new PocketVPC(this, 'pocket-shared-vpc');
 
     return new PocketALBApplication(this, 'application', {
       internal: true,
@@ -106,16 +161,20 @@ class DataFlows extends TerraformStack {
       containerConfigs: [
         {
           name: 'app',
+          containerImage: 'prefecthq/prefect:0.15.9-python3.9',
+          repositoryCredentialsParam: repositoryCredentials,
           portMappings: [
             {
               hostPort: config.prefect.port,
               containerPort: config.prefect.port,
             },
           ],
-          command: ["prefect", "agent", "ecs", "start",
-            "--cluster", config.name,  // ECS cluster to use for launching tasks
-            "--launch-type", "FARGATE",  // Prefect launch type
-            "--agent-address", `http://0.0.0.0:${config.prefect.port}`,  // run a HTTP server for use as a health check
+          // @see https://docs.prefect.io/orchestration/agents/ecs.html
+          command: ['prefect', 'agent', 'ecs', 'start',
+            '--cluster', config.name,  // ECS cluster to use for launching tasks
+            '--launch-type', 'FARGATE',
+            '--run-task-kwargs', `s3://${runTaskKwargsObject.bucket}/${runTaskKwargsObject.key}`,
+            '--agent-address', `http://0.0.0.0:${config.prefect.port}`,  // run a HTTP server for use as a health check
           ],
           healthCheck: config.healthCheck,
           envVars: [
@@ -130,20 +189,6 @@ class DataFlows extends TerraformStack {
             {
               name: 'PREFECT__CLOUD__AGENT__LEVEL',
               value: config.prefect.agentLevel,
-            },
-            {
-              // The subnets that Prefect should start tasks in.
-              name: 'RUN_TASK_SUBNETS',
-              // Fn.join needs to be used instead of the Javascript .join function, because the VPC properties aren't
-              // known until `Terraform plan` is run.
-              value: Fn.join(',', pocketVPC.privateSubnetIds),
-            },
-            {
-              // The security groups that Prefect should start tasks with.
-              name: 'RUN_TASK_SECURITY_GROUPS',
-              // Fn.join needs to be used instead of the Javascript .join function, because the VPC properties aren't
-              // known until `Terraform plan` is run.
-              value: Fn.join(',', pocketVPC.defaultSecurityGroups.ids),
             },
           ],
           secretEnvVars: [
@@ -215,6 +260,18 @@ class DataFlows extends TerraformStack {
               `arn:aws:ecs:${region.name}:${caller.accountId}:container/${config.prefix}/*`,
               `arn:aws:ecs:${region.name}:${caller.accountId}:task-definition/${config.prefix}:*`,
               `arn:aws:ecs:${region.name}:${caller.accountId}:container/${config.prefix}/*`,
+            ],
+            effect: 'Allow',
+          },
+          // Give read access to the configBucket, such that Prefect can load the config files from there.
+          {
+            actions: [
+              's3:GetObject*',
+              's3:ListBucket*',
+            ],
+            resources: [
+              configBucket.arn,
+              `${configBucket.arn}/*`,
             ],
             effect: 'Allow',
           },
