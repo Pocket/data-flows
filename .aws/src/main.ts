@@ -37,6 +37,8 @@ class DataFlows extends TerraformStack {
     const configBucket = this.createConfigBucket();
     const runTaskKwargsObject = this.createRunTaskKwargsObject(configBucket.id, pocketVPC);
 
+    const storageBucket = this.createStorageBucket();
+
     const pocketApp = this.createPocketAlbApplication({
       secretsManagerKmsAlias: this.getSecretsManagerKmsAlias(),
       snsTopic: this.getCodeDeploySnsTopic(),
@@ -44,6 +46,7 @@ class DataFlows extends TerraformStack {
       caller,
       configBucket,
       runTaskKwargsObject,
+      storageBucket,
     });
 
     this.createApplicationCodePipeline(pocketApp);
@@ -90,12 +93,29 @@ class DataFlows extends TerraformStack {
    * @private
    */
   private createConfigBucket(): S3.S3Bucket {
-    return new S3.S3Bucket(this, 'prefect-config-bucket', {
-      bucket: `pocket-${config.name}-config-${config.environment}`.toLowerCase(),
+    // Set preventDestroy to false, because the contents of this bucket is generated through code on deployment.
+    return this.createBucket('config', false);
+  }
+
+  /**
+   * Create an S3 bucket Prefect storage
+   *
+   * After registration, the flow will be stored under <slugified-flow-name>/<slugified-current-timestamp>
+   * Flows configured with S3 storage also default to using a S3Result for persisting any task results in this bucket.
+   * @see https://docs.prefect.io/orchestration/flow_config/storage.html
+   * @private
+   */
+  private createStorageBucket(): S3.S3Bucket {
+    return this.createBucket('storage');
+  }
+
+  private createBucket(name: string, preventDestroy: boolean = true): S3.S3Bucket {
+    return new S3.S3Bucket(this, `prefect-${name.toLowerCase()}-bucket`, {
+      bucket: `pocket-${config.name}-${name}-${config.environment}`.toLowerCase(),
       acl: 'private',
-      forceDestroy: true, // Allow the bucket to be deleted even if it's not empty.
+      forceDestroy: !preventDestroy, // Allow the bucket to be deleted even if it's not empty.
       lifecycle: {
-        preventDestroy: false,
+        preventDestroy: preventDestroy,
       },
       tags: config.tags,
     });
@@ -126,7 +146,6 @@ class DataFlows extends TerraformStack {
 
     return [
       // The Prefect ECS Agent will need permissions to create task definitions and start tasks in your ECS Cluster.
-      // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html
       {
         actions: [
           'ecs:RunTask',
@@ -156,6 +175,13 @@ class DataFlows extends TerraformStack {
           'ecs:DeregisterTaskDefinition',
           'ecs:RegisterTaskDefinition',
           'ecs:DescribeTaskDefinition',
+          'ecs:ListTaskDefinitions',
+        ],
+        resources: ['*'],
+        effect: 'Allow',
+      },
+      {
+        actions: [
           'ecs:ListTaskDefinitions',
         ],
         resources: ['*'],
@@ -198,6 +224,7 @@ class DataFlows extends TerraformStack {
     snsTopic: SNS.DataAwsSnsTopic;
     configBucket: S3.S3Bucket;
     runTaskKwargsObject: S3.S3BucketObject;
+    storageBucket: S3.S3Bucket;
   }): PocketALBApplication {
     const {
       region,
@@ -206,6 +233,7 @@ class DataFlows extends TerraformStack {
       snsTopic,
       configBucket,
       runTaskKwargsObject,
+      storageBucket,
     } = dependencies;
 
     //Our shared dockerhub credentials in Secrets Manager to bypass docker hub pull limits
@@ -314,6 +342,20 @@ class DataFlows extends TerraformStack {
             resources: [
               configBucket.arn,
               `${configBucket.arn}/*`,
+            ],
+            effect: 'Allow',
+          },
+          // Give write access to the storageBucket, such that Prefect can load the Flow definition and save results.
+          // @see https://docs.prefect.io/orchestration/flow_config/storage.html#pickle-vs-script-based-storage
+          {
+            actions: [
+              's3:GetObject*',
+              's3:PutObject*',
+              's3:ListBucket*',
+            ],
+            resources: [
+              storageBucket.arn,
+              `${storageBucket.arn}/*`,
             ],
             effect: 'Allow',
           },
