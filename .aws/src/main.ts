@@ -180,11 +180,12 @@ class DataFlows extends TerraformStack {
         resources: ['*'],
         effect: 'Allow',
       },
+      // Prefect needs to be able to pass its role to the tasks it starts.
       {
         actions: [
-          'ecs:ListTaskDefinitions',
+          'iam:PassRole',
         ],
-        resources: ['*'],
+        resources: [`arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskRole`],
         effect: 'Allow',
       },
     ];
