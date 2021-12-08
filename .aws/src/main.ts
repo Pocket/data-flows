@@ -307,7 +307,7 @@ class DataFlows extends TerraformStack {
         snsNotificationTopicArn: snsTopic.arn,
       },
       exposedContainer: {
-        name: 'prefect',
+        name: 'app',
         port: config.prefect.port,
         healthCheckPath: '/api/health',
       },
