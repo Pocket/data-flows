@@ -74,9 +74,6 @@ jobs:
 workflows:
   all:
     jobs:
-      - build:
-          context: pocket
-
       # Dev
       - pocket/execute_codepipeline:
           <<: *only_dev
@@ -89,8 +86,6 @@ workflows:
           codepipeline-name: ${SERVICE_NAME}-Dev-CodePipeline
           codebuild-project-name: ${SERVICE_NAME}-Dev
           codebuild-project-branch: dev
-          requires:
-            - build
 
       # Prod
       - pocket/execute_codepipeline:
@@ -104,8 +99,6 @@ workflows:
           codepipeline-name: ${SERVICE_NAME}-Prod-CodePipeline
           codebuild-project-name: ${SERVICE_NAME}-Prod
           codebuild-project-branch: main
-          requires:
-            - build
 
       # Prod
       - pocket/setup_deploy_params:
