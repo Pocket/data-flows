@@ -44,184 +44,11 @@ only_dev: &only_dev
       only:
         - dev
 
-jobs:
-  build:
-    #Sets up the code for the docker image to build in
-    #Other repos at Pocket use this to install modules and or compile the code.
-    docker:
-      - image: cimg/python:3.9-node
-        auth:
-          username: $DOCKERHUB_USERNAME
-          password: $DOCKERHUB_PASSWORD
-    steps:
-      - checkout
-      # Define the working directory for this job
-      - attach_workspace:
-          at: /tmp/workspace
-
-      # Copy built files to app_prod folder
-      - run:
-          name: Setup workspace
-          command: |
-            mkdir -p /tmp/workspace/app_prod
-            cp -r . /tmp/workspace/app_prod
-            cp .docker/app/Dockerfile /tmp/workspace/app_prod/
-      # Persist built files to workspace
-      - persist_to_workspace:
-          root: /tmp/workspace
-          paths:
-            - app_prod
-
-  # test_integrations:
-  #   # Example for running integration tests using a docker container
-  #   description: Run integration tests against external services, e.g. MySQL
-  #   docker:
-  #     # The application
-  #     - image: circleci/node:16
-  #       auth:
-  #         username: $DOCKERHUB_USERNAME
-  #         password: $DOCKERHUB_PASSWORD
-  #       environment:
-  #         - NODE_ENV=test
-  #         - AWS_XRAY_LOG_LEVEL=silent
-  #         - AWS_XRAY_CONTEXT_MISSING=LOG_ERROR
-  #     # Example for mysql 5.6 service
-  #     - image: mysql:5.6
-  #       auth:
-  #         username: $DOCKERHUB_USERNAME
-  #         password: $DOCKERHUB_PASSWORD
-  #       environment:
-  #         MYSQL_ALLOW_EMPTY_PASSWORD: yes
-  #         TZ: 'UTC'
-  #     # Example for localstack
-  #     - image: localstack/localstack
-  #       auth:
-  #         username: $DOCKERHUB_USERNAME
-  #         password: $DOCKERHUB_PASSWORD
-  #       environment:
-  #         DEBUG: 1
-  #         # Put your localstack services here
-  #         SERVICES: kinesis,firehose,sqs
-  #         DATA_DIR: /tmp/localstack/data
-  #         EXTRA_CORS_ALLOWED_HEADERS: Content-Disposition, Content-Type, x-amz-acl
-  #         EXTRA_CORS_EXPOSE_HEADERS: ETag
-  #         HOSTNAME_EXTERNAL: localstack
-  #     # Example for snowplow service
-  #     - image: pocket/snowplow-micro:prod
-  #       auth:
-  #         username: $DOCKERHUB_USERNAME
-  #         password: $DOCKERHUB_PASSWORD
-  #   steps:
-  #     - checkout
-  #     - restore_cache:
-  #         keys:
-  #           # when lock file changes, use increasingly general patterns to restore cache
-  #           # If this gets our of sync, you can increment the version (vX).  Just be
-  #           # sure to match that version when saving the cache as well.
-  #           - node-v1-{{ checksum "package-lock.json" }}
-  #           - node-v1-
-  #     - run:
-  #         name: Authenticate with GitHub package registry
-  #         command: echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > ~/.npmrc
-  #     - run:
-  #         name: install node modules
-  #         command: npm ci
-  #     # Save the cache to avoid extraneous downloads
-  #     - save_cache:
-  #         key: node-v1-{{ checksum "package-lock.json" }}
-  #         paths:
-  #           - ./node_modules
-  #     - run:
-  #         # TODO: Update
-  #         name: run setup.sh
-  #         command: |
-  #           export $(egrep -v '^#' .docker/local.env | xargs -0) && ./.circleci/scripts/setup.sh --hosts --db --aws
-  #     - run:
-  #         name: run tests
-  #         command: |
-  #           export $(egrep -v '^#' .docker/local.env | xargs -0)
-  #           npm run test-integrations  -- --ci --watchAll=false --forceExit
-#
-#  test_specs:
-#    description: Run spec tests
-#    docker:
-#      - image: circleci/node:16
-#        auth:
-#          username: $DOCKERHUB_USERNAME
-#          password: $DOCKERHUB_PASSWORD
-#        environment:
-#          - NODE_ENV=test
-#          - AWS_XRAY_LOG_LEVEL=silent
-#          - AWS_XRAY_CONTEXT_MISSING=LOG_ERROR
-#    steps:
-#      - checkout
-#      - restore_cache:
-#          keys:
-#            # when lock file changes, use increasingly general patterns to restore cache
-#            # If this gets our of sync, you can increment the version (vX).  Just be
-#            # sure to match that version when saving the cache as well.
-#            - node-v1-{{ checksum "package-lock.json" }}
-#            - node-v1-
-#      - run:
-#          name: Authenticate with GitHub package registry
-#          command: echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > ~/.npmrc
-#      - run:
-#          name: install node modules
-#          command: npm ci
-#      # Save the cache to avoid extraneous downloads
-#      - save_cache:
-#          key: node-v1-{{ checksum "package-lock.json" }}
-#          paths:
-#            - ./node_modules
-#      - run:
-#          name: run tests
-#          command: npm run test
-
 workflows:
   all:
     jobs:
-#      - test_specs:
-#          <<: *not_main
-#          context: pocket
-#          name: test_specs
-
-      # - test_integrations:
-      #     <<: *not_main
-      #     context: pocket
-      #     name: test_integrations
-
       - build:
           context: pocket
-
-      # # Try building the ECS docker image on each branch
-      # - pocket/docker_build:
-      #     <<: *not_dev_main
-      #     context: pocket
-      #     name: build_docker
-      #     aws-access-key-id: Dev_AWS_ACCESS_KEY
-      #     aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
-      #     aws-region: Dev_AWS_DEFAULT_REGION
-      #     repo-name: ${SERVICE_NAME_LOWER}-dev-app
-      #     ecr-url: ${ACCOUNT_ID_DEV}.dkr.ecr.us-east-1.amazonaws.com
-      #     push: false
-      #     requires:
-      #       - build
-
-      # Build & Deploy the Dev Docker Image
-      - pocket/docker_build:
-          <<: *only_dev
-          context: pocket
-          name: build_docker_dev
-          aws-access-key-id: Dev_AWS_ACCESS_KEY
-          aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
-          aws-region: Dev_AWS_DEFAULT_REGION
-          codebuild-project-name: ${SERVICE_NAME}-Dev
-          codebuild-project-branch: dev
-          repo-name: ${SERVICE_NAME_LOWER}-dev-app
-          ecr-url: ${ACCOUNT_ID_DEV}.dkr.ecr.us-east-1.amazonaws.com
-          push: true
-          requires:
-            - build
 
       # Dev
       - pocket/execute_codepipeline:
@@ -235,84 +62,62 @@ workflows:
           codepipeline-name: ${SERVICE_NAME}-Dev-CodePipeline
           codebuild-project-name: ${SERVICE_NAME}-Dev
           codebuild-project-branch: dev
+
+      # Prod
+      - pocket/execute_codepipeline:
+          <<: *only_main
+          context: pocket
+          name: deploy_prod
+          environment: Prod
+          aws-access-key-id: Prod_AWS_ACCESS_KEY
+          aws-secret-access-key: Prod_AWS_SECRET_ACCESS_KEY
+          aws-region: Prod_AWS_DEFAULT_REGION
+          codepipeline-name: ${SERVICE_NAME}-Prod-CodePipeline
+          codebuild-project-name: ${SERVICE_NAME}-Prod
+          codebuild-project-branch: main
+
+      # Prod
+      - pocket/setup_deploy_params:
+          <<: *only_main
+          name: setup-deploy-params-prod
+          aws_access_key_id: Prod_AWS_ACCESS_KEY
+          aws_secret_access_key: Prod_AWS_SECRET_ACCESS_KEY
+          context: pocket
+          env: Prod
+          service_name: ${SERVICE_NAME}
+
+      # Dev
+      - pocket/setup_deploy_params:
+          <<: *only_dev
+          name: setup-deploy-params-dev
+          aws_access_key_id: Dev_AWS_ACCESS_KEY
+          aws_secret_access_key: Dev_AWS_SECRET_ACCESS_KEY
+          context: pocket
+          env: Dev
+          service_name: ${SERVICE_NAME}
+
+      # Notify sentry of main deployment
+      - pocket/sentry_release_notification:
+          <<: *only_main
+          name: sentry-release-notification-prod
+          context: pocket
+          repository_name: Pocket/${CONSTRUCT_NAME}
+          sentry_project_name: ${CONSTRUCT_NAME}
+          sentry_env: production
+          sentry_org: pocket
+          workspace-path: /tmp/workspace
           requires:
-            - build_docker_dev
+            - deploy_prod
 
-      # # Build & Deploy the Prod Docker Image
-      # - pocket/docker_build:
-      #     <<: *only_main
-      #     context: pocket
-      #     name: build_docker_prod
-      #     aws-access-key-id: Prod_AWS_ACCESS_KEY
-      #     aws-secret-access-key: Prod_AWS_SECRET_ACCESS_KEY
-      #     aws-region: Prod_AWS_DEFAULT_REGION
-      #     codebuild-project-name: ${SERVICE_NAME}-Prod
-      #     codebuild-project-branch: main
-      #     repo-name: ${SERVICE_NAME_LOWER}-prod-app
-      #     ecr-url: ${ACCOUNT_ID_PROD}.dkr.ecr.us-east-1.amazonaws.com
-      #     push: true
-      #     requires:
-      #       - build
-
-      # # Prod
-      # - pocket/execute_codepipeline:
-      #     <<: *only_main
-      #     context: pocket
-      #     name: deploy_prod
-      #     environment: Prod
-      #     aws-access-key-id: Prod_AWS_ACCESS_KEY
-      #     aws-secret-access-key: Prod_AWS_SECRET_ACCESS_KEY
-      #     aws-region: Prod_AWS_DEFAULT_REGION
-      #     codepipeline-name: ${SERVICE_NAME}-Prod-CodePipeline
-      #     codebuild-project-name: ${SERVICE_NAME}-Prod
-      #     codebuild-project-branch: main
-      #     requires:
-      #       - build_docker_prod
-
-      # # Prod
-      # - pocket/setup_deploy_params:
-      #     <<: *only_main
-      #     name: setup-deploy-params-prod
-      #     aws_access_key_id: Prod_AWS_ACCESS_KEY
-      #     aws_secret_access_key: Prod_AWS_SECRET_ACCESS_KEY
-      #     context: pocket
-      #     env: Prod
-      #     service_name: ${SERVICE_NAME}
-
-      # # Dev
-      # - pocket/setup_deploy_params:
-      #     <<: *only_dev
-      #     name: setup-deploy-params-dev
-      #     aws_access_key_id: Dev_AWS_ACCESS_KEY
-      #     aws_secret_access_key: Dev_AWS_SECRET_ACCESS_KEY
-      #     context: pocket
-      #     env: Dev
-      #     service_name: ${SERVICE_NAME}
-
-      # # Notify sentry of main deployment
-      # - pocket/sentry_release_notification:
-      #     <<: *only_main
-      #     name: sentry-release-notification-prod
-      #     context: pocket
-      # # TODO: Update me if repository name is not the same as construct name
-      #     repository_name: Pocket/${CONSTRUCT_NAME}
-      #     sentry_project_name: ${CONSTRUCT_NAME}
-      #     sentry_env: production
-      #     sentry_org: pocket
-      #     workspace-path: /tmp/workspace
-      #     requires:
-      #       - deploy_prod
-
-      # # Notify sentry of dev deployment
-      # - pocket/sentry_release_notification:
-      #     <<: *only_dev
-      #     name: sentry-release-notification-dev
-      #     context: pocket
-      # # TODO: Update me if repository name is not the same as construct name
-      #     repository_name: Pocket/${CONSTRUCT_NAME}
-      #     sentry_project_name: ${CONSTRUCT_NAME}
-      #     sentry_env: development
-      #     sentry_org: pocket
-      #     workspace-path: /tmp/workspace
-      #     requires:
-      #       - deploy_dev
+      # Notify sentry of dev deployment
+      - pocket/sentry_release_notification:
+          <<: *only_dev
+          name: sentry-release-notification-dev
+          context: pocket
+          repository_name: Pocket/${CONSTRUCT_NAME}
+          sentry_project_name: ${CONSTRUCT_NAME}
+          sentry_env: development
+          sentry_org: pocket
+          workspace-path: /tmp/workspace
+          requires:
+            - deploy_dev
