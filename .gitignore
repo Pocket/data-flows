@@ -1,0 +1,5 @@
+# IntelliJ settings
+.idea
+*__pycache__
+
+.env

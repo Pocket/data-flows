@@ -1,0 +1,82 @@
+version: 0.2
+#https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html
+
+#####
+# Performs an infrastructure deployment.
+# For Code Deployments see CircleCI and AWS CodeDeploy
+#####
+
+env:
+  variables:
+    #Terraform workspace that we operate in
+    TF_DEV_WORKSPACE: Dev
+    TF_WORKSPACE: Prod
+    #The ref of the main branch we work against
+    MAIN_BRANCH_REF: 'refs/heads/main'
+    MAIN_BRANCH: 'main'
+    #The ref of the dev branch we work against
+    DEV_BRANCH_REF: 'refs/heads/dev'
+    DEV_BRANCH: 'dev'
+    #Metaflow requires a username to run
+    USERNAME: 'codebuild'
+  secrets-manager:
+    #Pull in the default terraform cloud token
+    TERRAFORM_TOKEN: 'CodeBuild/Default:terraform_token'
+    PAGERDUTY_TOKEN: 'CodeBuild/Default:pagerduty_token'
+    GITHUB_ACCESS_TOKEN: 'CodeBuild/Default:github_access_token'
+
+#All phases are ran within the hashicorp/terraform:light docker image
+phases:
+  install:
+    commands:
+      - echo Installing utilities necessary. Eventually we will bake these into an image..
+      # Within our terraform files we execute jq, and aws-cli and python
+      - apk add jq aws-cli perl-utils nodejs npm git bash curl
+
+  pre_build:
+    commands:
+      - echo $CODEBUILD_WEBHOOK_HEAD_REF
+      - echo Setting Up Terraform Token
+      - rc="credentials \"app.terraform.io\" { "
+      - rc="${rc} token=\"$TERRAFORM_TOKEN\" "
+      - rc="${rc}}"
+      - echo "$rc" > ~/.terraformrc
+      - echo Setting Github Access Token
+      - echo "//npm.pkg.github.com/:_authToken=${GITHUB_ACCESS_TOKEN}" > ~/.npmrc
+      - echo Setting environment variables
+      - cd .aws
+
+      # Until we use a docker image with tfenv built in lets install it.
+      # This lets us store the needed terraform verison in the source and not rely on changing amazon values.
+      - rm -rf /bin/terraform
+      - git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+      - ln -s ~/.tfenv/bin/* /usr/bin
+      - tfenv install
+      - tfenv use $(cat .terraform-version)
+
+      - npm install -g npm@latest
+      - npm ci
+      # synthesize the js into terraform json with the proper node environment
+      - 'if [ "$GIT_BRANCH" == "$DEV_BRANCH" ]; then NODE_ENV=development npm run synth; else npm run synth; fi'
+      - cd cdktf.out/stacks/data-flows
+      - terraform init
+  build:
+    commands:
+      - echo Build started on `date`
+      ### If the branch is not main and its not dev, lets do a plan on prod.
+      - 'if [ "$CODEBUILD_WEBHOOK_HEAD_REF" != "$MAIN_BRANCH_REF" ] && [ "$CODEBUILD_WEBHOOK_HEAD_REF" != "$DEV_BRANCH_REF" ] && [ -z "$GIT_BRANCH" ]; then terraform plan -lock=false -refresh=false -no-color; fi'
+      #### If the branch is dev, lets do an apply on dev.
+      - 'if [ "$GIT_BRANCH" == "$DEV_BRANCH" ]; then TF_WORKSPACE=$TF_DEV_WORKSPACE TF_LOG=INFO terraform apply -auto-approve -no-color; fi'
+      #### If the branch is main lets apply.
+      - 'if [ "$GIT_BRANCH" == "$MAIN_BRANCH" ]; then terraform apply -auto-approve -no-color; fi'
+  post_build:
+    commands:
+      - 'if [ "$GIT_BRANCH" == "$MAIN_BRANCH" ] || [ "$GIT_BRANCH" == "$DEV_BRANCH" ]; then cp appspec.json taskdef.json ../../../../; fi'
+      # get back to the root dir
+      - cd ../../
+      - echo Build completed on `date`
+
+artifacts:
+  files:
+    - taskdef.json
+    - appspec.json
