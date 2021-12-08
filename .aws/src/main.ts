@@ -112,6 +112,12 @@ class DataFlows extends TerraformStack {
     return this.createBucket('storage');
   }
 
+  /**
+   * Create an S3 bucket.
+   * @param name
+   * @param preventDestroy If true, the bucket is protected from being destroyed.
+   * @private
+   */
   private createBucket(name: string, preventDestroy: boolean = true): S3.S3Bucket {
     return new S3.S3Bucket(this, `prefect-${name.toLowerCase()}-bucket`, {
       bucket: `pocket-${config.name}-${name}-${config.environment}`.toLowerCase(),
