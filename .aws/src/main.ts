@@ -34,11 +34,14 @@ class DataFlows extends TerraformStack {
 
     const pocketVPC = new PocketVPC(this, 'pocket-shared-vpc');
 
+    // Create a bucket with Prefect configuration.
     const configBucket = this.createConfigBucket();
     const runTaskKwargsObject = this.createRunTaskKwargsObject(configBucket.id, pocketVPC);
 
+    // Create a bucket with Prefect storage.
     const storageBucket = this.createStorageBucket();
 
+    // Create the Prefect agent in ECS.
     const pocketApp = this.createPocketAlbApplication({
       secretsManagerKmsAlias: this.getSecretsManagerKmsAlias(),
       snsTopic: this.getCodeDeploySnsTopic(),
