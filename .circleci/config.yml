@@ -47,9 +47,6 @@ only_dev: &only_dev
 workflows:
   all:
     jobs:
-      - build:
-          context: pocket
-
       # Dev
       - pocket/execute_codepipeline:
           <<: *only_dev
