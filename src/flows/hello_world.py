@@ -1,5 +1,4 @@
 from os import environ
-from time import sleep
 
 import prefect
 from prefect import task, Flow
@@ -8,10 +7,8 @@ from prefect.run_configs import ECSRun
 
 @task
 def abc(data):
-    from util import foo_bar
-
     logger = prefect.context.get("logger")
-    logger.info(f"{foo_bar()} - {data['result']}")
+    logger.info(f"{data['result']}")
     return {'result': 'I said Hello'}
 
 
@@ -19,6 +16,7 @@ with Flow("ecs_test") as flow:
     result = abc({'result': 'hello world'})
     abc(result)
 
+# TODO: In production, the steps below would be taken by a deployment script. They're just included here as an example.
 flow.storage = prefect.storage.S3(
     bucket='pocket-dataflows-storage-dev',
     add_default_labels=False

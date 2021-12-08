@@ -1,9 +1,8 @@
 version: '3.1'
+# TODO: This docker-compose file is unfinished.
 services:
   prefect:
-    build:
-      dockerfile: .docker/app/Dockerfile
-      context: .
+    image: prefecthq/prefect:0.15.10-python3.9
     command:
       - "prefect"
       - "agent"

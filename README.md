@@ -7,4 +7,6 @@ Data flows orchestrated using Prefect
     ```
     PREFECT__CLOUD__API_KEY=********
     AWS_PROFILE=pocket-dev-PocketSSOBackend
+    PREFECT_TASK_ROLE_ARN=the task role you want your tasks to use
     ```
+3. TODO: Finish these setup steps.
