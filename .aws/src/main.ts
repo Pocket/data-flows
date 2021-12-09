@@ -60,8 +60,8 @@ class DataFlows extends TerraformStack {
    * @private
    */
   private getCodeDeploySnsTopic() {
-    return new SNS.DataAwsSnsTopic(this, 'backend_notifications', {
-      name: `Backend-${config.environment}-ChatBot`,
+    return new SNS.DataAwsSnsTopic(this, 'data_products_notifications', {
+      name: `DataAndLearning-${config.environment}-ChatBot`,
     });
   }
 
