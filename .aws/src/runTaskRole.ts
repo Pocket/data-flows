@@ -20,7 +20,7 @@ export class RunTaskRole extends Resource {
     ];
 
     // Create a role with the above policy statement.
-    this.createRunTaskRole({
+    this.iamRole = this.createRunTaskRole({
       statement,
       region,
       caller,
@@ -28,14 +28,14 @@ export class RunTaskRole extends Resource {
   }
 
   /**
-   * Give Read access to S3 bucket pocket-data-learning.
+   * Give Read access to S3 bucket pocket-data-learning (or pocket-data-learning-dev in Pocket-Dev).
    * @private
    */
   private getDataLearningS3BucketReadAccess(): IAM.DataAwsIamPolicyDocumentStatement {
     const s3Bucket = new S3.DataAwsS3Bucket(
       this,
       'pocket-data-learning-bucket',
-      {bucket: 'pocket-data-learning'}
+      {bucket: config.prefect.runTaskRole.dataLearningBucketName}
     );
 
     return {
@@ -128,19 +128,19 @@ export class RunTaskRole extends Resource {
 
     const dataEcsTaskRolePolicy = new IAM.DataAwsIamPolicyDocument(
       this,
-      'data-ecs-task-role-policy',
+      'data-run-task-role-policy',
       {
         version: '2012-10-17',
         statement,
       }
     );
 
-    const ecsTaskRolePolicy = new IAM.IamPolicy(this, 'ecs-task-role-policy', {
+    const ecsTaskRolePolicy = new IAM.IamPolicy(this, 'run-task-role-policy', {
       name: `${config.prefix}-TaskRolePolicy`,
       policy: dataEcsTaskRolePolicy.json,
     });
 
-    new IAM.IamRolePolicyAttachment(this, 'ecs-task-custom-attachment', {
+    new IAM.IamRolePolicyAttachment(this, 'run-task-custom-attachment', {
       policyArn: ecsTaskRolePolicy.arn,
       role: runTaskRole.id,
     });

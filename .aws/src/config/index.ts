@@ -15,6 +15,9 @@ const prefect = {
   port: 8080,  // Port for health check server
   agentLabels: [environment],
   agentLevel: isDev ? 'DEBUG' : 'INFO',
+  runTaskRole: {
+    dataLearningBucketName: isDev ? 'pocket-data-learning-dev' : 'pocket-data-learning',
+  }
 }
 
 export const config = {
