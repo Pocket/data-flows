@@ -15,6 +15,7 @@ export class RunTaskRole extends Resource {
     // Get all the policy statements that define the access that run tasks need.
     const statement = [
       this.getDataLearningS3BucketReadAccess(),
+      this.getDataLearningStepFunctionExecuteAccess(),
       this.getPrefectStorageS3BucketWriteAccess(prefectStorageBucket),
     ];
 
@@ -46,6 +47,20 @@ export class RunTaskRole extends Resource {
         s3Bucket.arn,
         `${s3Bucket.arn}/*`,
       ],
+      effect: 'Allow',
+    };
+  }
+
+  /**
+   * Give access to trigger Step Functions for pocket-data-learning.
+   * @private
+   */
+  private getDataLearningStepFunctionExecuteAccess(): IAM.DataAwsIamPolicyDocumentStatement {
+
+    return {
+      actions: [ 'states:StartExecution' ],
+      //TODO: Limit the resource to Metaflow step functions
+      resources: [ 'arn:aws:states:*:*:stateMachine:*'],
       effect: 'Allow',
     };
   }
