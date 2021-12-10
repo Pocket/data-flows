@@ -43,7 +43,7 @@ class DataFlows extends TerraformStack {
     const storageBucket = this.createStorageBucket();
 
     // Create the role for ECS tasks that actually execute our task code.
-    const runTaskRole = new RunTaskRole(this, 'run-task-role');
+    const runTaskRole = new RunTaskRole(this, 'run-task-role', storageBucket);
 
     // Create the Prefect agent in ECS.
     const pocketApp = this.createPocketAlbApplication({
@@ -356,20 +356,6 @@ class DataFlows extends TerraformStack {
             resources: [
               configBucket.arn,
               `${configBucket.arn}/*`,
-            ],
-            effect: 'Allow',
-          },
-          // Give write access to the storageBucket, such that Prefect can load the Flow definition and save results.
-          // @see https://docs.prefect.io/orchestration/flow_config/storage.html#pickle-vs-script-based-storage
-          {
-            actions: [
-              's3:GetObject*',
-              's3:PutObject*',
-              's3:ListBucket*',
-            ],
-            resources: [
-              storageBucket.arn,
-              `${storageBucket.arn}/*`,
             ],
             effect: 'Allow',
           },

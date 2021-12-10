@@ -1,21 +1,73 @@
-import {TerraformStack} from "cdktf";
+import {Resource} from "cdktf";
 import {Construct} from "constructs";
 import {DataSources, IAM, S3} from "@cdktf/provider-aws";
 import {config} from "./config";
 
-export class RunTaskRole extends TerraformStack {
+export class RunTaskRole extends Resource {
   public readonly iamRole: IAM.IamRole;
 
-  constructor(scope: Construct, name: string) {
+  constructor(scope: Construct, name: string, prefectStorageBucket: S3.S3Bucket) {
     super(scope, name);
 
     const region = new DataSources.DataAwsRegion(this, 'region');
     const caller = new DataSources.DataAwsCallerIdentity(this, 'caller');
 
+    // Get all the policy statements that define the access that run tasks need.
+    const statement = [
+      this.getDataLearningS3BucketReadAccess(),
+      this.getPrefectStorageS3BucketWriteAccess(prefectStorageBucket),
+    ];
+
+    // Create a role with the above policy statement.
     this.createRunTaskRole({
+      statement,
       region,
       caller,
     });
+  }
+
+  /**
+   * Give Read access to S3 bucket pocket-data-learning.
+   * @private
+   */
+  private getDataLearningS3BucketReadAccess(): IAM.DataAwsIamPolicyDocumentStatement {
+    const s3Bucket = new S3.DataAwsS3Bucket(
+      this,
+      'pocket-data-learning-bucket',
+      {bucket: 'pocket-data-learning'}
+    );
+
+    return {
+      actions: [
+        's3:GetObject*',
+        's3:ListBucket*',
+      ],
+      resources: [
+        s3Bucket.arn,
+        `${s3Bucket.arn}/*`,
+      ],
+      effect: 'Allow',
+    };
+  }
+
+  /**
+   * Give write access to the storageBucket, such that Prefect can load the Flow definition and save results.
+   * @see https://docs.prefect.io/orchestration/flow_config/storage.html#pickle-vs-script-based-storage
+   * @private
+   */
+  private getPrefectStorageS3BucketWriteAccess(s3Bucket: S3.S3Bucket): IAM.DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: [
+        's3:GetObject*',
+        's3:PutObject*',
+        's3:ListBucket*',
+      ],
+      resources: [
+        s3Bucket.arn,
+        `${s3Bucket.arn}/*`,
+      ],
+      effect: 'Allow',
+    };
   }
 
   /**
@@ -23,10 +75,12 @@ export class RunTaskRole extends TerraformStack {
    * @private
    */
   private createRunTaskRole(dependencies: {
+    statement: IAM.DataAwsIamPolicyDocumentStatement[];
     region: DataSources.DataAwsRegion;
     caller: DataSources.DataAwsCallerIdentity;
   }): IAM.IamRole {
     const {
+      statement,
       region,
       caller,
     } = dependencies;
@@ -57,28 +111,12 @@ export class RunTaskRole extends TerraformStack {
       tags: config.tags,
     });
 
-    const s3Bucket = new S3.DataAwsS3Bucket(
-      this,
-      'pocket-data-learning-bucket',
-      {bucket: 'pocket-data-learning'}
-    );
-
     const dataEcsTaskRolePolicy = new IAM.DataAwsIamPolicyDocument(
       this,
       'data-ecs-task-role-policy',
       {
         version: '2012-10-17',
-        statement: [{
-          actions: [
-            's3:GetObject*',
-            's3:ListBucket*',
-          ],
-          resources: [
-            s3Bucket.arn,
-            `${s3Bucket.arn}/*`,
-          ],
-          effect: 'Allow',
-        }],
+        statement,
       }
     );
 
