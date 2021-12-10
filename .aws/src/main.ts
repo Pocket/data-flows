@@ -1,6 +1,7 @@
 import {Construct} from 'constructs';
 import {App, Fn, RemoteBackend, TerraformStack,} from 'cdktf';
 import {config} from './config';
+import {RunTaskRole} from "./runTaskRole";
 import {PocketALBApplication, PocketECSCodePipeline, PocketVPC,} from '@pocket-tools/terraform-modules';
 
 // Providers
@@ -14,7 +15,6 @@ import {
 } from '@cdktf/provider-aws';
 import { LocalProvider } from '@cdktf/provider-local';
 import { NullProvider } from '@cdktf/provider-null';
-import {RunTaskRole} from "./run_task";
 
 class DataFlows extends TerraformStack {
   constructor(scope: Construct, name: string) {
