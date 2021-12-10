@@ -14,6 +14,7 @@ import {
 } from '@cdktf/provider-aws';
 import { LocalProvider } from '@cdktf/provider-local';
 import { NullProvider } from '@cdktf/provider-null';
+import {RunTaskRole} from "./run_task";
 
 class DataFlows extends TerraformStack {
   constructor(scope: Construct, name: string) {
@@ -40,6 +41,9 @@ class DataFlows extends TerraformStack {
 
     // Create a bucket with Prefect storage.
     const storageBucket = this.createStorageBucket();
+
+    // Create the role for ECS tasks that actually execute our task code.
+    const runTaskRole = new RunTaskRole(this, 'run-task-role');
 
     // Create the Prefect agent in ECS.
     const pocketApp = this.createPocketAlbApplication({
