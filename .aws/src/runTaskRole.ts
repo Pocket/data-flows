@@ -136,7 +136,7 @@ export class RunTaskRole extends Resource {
     );
 
     const ecsTaskRolePolicy = new IAM.IamPolicy(this, 'run-task-role-policy', {
-      name: `${config.prefix}-TaskRolePolicy`,
+      name: `${config.prefix}-RunTaskRolePolicy`,
       policy: dataEcsTaskRolePolicy.json,
     });
 
