@@ -198,7 +198,7 @@ class DataFlows extends TerraformStack {
         actions: [
           'iam:PassRole',
         ],
-        resources: [`arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskRole`],
+        resources: [`arn:aws:iam::${caller.accountId}:role/${config.prefix}-RunTaskRole`],
         effect: 'Allow',
       },
     ];
