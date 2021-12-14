@@ -5,6 +5,9 @@ name = "pypi"
 
 [packages]
 prefect = {extras = ["aws", "snowflake"], version = "*"}
+pandas = "*"
+fastparquet = "*"
+pyarrow = "*"
 
 [dev-packages]
 
