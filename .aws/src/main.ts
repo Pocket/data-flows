@@ -1,6 +1,7 @@
 import {Construct} from 'constructs';
 import {App, Fn, RemoteBackend, TerraformStack,} from 'cdktf';
 import {config} from './config';
+import {RunTaskRole} from "./runTaskRole";
 import {PocketALBApplication, PocketECSCodePipeline, PocketVPC,} from '@pocket-tools/terraform-modules';
 
 // Providers
@@ -40,6 +41,9 @@ class DataFlows extends TerraformStack {
 
     // Create a bucket with Prefect storage.
     const storageBucket = this.createStorageBucket();
+
+    // Create the role for ECS tasks that actually execute our task code.
+    const runTaskRole = new RunTaskRole(this, 'run-task-role', storageBucket);
 
     // Create the Prefect agent in ECS.
     const pocketApp = this.createPocketAlbApplication({
@@ -194,7 +198,7 @@ class DataFlows extends TerraformStack {
         actions: [
           'iam:PassRole',
         ],
-        resources: [`arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskRole`],
+        resources: [`arn:aws:iam::${caller.accountId}:role/${config.prefix}-RunTaskRole`],
         effect: 'Allow',
       },
     ];
@@ -352,20 +356,6 @@ class DataFlows extends TerraformStack {
             resources: [
               configBucket.arn,
               `${configBucket.arn}/*`,
-            ],
-            effect: 'Allow',
-          },
-          // Give write access to the storageBucket, such that Prefect can load the Flow definition and save results.
-          // @see https://docs.prefect.io/orchestration/flow_config/storage.html#pickle-vs-script-based-storage
-          {
-            actions: [
-              's3:GetObject*',
-              's3:PutObject*',
-              's3:ListBucket*',
-            ],
-            resources: [
-              storageBucket.arn,
-              `${storageBucket.arn}/*`,
             ],
             effect: 'Allow',
           },

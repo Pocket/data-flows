@@ -15,6 +15,12 @@ const prefect = {
   port: 8080,  // Port for health check server
   agentLabels: [environment],
   agentLevel: isDev ? 'DEBUG' : 'INFO',
+  runTaskRole: {
+    dataLearningBucketName: isDev ? 'pocket-data-learning-dev' : 'pocket-data-learning',
+    // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
+    // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
+    existingPolicies: isDev ? [] : ['PocketDataProductReadOnly']
+  }
 }
 
 export const config = {

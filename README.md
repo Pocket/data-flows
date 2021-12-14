@@ -7,6 +7,11 @@ Data flows orchestrated using Prefect
     ```
     PREFECT__CLOUD__API_KEY=********
     AWS_PROFILE=pocket-dev-PocketSSOBackend
-    PREFECT_TASK_ROLE_ARN=the task role you want your tasks to use
+    AWS_DEFAULT_REGION=us-east-1
+    PREFECT_TASK_ROLE_ARN=the task role (e.g. DataFlows-Dev-RunTaskRole) you want your tasks to use
     ```
-3. TODO: Finish these setup steps.
+3. (Optional) Install Python 3.9 using [pyenv](https://github.com/pyenv/pyenv). 
+4. Run `pipenv install` in the project root directory.
+
+## Cloud environment
+URL: https://cloud.prefect.io/mathijs-getpocket-com-s-account
