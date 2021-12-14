@@ -9,6 +9,9 @@ export class RunTaskRole extends Resource {
   constructor(scope: Construct, name: string, prefectStorageBucket: S3.S3Bucket) {
     super(scope, name);
 
+    const region = new DataSources.DataAwsRegion(this, 'region');
+    const caller = new DataSources.DataAwsCallerIdentity(this, 'caller');
+
     // Create a policy with all the additional access that run tasks need.
     const runTaskRolePolicy = this.createRunTaskRolePolicy([
       this.getDataLearningS3BucketReadAccess(),
