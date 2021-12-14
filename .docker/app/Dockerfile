@@ -6,7 +6,9 @@ FROM prefecthq/prefect:0.15.10-python3.9 as base
 # Install pipenv
 RUN pip install pipenv
 
-# Install python dependencies in /.venv
+# Install python dependencies.
+# - dependencies are managed by pipenv because it allows us to define direct dependencies, and lock in indirect ones.
+# - dependencies are installed by pip, because Prefect installs dependencies globally.
 WORKDIR /
 COPY Pipfile .
 COPY Pipfile.lock .
