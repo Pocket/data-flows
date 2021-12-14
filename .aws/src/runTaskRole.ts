@@ -9,21 +9,55 @@ export class RunTaskRole extends Resource {
   constructor(scope: Construct, name: string, prefectStorageBucket: S3.S3Bucket) {
     super(scope, name);
 
-    const region = new DataSources.DataAwsRegion(this, 'region');
-    const caller = new DataSources.DataAwsCallerIdentity(this, 'caller');
-
-    // Get all the policy statements that define the access that run tasks need.
-    const statement = [
+    // Create a policy with all the additional access that run tasks need.
+    const runTaskRolePolicy = this.createRunTaskRolePolicy([
       this.getDataLearningS3BucketReadAccess(),
-      this.getDataLearningStepFunctionExecuteAccess(),
+      this.getStepFunctionExecuteAccess(),
       this.getPrefectStorageS3BucketWriteAccess(prefectStorageBucket),
-    ];
+    ]);
 
-    // Create a role with the above policy statement.
-    this.iamRole = this.createRunTaskRole({
-      statement,
-      region,
-      caller,
+    // Get existing policies that run tasks need.
+    const existingPolicies = this.getExistingPolicies(config.prefect.runTaskRole.existingPolicies);
+
+    // Create a role with the above policies.
+    this.iamRole = this.createRunTaskRole([
+      ...existingPolicies,
+      runTaskRolePolicy,
+    ]);
+  }
+
+  /**
+   * Return data sources for existing IAM policies.
+   * @param names Existing policy names
+   * @see https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy#path_prefix
+   * @private
+   */
+  private getExistingPolicies(names: string[]): IAM.DataAwsIamPolicy[] {
+    return names.map((name) => {
+      return new IAM.DataAwsIamPolicy(this, 'pocket-data-product-read-only', {
+        name: name,
+      });
+    });
+  }
+
+  /**
+   * Create a policy
+   * @param statement
+   * @private
+   */
+  private createRunTaskRolePolicy(statement: IAM.DataAwsIamPolicyDocumentStatement[]): IAM.IamPolicy {
+    const dataEcsTaskRolePolicy = new IAM.DataAwsIamPolicyDocument(
+      this,
+      'data-run-task-role-policy',
+      {
+        version: '2012-10-17',
+        statement,
+      }
+    );
+
+    return new IAM.IamPolicy(this, 'run-task-role-policy', {
+      name: `${config.prefix}-RunTaskRolePolicy`,
+      policy: dataEcsTaskRolePolicy.json,
     });
   }
 
@@ -55,8 +89,7 @@ export class RunTaskRole extends Resource {
    * Give access to trigger Step Functions for pocket-data-learning.
    * @private
    */
-  private getDataLearningStepFunctionExecuteAccess(): IAM.DataAwsIamPolicyDocumentStatement {
-
+  private getStepFunctionExecuteAccess(): IAM.DataAwsIamPolicyDocumentStatement {
     return {
       actions: [ 'states:StartExecution' ],
       //TODO: Limit the resource to Metaflow step functions
@@ -89,17 +122,7 @@ export class RunTaskRole extends Resource {
    * Creates an IAM role for ECS tasks that execute the prefect task.
    * @private
    */
-  private createRunTaskRole(dependencies: {
-    statement: IAM.DataAwsIamPolicyDocumentStatement[];
-    region: DataSources.DataAwsRegion;
-    caller: DataSources.DataAwsCallerIdentity;
-  }): IAM.IamRole {
-    const {
-      statement,
-      region,
-      caller,
-    } = dependencies;
-
+  private createRunTaskRole(policies: (IAM.IamPolicy | IAM.DataAwsIamPolicy)[]): IAM.IamRole {
     const dataEcsTaskAssume = new IAM.DataAwsIamPolicyDocument(
       this,
       'run-task-assume',
@@ -126,23 +149,11 @@ export class RunTaskRole extends Resource {
       tags: config.tags,
     });
 
-    const dataEcsTaskRolePolicy = new IAM.DataAwsIamPolicyDocument(
-      this,
-      'data-run-task-role-policy',
-      {
-        version: '2012-10-17',
-        statement,
-      }
-    );
-
-    const ecsTaskRolePolicy = new IAM.IamPolicy(this, 'run-task-role-policy', {
-      name: `${config.prefix}-RunTaskRolePolicy`,
-      policy: dataEcsTaskRolePolicy.json,
-    });
-
-    new IAM.IamRolePolicyAttachment(this, 'run-task-custom-attachment', {
-      policyArn: ecsTaskRolePolicy.arn,
-      role: runTaskRole.id,
+    policies.forEach((policy) => {
+      new IAM.IamRolePolicyAttachment(this, policy.name.toLowerCase(), {
+        policyArn: policy.arn,
+        role: runTaskRole.id,
+      });
     });
 
     return runTaskRole;
