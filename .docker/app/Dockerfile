@@ -18,7 +18,5 @@ RUN echo "GIT_SHA=${GIT_SHA}"
 RUN pip install -r requirements.txt
 RUN if [ "$GIT_SHA" = "local" ]; then pip install -r dev-requirements.txt; fi
 
-FROM base AS runtime
-
 #Sentry GITSHA
 ENV GIT_SHA=$GIT_SHA
