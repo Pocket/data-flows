@@ -76,6 +76,7 @@ export class RunTaskRole extends Resource {
       actions: [
         's3:GetObject*',
         's3:ListBucket*',
+        's3:HeadObject',
       ],
       resources: [
         s3Bucket.arn,

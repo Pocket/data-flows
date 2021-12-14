@@ -1,26 +1,17 @@
 from os import environ
-import json
 
 import prefect
 from prefect import task, Flow
 from prefect.run_configs import ECSRun
-from prefect.tasks.aws.step_function import StepActivate
-import uuid
+from prefect.tasks.aws.s3 import S3Download
 
 
+s3_bucket_source = 'pocket-data-learning-dev'
+s3_bucket_key='analytics-modeled-data/parquet/dbt/web_explore_impressions_clicks_by_item_hour/data_0_0_0.snappy.parquet'
 
-
-with Flow("step_function_flow") as flow:
-    activate_step_function = StepActivate(
-        state_machine_arn='arn:aws:states:us-east-1:410318598490:stateMachine:TimespentProspectsFlow',
-        execution_name=str(uuid.uuid4()),
-        execution_input=json.dumps({
-            "Parameters": "{}",
-        }),
-    )
-    step_function_resut = activate_step_function()
-
-# flow.run()
+with Flow("s3download_flow") as flow:
+    s3download_function = S3Download()
+    s3download_resut = s3download_function(key=s3_bucket_key, bucket=s3_bucket_source)
 
 # TODO: In production, the steps below would be taken by a deployment script. They're just included here as an example.
 flow.storage = prefect.storage.S3(
