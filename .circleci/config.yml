@@ -45,9 +45,9 @@ only_dev: &only_dev
         - dev
 
 jobs:
-  # build is currently a dummy job. CircleCI requires a 'build' job to exist,
-  # but we don't have a Docker image yet, so don't need to build anything.
   build:
+    #Sets up the code for the docker image to build in
+    #Other repos at Pocket use this to install modules and or compile the code.
     docker:
       - image: cimg/python:3.9-node
         auth:
@@ -56,24 +56,58 @@ jobs:
     steps:
       - checkout
       # Define the working directory for this job
-#      - attach_workspace:
-#          at: /tmp/workspace
-#
-#      # Copy built files to app_prod folder
-#      - run:
-#          name: Setup workspace
-#          command: |
-#            mkdir -p /tmp/workspace/app_prod
-#            cp -r . /tmp/workspace/app_prod
-#            cp .docker/app/Dockerfile /tmp/workspace/app_prod/
-#      # Persist built files to workspace
-#      - persist_to_workspace:
-#          root: /tmp/workspace
-#          paths:
-#            - app_prod
+      - attach_workspace:
+          at: /tmp/workspace
+
+      # Copy built files to app_prod folder
+      - run:
+          name: Setup workspace
+          command: |
+            mkdir -p /tmp/workspace/app_prod
+            cp -r . /tmp/workspace/app_prod
+            cp .docker/app/Dockerfile /tmp/workspace/app_prod/
+      # Persist built files to workspace
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - app_prod
+
 workflows:
   all:
     jobs:
+      - build:
+          context: pocket
+
+      # Try building the ECS docker image on each branch
+      - pocket/docker_build:
+          <<: *not_dev_main
+          context: pocket
+          name: build_docker
+          aws-access-key-id: Dev_AWS_ACCESS_KEY
+          aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
+          aws-region: Dev_AWS_DEFAULT_REGION
+          repo-name: ${SERVICE_NAME_LOWER}-dev-app
+          ecr-url: ${ACCOUNT_ID_DEV}.dkr.ecr.us-east-1.amazonaws.com
+          push: false
+          requires:
+            - build
+
+      # Build & Deploy the Dev Docker Image
+      - pocket/docker_build:
+          <<: *only_dev
+          context: pocket
+          name: build_docker_dev
+          aws-access-key-id: Dev_AWS_ACCESS_KEY
+          aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
+          aws-region: Dev_AWS_DEFAULT_REGION
+          codebuild-project-name: ${SERVICE_NAME}-Dev
+          codebuild-project-branch: dev
+          repo-name: ${SERVICE_NAME_LOWER}-dev-app
+          ecr-url: ${ACCOUNT_ID_DEV}.dkr.ecr.us-east-1.amazonaws.com
+          push: true
+          requires:
+            - build
+
       # Dev
       - pocket/execute_codepipeline:
           <<: *only_dev
@@ -86,6 +120,24 @@ workflows:
           codepipeline-name: ${SERVICE_NAME}-Dev-CodePipeline
           codebuild-project-name: ${SERVICE_NAME}-Dev
           codebuild-project-branch: dev
+          requires:
+            - build_docker_dev
+
+      # Build & Deploy the Prod Docker Image
+      - pocket/docker_build:
+          <<: *only_main
+          context: pocket
+          name: build_docker_prod
+          aws-access-key-id: Prod_AWS_ACCESS_KEY
+          aws-secret-access-key: Prod_AWS_SECRET_ACCESS_KEY
+          aws-region: Prod_AWS_DEFAULT_REGION
+          codebuild-project-name: ${SERVICE_NAME}-Prod
+          codebuild-project-branch: main
+          repo-name: ${SERVICE_NAME_LOWER}-prod-app
+          ecr-url: ${ACCOUNT_ID_PROD}.dkr.ecr.us-east-1.amazonaws.com
+          push: true
+          requires:
+            - build
 
       # Prod
       - pocket/execute_codepipeline:
@@ -99,6 +151,9 @@ workflows:
           codepipeline-name: ${SERVICE_NAME}-Prod-CodePipeline
           codebuild-project-name: ${SERVICE_NAME}-Prod
           codebuild-project-branch: main
+          requires:
+            - build_docker_prod
+
 
       # Prod
       - pocket/setup_deploy_params:
