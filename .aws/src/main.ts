@@ -267,8 +267,6 @@ class DataFlows extends TerraformStack {
       containerConfigs: [
         {
           name: 'app',
-          containerImage: 'prefecthq/prefect:0.15.10-python3.9',
-          repositoryCredentialsParam: repositoryCredentials,
           portMappings: [
             {
               hostPort: config.prefect.port,
