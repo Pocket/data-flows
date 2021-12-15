@@ -8,6 +8,7 @@ from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.session import Session
 
 
+
 @task
 def extract_parquet_as_df(bucket:str, parquet_file: str):
     parquet_file = f"s3://{bucket}/{parquet_file}"
@@ -43,16 +44,17 @@ with Flow("User Impression Feature Group Flow") as flow:
     xdfs = transform_user_impressions_df.map(dfs)
     load_featue_group.map(df=xdfs, feature_group_name=unmapped(feature_group))
 
-flow.run()
 
-# flow.storage = prefect.storage.S3(
-#     bucket='pocket-dataflows-storage-prod',
-#     add_default_labels=False
-# )
-#
-# flow.run_config = ECSRun(
-#     labels=['Prod'],
-#     image='996905175585.dkr.ecr.us-east-1.amazonaws.com/dataflows-prod-app:latest',
-# )
-#
-# flow.register(project_name="prefect-tutorial")
+# flow.run()
+
+flow.storage = prefect.storage.S3(
+    bucket='pocket-dataflows-storage-prod',
+    add_default_labels=False
+)
+
+flow.run_config = ECSRun(
+    labels=['Prod'],
+    image='996905175585.dkr.ecr.us-east-1.amazonaws.com/dataflows-prod-app:latest',
+)
+
+flow.register(project_name="prefect-tutorial")
