@@ -17,6 +17,7 @@ export class RunTaskRole extends Resource {
       this.getDataLearningS3BucketReadAccess(),
       this.getStepFunctionExecuteAccess(),
       this.getPrefectStorageS3BucketWriteAccess(prefectStorageBucket),
+      this.putFeatureGroupRecordsAccess(),
     ]);
 
     // Get existing policies that run tasks need.
@@ -98,6 +99,18 @@ export class RunTaskRole extends Resource {
       actions: [ 'states:StartExecution' ],
       //TODO: Limit the resource to Metaflow step functions
       resources: [ 'arn:aws:states:*:*:stateMachine:*'],
+      effect: 'Allow',
+    };
+  }
+
+  /**
+   * Give access to put records into a feature group
+   * @private
+   */
+  private putFeatureGroupRecordsAccess(): IAM.DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: [ 'sagemaker:PutRecord' ],
+      resources: ['arn:aws:sagemaker:*:*:feature-group/*'],
       effect: 'Allow',
     };
   }

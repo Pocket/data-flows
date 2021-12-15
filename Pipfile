@@ -8,6 +8,7 @@ prefect = {extras = ["aws", "snowflake"], version = "*"}
 pandas = "*"
 fastparquet = "*"
 pyarrow = "*"
+s3fs = {version = "~=0.4.0", extras = ["boto3"]}
 
 [dev-packages]
 
