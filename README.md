@@ -31,5 +31,27 @@ Steps:
 1. Run `pipenv install` in the project root directory.
 2. In PyCharm, [configure pipenv as the interpreter](https://www.jetbrains.com/help/pycharm/pipenv.html#pipenv-existing-project).
 
-## Cloud environment
-URL: https://cloud.prefect.io/mathijs-getpocket-com-s-account
+## Road map
+
+### CI/CD
+As we're experimenting with Prefect we've deployed flows from our local machines. When we productionalize Prefect,
+we'll want to automate this. It might look something like this: 
+
+1. Collect all flows, and for each flow:
+   1. Set the storage and run configuration.
+   2. Register the flow with Prefect.
+
+There's [a Github discussion on Prefect CI/CD patterns](https://github.com/PrefectHQ/prefect/discussions/4042)
+with more details and more patterns.
+
+## References
+- Experimental cloud account: https://cloud.prefect.io/mathijs-getpocket-com-s-account
+- Running Prefect locally
+  - [Prefect Getting Started](https://docs.prefect.io/orchestration/getting-started/quick-start.html)
+- Running Prefect on AWS
+  - [Prefect architecture diagram](https://docs.prefect.io/orchestration/#architecture-overview) 
+  - [ECS Agent](https://docs.prefect.io/orchestration/agents/ecs.html#running-ecs-agent-in-production)
+  - [ECS Agent CLI](https://docs.prefect.io/api/latest/cli/agent.html#ecs-start)
+  - [ECSRun Run Configuration](https://docs.prefect.io/api/latest/run_configs.html#ecsrun)
+  - [S3 Storage](https://docs.prefect.io/api/latest/storage.html#s3)
+  - [Result Serializers](https://docs.prefect.io/api/latest/engine/serializers.html#serializer)
