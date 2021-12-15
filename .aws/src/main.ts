@@ -54,6 +54,7 @@ class DataFlows extends TerraformStack {
       configBucket,
       runTaskKwargsObject,
       storageBucket,
+      runTaskRole,
     });
 
     this.createApplicationCodePipeline(pocketApp);
@@ -144,10 +145,12 @@ class DataFlows extends TerraformStack {
   private getPrefectRunTaskPolicies(dependencies: {
     region: DataSources.DataAwsRegion;
     caller: DataSources.DataAwsCallerIdentity;
+    runTaskRole: RunTaskRole;
   }): IAM.DataAwsIamPolicyDocumentStatement[] {
     const {
       region,
       caller,
+      runTaskRole,
     } = dependencies;
 
     // This condition is added to operations to restrict them to the DataFlows ECS cluster.
@@ -193,12 +196,15 @@ class DataFlows extends TerraformStack {
         resources: ['*'],
         effect: 'Allow',
       },
-      // Prefect needs to be able to pass its role to the tasks it starts.
+      // Prefect needs to be able to pass the execution role and task role to the tasks it starts.
       {
         actions: [
           'iam:PassRole',
         ],
-        resources: [`arn:aws:iam::${caller.accountId}:role/${config.prefix}-RunTaskRole`],
+        resources: [
+          runTaskRole.iamRole.arn,
+          `arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskExecutionRole`,
+        ],
         effect: 'Allow',
       },
     ];
@@ -239,6 +245,7 @@ class DataFlows extends TerraformStack {
     configBucket: S3.S3Bucket;
     runTaskKwargsObject: S3.S3BucketObject;
     storageBucket: S3.S3Bucket;
+    runTaskRole: RunTaskRole;
   }): PocketALBApplication {
     const {
       region,
@@ -248,6 +255,7 @@ class DataFlows extends TerraformStack {
       configBucket,
       runTaskKwargsObject,
       storageBucket,
+      runTaskRole,
     } = dependencies;
 
     //Our shared dockerhub credentials in Secrets Manager to bypass docker hub pull limits
@@ -278,6 +286,8 @@ class DataFlows extends TerraformStack {
             '--cluster', config.prefix,  // ECS cluster to use for launching tasks
             '--launch-type', 'FARGATE',
             '--run-task-kwargs', `s3://${runTaskKwargsObject.bucket}/${runTaskKwargsObject.key}`,
+            '--task-role-arn', runTaskRole.iamRole.arn,
+            '--execution-role-arn', `arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskExecutionRole`,
             '--agent-address', `http://0.0.0.0:${config.prefect.port}`,  // run a HTTP server for use as a health check
           ],
           healthCheck: config.healthCheck,
@@ -344,6 +354,7 @@ class DataFlows extends TerraformStack {
           ...this.getPrefectRunTaskPolicies({
             region,
             caller,
+            runTaskRole,
           }),
           // Give read access to the configBucket, such that Prefect can load the config files from there.
           {
