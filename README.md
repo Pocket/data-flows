@@ -37,12 +37,20 @@ Steps:
 As we're experimenting with Prefect we've deployed flows from our local machines. When we productionalize Prefect,
 we'll want to automate this. It might look something like this: 
 
-1. Collect all flows, and for each flow:
+1. Set up Prefect projects for each environment (Prod, Dev).
+2. Set values in Parameter Store that tell CodeBuild which Prefect project to use, keyed on branch name.
+In [dl-metaflow-jobs's buildspec.yml](https://github.com/Pocket/dl-metaflow-jobs/blob/main/buildspec.yml)
+we have a similar pattern, but we assume there's only one deployment per AWS account.
+3. Collect all flows, and for each flow:
    1. Set the storage and run configuration.
    2. Register the flow with Prefect.
 
 There's [a Github discussion on Prefect CI/CD patterns](https://github.com/PrefectHQ/prefect/discussions/4042)
 with more details and more patterns.
+
+## Open questions
+- Should we expire S3 results?
+- Is it good practice to use flow results by reading from S3?
 
 ## References
 - Experimental cloud account: https://cloud.prefect.io/mathijs-getpocket-com-s-account
