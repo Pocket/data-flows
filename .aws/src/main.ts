@@ -165,14 +165,6 @@ class DataFlows extends TerraformStack {
       {
         actions: [
           'ecs:RunTask',
-        ],
-        resources: ['*'],
-        //resources: [`arn:aws:ecs:${region.name}:${caller.accountId}:task-definition/prefect-*:*`],
-        condition: [DataFlowsClusterCondition],
-        effect: 'Allow',
-      },
-      {
-        actions: [
           'ecs:StopTask',
         ],
         resources: ['*'],
