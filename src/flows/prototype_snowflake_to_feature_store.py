@@ -7,8 +7,9 @@ import pandas as pd
 import boto3
 from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.session import Session
-from ..lib.queries import get_snowflake_query
 
+# Setting the working directory to project root makes the path "src.lib.queries" for get_snowflake_query
+from src.lib.queries import get_snowflake_query
 
 @task
 def extract():
@@ -16,8 +17,8 @@ def extract():
     Pull data from snowflake materialized tables.
     Returns:
     """
-    get_snowflake_query.run("""
-    SELECT * FROM table_name
+    return get_snowflake_query().run(query="""
+    select * from ANALYTICS.DBT_GKATRE.PRE_CURATED_READING_METRICS limit 10
     """)
 
     # TODO: How to put this in a data frame?
@@ -41,13 +42,17 @@ def load(df: pd.DataFrame, feature_group_name):
     feature_group = FeatureGroup(name=feature_group_name, sagemaker_session=feature_store_session)
     feature_group.ingest(df, max_workers=4, max_processes=4, wait=True)
 
+@task
+def print_results(results):
+    print(results)
+
 
 with Flow("User Impression Feature Group Flow") as flow:
-    df = extract.run()
-    load(df, 'some_name')
+    df = extract()
+    print_results(df)
+    # load(df, 'some_name')
 
-
-# flow.run()
+flow.run()
 
 # flow.storage = prefect.storage.S3(
 #     bucket='pocket-dataflows-storage-prod',
