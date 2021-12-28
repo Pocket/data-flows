@@ -3,12 +3,18 @@ Data flows orchestrated using Prefect
 
 ## Local development
 1. Create a Prefect API key on the [API keys page](https://cloud.prefect.io/user/keys).
-2. Create a `.env` file in the project root with the following contents, using the above Prefect API key:
+2. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values to:
     ```
     PREFECT__CLOUD__API_KEY=********
     AWS_PROFILE=pocket-dev-PocketSSOBackend
     AWS_DEFAULT_REGION=us-east-1
     PREFECT_TASK_ROLE_ARN=the task role (e.g. DataFlows-Dev-RunTaskRole) you want your tasks to use
+   
+    PREFECT__CONTEXT__SECRETS__SNOWFLAKE_PASSPHRASE=Go to Snowflake and get this using these instructions: https://getpocket.atlassian.net/wiki/spaces/PE/pages/2131099721/dbt+Development+Workflow
+    PREFECT__CONTEXT__SECRETS__SNOWFLAKE_USER=Probably your work email—whatever you log into Snowflake with
+    PREFECT__CONTEXT__SECRETS__SNOWFLAKE_ACCOUNT=cka72749.us-east-1
+    PREFECT__CONTEXT__SECRETS__ROLE=ANALYTICS_ENGINEER_LIMITED
+    PREFECT__CONTEXT__SECRETS__WAREHOUSE=ANALYTICS_DEVELOPMENT
     ```
 3. Choose how to run code:
    1. Docker compose: consistent environment
