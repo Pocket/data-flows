@@ -1,10 +1,6 @@
-import prefect
-from prefect import task, Flow, Parameter, unmapped
-from prefect.run_configs import ECSRun
-from prefect.tasks.aws.s3 import S3List
-from prefect.tasks.snowflake import SnowflakeQuery
-import pandas as pd
 import boto3
+import pandas as pd
+from prefect import task, Flow
 from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.session import Session
 
@@ -18,7 +14,7 @@ def extract():
     Returns:
     """
     return get_snowflake_query().run(query="""
-    select * from ANALYTICS.DBT_GKATRE.PRE_CURATED_READING_METRICS limit 10
+    select resolved_id, resolved_url from ANALYTICS.DBT_CTROY.CONTENT limit 10
     """)
 
     # TODO: How to put this in a data frame?
@@ -28,7 +24,8 @@ def load(df: pd.DataFrame, feature_group_name):
     """
     Update SageMaker feature group.
 
-    Args:
+    Args:cd ..
+    See Also
         df:
         feature_group_name:
 
