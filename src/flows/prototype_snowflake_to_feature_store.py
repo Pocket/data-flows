@@ -1,9 +1,15 @@
+import os
+
 import pandas as pd
 from prefect import task, Flow
 
 import boto3
+from prefect.tasks.secrets import PrefectSecret
 from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.session import Session
+
+import prefect
+from prefect.run_configs import ECSRun
 
 # Setting the working directory to project root makes the path "src.lib.queries" for get_snowflake_query
 from src.lib.queries import get_snowflake_query
@@ -67,16 +73,21 @@ with Flow("User Impression Feature Group Flow") as flow:
     result = load(df, 'test-prefect')
     print_results(result)
 
-flow.run()
+# flow.run()
 
-# flow.storage = prefect.storage.S3(
-#     bucket='pocket-dataflows-storage-prod',
-#     add_default_labels=False
-# )
-#
-# flow.run_config = ECSRun(
-#     labels=['Prod'],
-#     image='996905175585.dkr.ecr.us-east-1.amazonaws.com/dataflows-prod-app:latest',
-# )
-#
-# flow.register(project_name="prefect-tutorial")
+#MARK: Deployment
+
+flow.storage = prefect.storage.S3(
+    bucket=f"pocket-dataflows-storage-{ os.getenv('DEPLOYMENT_ENVIRONMENT') }",
+    add_default_labels=False
+)
+
+flow.run_config = ECSRun(
+    # task_definition_path="test.yaml",
+    labels=['Dev'],
+    task_role_arn=PrefectSecret('PREFECT_TASK_ROLE_ARN').run(),
+    # execution_role_arn='arn:aws:iam::12345678:role/prefect-ecs',
+    image='prefecthq/prefect:latest-python3.9',
+)
+
+flow.register(project_name="prefect-tutorial")
