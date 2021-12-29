@@ -1,8 +1,10 @@
 import {Construct} from 'constructs';
-import {App, Fn, RemoteBackend, TerraformStack,} from 'cdktf';
+import {App, Fn, RemoteBackend, TerraformStack} from 'cdktf';
 import {config} from './config';
 import {RunTaskRole} from "./runTaskRole";
-import {PocketALBApplication, PocketECSCodePipeline, PocketVPC,} from '@pocket-tools/terraform-modules';
+import {PocketALBApplication, PocketVPC,} from '@pocket-tools/terraform-modules';
+import {DataFlowsCodePipeline} from "./lib/DataFlowsCodePipeline";
+import { SFN, ECS } from '@cdktf/provider-aws';
 
 // Providers
 import {
@@ -57,7 +59,9 @@ class DataFlows extends TerraformStack {
       runTaskRole,
     });
 
-    this.createApplicationCodePipeline(pocketApp);
+    const deployStepFunction = this.createDeployStepFunction(pocketApp, pocketVPC);
+
+    this.createApplicationCodePipeline(pocketApp, deployStepFunction);
   }
 
   /**
@@ -85,9 +89,10 @@ class DataFlows extends TerraformStack {
    * @param app
    * @private
    */
-  private createApplicationCodePipeline(app: PocketALBApplication) {
-    new PocketECSCodePipeline(this, 'code-pipeline', {
+  private createApplicationCodePipeline(app: PocketALBApplication, prefectCouldDeployStepFunction: SFN.SfnStateMachine) {
+    new DataFlowsCodePipeline(this, 'code-pipeline', {
       prefix: config.prefix,
+      prefectCouldDeployStepFunction,
       source: {
         codeStarConnectionArn: config.codePipeline.githubConnectionArn,
         repository: config.codePipeline.repository,
@@ -391,9 +396,60 @@ class DataFlows extends TerraformStack {
       },
     });
   }
+
+  private createDeployStepFunction(app: PocketALBApplication, vpc: PocketVPC): SFN.SfnStateMachine {
+    const ecsTaskDefinitionArn = 'arn:aws:ecs:us-east-1:996905175585:task-definition/DataFlows-Prod:8'; // TODO: Make property public app.ecsService.taskDefinition.arn
+    const ecsClusterArn = 'arn:aws:ecs:us-east-1:996905175585:cluster/DataFlows-Prod'; // TODO: Make property public from app
+    const containerName = 'app'; // TODO: ...
+    const subnets = vpc.privateSubnetIds;
+    const securityGroups = vpc.defaultSecurityGroups.ids;
+
+    return new SFN.SfnStateMachine(this, 'deploy-prefect-cloud-state-machine', {
+      name: `${config.prefix}-DeployPrefectCloud`,
+      roleArn: app.ecsService.service.iamRole, // THIS IS WRONG.
+      tags: config.tags,
+      // Stolen from: https://nuvalence.io/blog/aws-step-function-integration-with-ecs-or-fargate-tasks-data-in-and-out
+      definition: JSON.stringify({
+        StartAt: "DeployPrefectCloud",
+        States: {
+          DeployPrefectCloud: {
+            Type: "Task",
+            Resource: "arn:aws:states:::ecs:runTask.sync",
+            Parameters: {
+              LaunchType: "FARGATE",
+              Cluster: ecsClusterArn,
+              TaskDefinition: ecsTaskDefinitionArn,
+              NetworkConfiguration: {
+                AwsvpcConfiguration: {
+                  Subnets: subnets,
+                  SecurityGroups: securityGroups,
+                  AssignPublicIp: "ENABLED" // TODO: Is public IP required?
+                }
+              },
+              Overrides: {
+                ContainerOverrides: [{
+                  Name: containerName,
+                  "Command.$": "bin/register_flows.py"
+                  // TODO: Consider overriding ports
+                }]
+              }
+            },
+            Retry: [{
+              ErrorEquals: ["States.TaskFailed"],
+              IntervalSeconds: 3,
+              MaxAttempts: 2,
+              BackoffRate: 1.5
+            }],
+            End: true
+          }
+        }
+      })
+    })
+  }
 }
 
 const app = new App();
 new DataFlows(app, 'data-flows');
 // TODO: Fix the terraform version. @See https://github.com/Pocket/related-content-api/pull/333
 app.synth();
+
