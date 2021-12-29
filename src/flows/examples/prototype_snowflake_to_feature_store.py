@@ -1,18 +1,12 @@
-import os
-
+import boto3
 import pandas as pd
 from prefect import task, Flow
-
-import boto3
-from prefect.tasks.secrets import PrefectSecret
 from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.session import Session
 
-import prefect
-from prefect.run_configs import ECSRun
-
 # Setting the working directory to project root makes the path "src.lib.queries" for get_snowflake_query
 from src.lib.queries import get_snowflake_query
+
 
 @task
 def extract():
@@ -75,19 +69,3 @@ with Flow("Test Snowflake to Feature Group Flow") as flow:
 
 flow.run()
 
-#MARK: Deployment
-
-# flow.storage = prefect.storage.S3(
-#     bucket=f"pocket-dataflows-storage-{ os.getenv('DEPLOYMENT_ENVIRONMENT') }",
-#     add_default_labels=False
-# )
-#
-# flow.run_config = ECSRun(
-#     # task_definition_path="test.yaml",
-#     labels=['Dev'],
-#     task_role_arn=PrefectSecret('PREFECT_TASK_ROLE_ARN').run(),
-#     # execution_role_arn='arn:aws:iam::12345678:role/prefect-ecs',
-#     image='prefecthq/prefect:latest-python3.9',
-# )
-#
-# flow.register(project_name="engagement-data")

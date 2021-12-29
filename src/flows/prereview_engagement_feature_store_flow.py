@@ -60,9 +60,6 @@ def extract():
                                                'ALL_TIME_FAVORITE_COUNT',
                                                'VERSION',
                                                ])
-    # return pd.DataFrame(query_result)
-
-    # TODO: How to put this in a data frame?
 
 @task
 def load(df: pd.DataFrame, feature_group_name):
