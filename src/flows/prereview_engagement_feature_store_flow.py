@@ -23,16 +23,44 @@ def extract():
 
     A dataframe containing the results of a snowflake query represented as a pandas dataframe
     """
-    query_result =  get_snowflake_query().run(query="""
-    select 
-    
-    resolved_id, 
-    resolved_url, 
-    to_varchar(published_at,'yyyy-MM-dd"T"HH:mm:ssZ')::string as published_at
-    
-    from ANALYTICS.DBT.CONTENT limit 10
-    """)
-    return pd.DataFrame(query_result, columns=['RESOLVED_ID', 'RESOLVED_URL', 'PUBLISHED_AT'])
+    prereview_engagement_sql = """
+        select
+            RESOLVED_ID_TIME_ADDED_KEY::string as ID,
+            to_varchar(time_added,'yyyy-MM-dd"T"HH:mm:ssZ')::string as UNLOADED_AT,
+            RESOLVED_ID::string as RESOLVED_ID,
+            'null'::string as RESOLVED_URL,
+            DAY7_SAVE_COUNT::integer as "7_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+            DAY6_SAVE_COUNT::integer as "6_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+            DAY5_SAVE_COUNT::integer as "5_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+            DAY4_SAVE_COUNT::integer as "4_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+            DAY3_SAVE_COUNT::integer as "3_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+            DAY2_SAVE_COUNT::integer as "2_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+            DAY1_SAVE_COUNT::integer as "1_DAYS_PRIOR_SAVE_COUNT",
+            WEEK1_SAVE_COUNT::integer as ALL_TIME_SAVE_COUNT,
+            WEEK1_OPEN_COUNT::integer as ALL_TIME_OPEN_COUNT,
+            WEEK1_SHARE_COUNT::integer as ALL_TIME_SHARE_COUNT,
+            WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT,
+            '1.1'::string as VERSION
+        from analytics.dbt_gkatre.pre_curated_reading_metrics
+        where time_added = '2021-12-21'
+        limit 100;
+    """
+    query_result =  get_snowflake_query().run(query=prereview_engagement_sql)
+    return pd.DataFrame(query_result, columns=['ID', 'UNLOADED_AT', 'RESOLVED_ID', 'RESOLVED_URL',
+                                               '7_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
+                                               '6_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
+                                               '5_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
+                                               '4_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
+                                               '3_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
+                                               '2_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
+                                               '1_DAYS_PRIOR_SAVE_COUNT',
+                                               'ALL_TIME_SAVE_COUNT',
+                                               'ALL_TIME_OPEN_COUNT',
+                                               'ALL_TIME_SHARE_COUNT',
+                                               'ALL_TIME_FAVORITE_COUNT',
+                                               'VERSION',
+                                               ])
+    # return pd.DataFrame(query_result)
 
     # TODO: How to put this in a data frame?
 
@@ -67,10 +95,10 @@ def load(df: pd.DataFrame, feature_group_name):
 def print_results(results):
     print(results)
 
-with Flow("Test Snowflake to Feature Group Flow") as flow:
+with Flow("PreReview Engagement to Feature Group Flow") as flow:
     df = extract()
     print_results(df)
-    result = load(df, 'test-prefect')
+    result = load(df, 'new-tab-prospect-modeling-data')
     print_results(result)
 
 flow.run()

@@ -25,6 +25,6 @@ def get_snowflake_query():
         account=snowflake_account,
         user=snowflake_user,
         private_key=pkb,
-        role=PrefectSecret('ROLE').run(),
-        warehouse=PrefectSecret('WAREHOUSE').run()
+        role=PrefectSecret('SNOWFLAKE_ROLE').run(),
+        warehouse=PrefectSecret('SNOWFLAKE_WAREHOUSE').run()
     )
