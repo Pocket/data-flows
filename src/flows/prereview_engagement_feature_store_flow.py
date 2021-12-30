@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 
 import pandas as pd
 from prefect import task, Flow
@@ -13,9 +14,13 @@ from prefect.run_configs import ECSRun
 
 # Setting the working directory to project root makes the path "src.lib.queries" for get_snowflake_query
 from src.lib.queries import get_snowflake_query
+from src.lib.kv_utils import set_kv, get_kv
+
+FLOW_NAME = "PreReview Engagement to Feature Group Flow"
+START_DATE = '2021-12-21'
 
 @task
-def extract():
+def extract(last_executed_date):
     """
     Pull data from snowflake materialized tables.
 
@@ -23,7 +28,7 @@ def extract():
 
     A dataframe containing the results of a snowflake query represented as a pandas dataframe
     """
-    prereview_engagement_sql = """
+    prereview_engagement_sql = f"""
         select
             RESOLVED_ID_TIME_ADDED_KEY::string as ID,
             to_varchar(time_added,'yyyy-MM-dd"T"HH:mm:ssZ')::string as UNLOADED_AT,
@@ -42,8 +47,8 @@ def extract():
             WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT,
             '1.1'::string as VERSION
         from analytics.dbt_gkatre.pre_curated_reading_metrics
-        where time_added = '2021-12-21'
-        limit 100;
+        where time_added = '{last_executed_date}'
+        ;
     """
     query_result =  get_snowflake_query().run(query=prereview_engagement_sql)
     return pd.DataFrame(query_result, columns=['ID', 'UNLOADED_AT', 'RESOLVED_ID', 'RESOLVED_URL',
@@ -92,8 +97,16 @@ def load(df: pd.DataFrame, feature_group_name):
 def print_results(results):
     print(results)
 
-with Flow("PreReview Engagement to Feature Group Flow") as flow:
-    df = extract()
+@task
+def get_last_execution_date():
+    last_executed = get_kv(FLOW_NAME, START_DATE)
+    return datetime.strptime(last_executed, "%Y-%m-%d")
+
+
+with Flow(FLOW_NAME) as flow:
+    last_executed_date = get_last_execution_date()
+    print_results(last_executed_date)
+    df = extract(last_executed_date)
     print_results(df)
     result = load(df, 'new-tab-prospect-modeling-data')
     print_results(result)
