@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime, timedelta
 
@@ -17,7 +18,12 @@ from src.lib.queries import get_snowflake_query
 from src.lib.kv_utils import set_kv, get_kv
 
 FLOW_NAME = "PreReview Engagement to Feature Group Flow"
-START_DATE = '2021-12-21'
+
+# Using Prefect KV Store to capture state parameters
+STATE_PARAMETERS = {
+    'start_date': '2021-12-21',
+    'end_date': '2021-12-31',
+}
 
 @task
 def extract(last_executed_date):
@@ -99,7 +105,24 @@ def print_results(results):
 
 @task
 def get_last_execution_date():
-    last_executed = get_kv(FLOW_NAME, START_DATE)
+    default_state_parameters_json = json.dumps(STATE_PARAMETERS)
+    state_parameters_json = get_kv(FLOW_NAME, default_state_parameters_json)
+    last_executed = json.loads(state_parameters_json).get('start_date')
+    return datetime.strptime(last_executed, "%Y-%m-%d")
+
+@task
+def increment_set_last_execution_date(last_executed_date):
+    default_state_parameters_json = json.dumps(STATE_PARAMETERS)
+    state_parameters_json = get_kv(FLOW_NAME, default_state_parameters_json)
+
+    last_executed_date += timedelta(days=1)
+    state_parameters_dict = json.loads(state_parameters_json)
+    state_parameters_dict['start_date'] = last_executed_date.strftime('%Y-%m-%d')
+
+    set_kv(FLOW_NAME, json.dumps(state_parameters_dict))
+    default_state_parameters_json = json.dumps(STATE_PARAMETERS)
+    state_parameters_json = get_kv(FLOW_NAME, default_state_parameters_json)
+    last_executed = json.loads(state_parameters_json).get('start_date')
     return datetime.strptime(last_executed, "%Y-%m-%d")
 
 
@@ -110,6 +133,8 @@ with Flow(FLOW_NAME) as flow:
     print_results(df)
     result = load(df, 'new-tab-prospect-modeling-data')
     print_results(result)
+    last_executed_date = increment_set_last_execution_date(last_executed_date)
+    print_results(last_executed_date)
 
 flow.run()
 
