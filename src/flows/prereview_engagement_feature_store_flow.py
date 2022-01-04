@@ -22,8 +22,7 @@ FLOW_NAME = "PreReview Engagement to Feature Group Flow"
 
 # Using Prefect KV Store to capture state parameters
 STATE_PARAMETERS = {
-    'start_date': '2021-12-01',
-    'end_date': '2021-12-31',
+    'last_executed': '2021-12-01 00:00:00',
 }
 
 @task
@@ -35,6 +34,7 @@ def extract(last_executed_date):
 
     A dataframe containing the results of a snowflake query represented as a pandas dataframe
     """
+    set_kv(FLOW_NAME, json.dumps(STATE_PARAMETERS))
     prereview_engagement_sql = f"""
         select
             RESOLVED_ID_TIME_ADDED_KEY::string as ID,
@@ -110,42 +110,48 @@ def print_results(results, text):
     print(f'{text}{results}')
 
 @task
-def get_execution_date():
+def get_last_executed():
     """
     Query Prefect KV Store to get Flow state parameters.
 
     Returns:
     'start_data' from the json metadata that represents the execution date
 
-    TODO: Consier a more suitable name instead of 'start_data'...perhaps 'run_date'?
+    TODO: Consider a more suitable name instead of 'last_executed'...perhaps 'run_date'?
     """
-    default_state_parameters_json = json.dumps(STATE_PARAMETERS)
-    state_parameters_json = get_kv(FLOW_NAME, default_state_parameters_json)
-    last_executed = json.loads(state_parameters_json).get('start_date')
-    return datetime.strptime(last_executed, "%Y-%m-%d")
+    default_state_params_json = json.dumps({
+    'last_executed': '2021-12-01 00:00:00',
+})
+    state_params_json = get_kv(FLOW_NAME, default_state_params_json)
+    last_executed = json.loads(state_params_json).get('last_executed')
+    return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
 @task
-def increment_set_next_execution_date(last_executed_date):
+def increment_set_next_execution_date(last_executed_date, **kwargs):
     """
      Does the following:
-     - Increments the execution date by 1: Represents the next run data for the Flow
-     - Updates the Prefect KV Store to set the 'start_date' with the next execution date
+     - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days, hours, and seconds: Represents the next run data for the Flow
+     - Updates the Prefect KV Store to set the 'last_executed' with the next execution date
 
      Returns:
      The next execution date
      """
-    default_state_parameters_json = json.dumps(STATE_PARAMETERS)
-    state_parameters_json = get_kv(FLOW_NAME, default_state_parameters_json)
+    default_state_params_json = json.dumps({
+    'last_executed': '2021-12-01 00:00:00',
+})
+    state_params_json = get_kv(FLOW_NAME, default_state_params_json)
 
-    last_executed_date += timedelta(days=1)
-    state_parameters_dict = json.loads(state_parameters_json)
-    state_parameters_dict['start_date'] = last_executed_date.strftime('%Y-%m-%d')
+    last_executed_date += timedelta(**kwargs)
+    state_params_dict = json.loads(state_params_json)
+    state_params_dict['last_executed'] = last_executed_date.strftime('%Y-%m-%d %H:%M:%S')
 
-    set_kv(FLOW_NAME, json.dumps(state_parameters_dict))
-    default_state_parameters_json = json.dumps(STATE_PARAMETERS)
-    state_parameters_json = get_kv(FLOW_NAME, default_state_parameters_json)
-    last_executed = json.loads(state_parameters_json).get('start_date')
-    return datetime.strptime(last_executed, "%Y-%m-%d")
+    set_kv(FLOW_NAME, json.dumps(state_params_dict))
+    default_state_params_json = json.dumps({
+    'last_executed': '2021-12-01 00:00:00',
+})
+    state_params_json = get_kv(FLOW_NAME, default_state_params_json)
+    last_executed = json.loads(state_params_json).get('last_executed')
+    return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
 
 with Flow(FLOW_NAME) as flow:
@@ -158,12 +164,12 @@ with Flow(FLOW_NAME) as flow:
      - increment_set_next_execution_date(): Set the next execution data in the Prefect KV Store to be used for the 
      next Flow execution
      """
-    execution_date = get_execution_date()
-    print_results(execution_date, 'Execution Date: ')
-    df = extract(execution_date)
+    last_executed = get_last_executed()
+    print_results(last_executed, 'Last Executed: ')
+    df = extract(last_executed)
     result = load(df, 'new-tab-prospect-modeling-data')
     print_results(result, 'Feature Group load response: ')
-    next_execution_date = increment_set_next_execution_date(execution_date)
+    next_execution_date = increment_set_next_execution_date(last_executed)
     print_results(next_execution_date, 'Next Execution Date: ')
 
 flow.run()
