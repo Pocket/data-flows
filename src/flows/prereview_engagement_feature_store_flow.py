@@ -169,7 +169,7 @@ with Flow(FLOW_NAME) as flow:
     df = extract(last_executed)
     result = load(df, 'new-tab-prospect-modeling-data')
     print_results(result, 'Feature Group load response: ')
-    next_execution_date = increment_set_next_execution_date(last_executed)
+    next_execution_date = increment_set_next_execution_date(last_executed, days=1)
     print_results(next_execution_date, 'Next Execution Date: ')
 
 flow.run()
