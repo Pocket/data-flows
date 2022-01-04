@@ -6,7 +6,6 @@ def set_kv(key, value):
 
 def get_kv(key, default_value):
     try:
-        value = get_key_value(key)
         return get_key_value(key)
     except ValueError as err:
         set_key_value(key, default_value)
