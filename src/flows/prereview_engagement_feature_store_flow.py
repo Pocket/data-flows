@@ -26,9 +26,9 @@ STATE_PARAMETERS = {
 }
 
 @task
-def extract(last_executed_date):
+def extract_metrics_from_snowflake(last_executed):
     """
-    Pull data from snowflake materialized tables.
+    Pull data from snowflake materialized tables
 
     Returns:
 
@@ -54,7 +54,7 @@ def extract(last_executed_date):
             WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT,
             '1.1'::string as VERSION
         from analytics.dbt_gkatre.pre_curated_reading_metrics
-        where time_added = '{last_executed_date}'
+        where time_added = '{last_executed}'
         ;
     """
     query_result =  get_snowflake_query().run(query=prereview_engagement_sql)
@@ -72,11 +72,10 @@ def extract(last_executed_date):
                                                'ALL_TIME_FAVORITE_COUNT',
                                                'VERSION',
                                                ])
-    print(f'Row Count: {len(df)}')
     return df
 
 @task
-def load(df: pd.DataFrame, feature_group_name):
+def load_into_feature_group(df: pd.DataFrame, feature_group_name):
     """
     Update SageMaker feature group.
 
@@ -103,16 +102,10 @@ def load(df: pd.DataFrame, feature_group_name):
     return result
 
 @task
-def print_results(results, text):
-    """
-    Print results.
-    """
-    print(f'{text}{results}')
-
-@task
 def get_last_executed():
     """
-    Query Prefect KV Store to get Flow state parameters.
+    Query Prefect KV Store to get the execution date from previous Flow state
+     data extraction
 
     Returns:
     'start_data' from the json metadata that represents the execution date
@@ -127,7 +120,7 @@ def get_last_executed():
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
 @task
-def increment_set_next_execution_date(last_executed_date, **kwargs):
+def increment_last_executed_value(last_executed_date, **kwargs):
     """
      Does the following:
      - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days, hours, and seconds: Represents the next run data for the Flow
@@ -155,22 +148,10 @@ def increment_set_next_execution_date(last_executed_date, **kwargs):
 
 
 with Flow(FLOW_NAME) as flow:
-    """
-     The Flow:
-     - get_execution_date(): Get the execution date from pervious Flow state stored in Prefect KV Store to apply for 
-     data extraction
-     - extract(): Extract Snowflake data for ingestion
-     - load(): Load extracted data to SageMaker Feature store
-     - increment_set_next_execution_date(): Set the next execution data in the Prefect KV Store to be used for the 
-     next Flow execution
-     """
     last_executed = get_last_executed()
-    print_results(last_executed, 'Last Executed: ')
-    df = extract(last_executed)
-    result = load(df, 'new-tab-prospect-modeling-data')
-    print_results(result, 'Feature Group load response: ')
-    next_execution_date = increment_set_next_execution_date(last_executed, days=1)
-    print_results(next_execution_date, 'Next Execution Date: ')
+    df = extract_metrics_from_snowflake(last_executed)
+    result = load_into_feature_group(df, 'new-tab-prospect-modeling-data')
+    next_execution_date = increment_last_executed_value(last_executed, days=1)
 
 flow.run()
 
