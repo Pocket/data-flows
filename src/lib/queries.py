@@ -4,13 +4,14 @@ from prefect.tasks.snowflake import SnowflakeQuery
 from prefect.tasks.secrets import PrefectSecret
 from snowflake.connector import DictCursor
 
-with open("src/lib/rsa_key.p8", "rb") as key:
-    snowflake_passphrase = PrefectSecret('SNOWFLAKE_PASSPHRASE').run().encode()
-    p_key= serialization.load_pem_private_key(
-        key.read(),
-        password=snowflake_passphrase,
-        backend=default_backend()
-    )
+private_key = PrefectSecret('SNOWFLAKE_PRIVATE_KEY').run().replace("\n", "\n").encode()
+snowflake_passphrase = PrefectSecret('SNOWFLAKE_PASSPHRASE').run().encode()
+
+p_key = serialization.load_pem_private_key(
+    private_key,
+    password=snowflake_passphrase,
+    backend=default_backend()
+)
 
 pkb = p_key.private_bytes(
     encoding=serialization.Encoding.DER,
