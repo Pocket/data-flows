@@ -2,6 +2,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from prefect.tasks.snowflake import SnowflakeQuery
 from prefect.tasks.secrets import PrefectSecret
+from snowflake.connector import DictCursor
 
 with open("src/lib/rsa_key.p8", "rb") as key:
     snowflake_passphrase = PrefectSecret('SNOWFLAKE_PASSPHRASE').run().encode()
@@ -26,5 +27,6 @@ def get_snowflake_query():
         user=snowflake_user,
         private_key=pkb,
         role=PrefectSecret('SNOWFLAKE_ROLE').run(),
-        warehouse=PrefectSecret('SNOWFLAKE_WAREHOUSE').run()
+        warehouse=PrefectSecret('SNOWFLAKE_WAREHOUSE').run(),
+        cursor_type=DictCursor
     )

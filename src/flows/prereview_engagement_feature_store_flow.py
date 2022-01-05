@@ -58,20 +58,7 @@ def extract_metrics_from_snowflake(last_executed):
         ;
     """
     query_result =  get_snowflake_query().run(query=prereview_engagement_sql)
-    df = pd.DataFrame(query_result, columns=['ID', 'UNLOADED_AT', 'RESOLVED_ID', 'RESOLVED_URL',
-                                               '7_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
-                                               '6_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
-                                               '5_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
-                                               '4_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
-                                               '3_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
-                                               '2_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT',
-                                               '1_DAYS_PRIOR_SAVE_COUNT',
-                                               'ALL_TIME_SAVE_COUNT',
-                                               'ALL_TIME_OPEN_COUNT',
-                                               'ALL_TIME_SHARE_COUNT',
-                                               'ALL_TIME_FAVORITE_COUNT',
-                                               'VERSION',
-                                               ])
+    df = pd.DataFrame(query_result)
     return df
 
 @task
