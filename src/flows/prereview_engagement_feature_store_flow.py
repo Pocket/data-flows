@@ -26,7 +26,7 @@ def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed):
             select
                 RESOLVED_ID_TIME_ADDED_KEY::string as ID,
                 to_varchar(time_added,'yyyy-MM-dd"T"HH:mm:ssZ')::string as UNLOADED_AT,
-                --to_varchar(time_updated,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_UPDATED,
+                to_varchar(time_updated,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_UPDATED,
                 RESOLVED_ID::string as RESOLVED_ID,
                 'null'::string as RESOLVED_URL,
                 DAY7_SAVE_COUNT::integer as "7_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
@@ -42,7 +42,7 @@ def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed):
                 WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT,
                 '1.1'::string as VERSION
             from analytics.dbt.pre_curated_reading_metrics
-            where time_added > '{flow_last_executed}'
+            where time_updated > '{flow_last_executed}'
             ;
         """
 
