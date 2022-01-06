@@ -107,7 +107,7 @@ def get_last_executed():
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
 @task
-def increment_last_executed_value(last_executed_date, **kwargs):
+def update_last_executed_value(for_flow, default_if_absent='2000-01-01 00:00:00'):
     """
      Does the following:
      - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days, hours, and seconds: Represents the next run data for the Flow
@@ -121,18 +121,15 @@ def increment_last_executed_value(last_executed_date, **kwargs):
 })
     state_params_json = get_kv(FLOW_NAME, default_state_params_json)
 
-    last_executed_date += timedelta(**kwargs)
     state_params_dict = json.loads(state_params_json)
-    state_params_dict['last_executed'] = last_executed_date.strftime('%Y-%m-%d %H:%M:%S')
 
-    set_kv(FLOW_NAME, json.dumps(state_params_dict))
-    default_state_params_json = json.dumps({
-    'last_executed': '2021-12-01 00:00:00',
-})
-    state_params_json = get_kv(FLOW_NAME, default_state_params_json)
-    last_executed = json.loads(state_params_json).get('last_executed')
-    return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
+    now = datetime.now()
+    timezone = pytz.timezone("America/Los_Angeles")
+    now_pacific_time = timezone.localize(now)
+    state_params_dict['last_executed'] = now_pacific_time.strftime('%Y-%m-%d %H:%M:%S')
 
+    print(f"Set last executed time to: {state_params_dict['last_executed']}")
+    set_kv(for_flow, json.dumps(state_params_dict))
 
 with Flow(FLOW_NAME) as flow:
     last_executed = get_last_executed()
