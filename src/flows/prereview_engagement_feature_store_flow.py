@@ -8,9 +8,9 @@ from prefect import task, Flow
 from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.session import Session
 
-from src.lib.kv_utils import set_kv, get_kv
-# Setting the working directory to project root makes the path "src.lib.queries" for get_snowflake_query
-from src.lib.queries import get_snowflake_query
+from src.api_clients.prefect_key_value_store_client import set_kv, get_kv
+# Setting the working directory to project root makes the path start at "src"
+from src.api_clients import snowflake_client
 
 
 @task
@@ -46,8 +46,7 @@ def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed):
             ;
         """
 
-    print(f"RUNNING {prereview_engagement_sql}")
-    query_result =  get_snowflake_query().run(query=prereview_engagement_sql)
+    query_result = snowflake_client.query().run(query=prereview_engagement_sql)
     df = pd.DataFrame(query_result)
     return df
 
@@ -113,8 +112,8 @@ def update_last_executed_value(for_flow, default_if_absent='2000-01-01 00:00:00'
 FLOW_NAME = "PreReview Engagement to Feature Group Flow"
 with Flow(FLOW_NAME) as flow:
     flow_last_executed = get_last_executed_value(flow_name=FLOW_NAME)
+    update_last_executed_value(for_flow=FLOW_NAME)
     dataframe = prereview_engagement_from_snowflake_to_dataframe(flow_last_executed=flow_last_executed)
     result = dataframe_to_feature_group(df=dataframe, feature_group_name='new-tab-prospect-modeling-data')
-    update_last_executed_value(for_flow=FLOW_NAME)
 
 flow.run()
