@@ -15,7 +15,7 @@ from src.api_clients import snowflake_client
 
 
 @task
-def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed: datetime) -> DataFrame:
+def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
     """
     Pull data from snowflake materialized tables and save it to a dataframe.
 
@@ -123,7 +123,7 @@ FLOW_NAME = "PreReview Engagement to Feature Group Flow"
 with Flow(FLOW_NAME) as flow:
     flow_last_executed = get_last_executed_value(flow_name=FLOW_NAME)
     update_last_executed_value(for_flow=FLOW_NAME)
-    dataframe = prereview_engagement_from_snowflake_to_dataframe(flow_last_executed=flow_last_executed)
+    dataframe = extract_from_snowflake(flow_last_executed=flow_last_executed)
     result = dataframe_to_feature_group(df=dataframe, feature_group_name='new-tab-prospect-modeling-data')
 
 flow.run()
