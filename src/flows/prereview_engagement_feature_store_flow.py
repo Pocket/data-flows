@@ -43,8 +43,7 @@ def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed: datetim
                 WEEK1_SAVE_COUNT::integer as ALL_TIME_SAVE_COUNT,
                 WEEK1_OPEN_COUNT::integer as ALL_TIME_OPEN_COUNT,
                 WEEK1_SHARE_COUNT::integer as ALL_TIME_SHARE_COUNT,
-                WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT,
-                '1.1'::string as VERSION
+                WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT
             from analytics.dbt.pre_curated_reading_metrics
             where time_added > %s
             ;
@@ -113,7 +112,7 @@ def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:0
     state_params_dict = json.loads(state_params_json)
 
     now = datetime.now()
-    timezone = pytz.timezone("America/Los_Angeles")
+    timezone = pytz.utc
     now_pacific_time = timezone.localize(now)
     state_params_dict['last_executed'] = now_pacific_time.strftime('%Y-%m-%d %H:%M:%S')
 
