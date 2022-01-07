@@ -4,7 +4,7 @@ from prefect.tasks.snowflake import SnowflakeQuery
 from prefect.tasks.secrets import PrefectSecret
 from snowflake.connector import DictCursor
 
-private_key = PrefectSecret('SNOWFLAKE_PRIVATE_KEY').run().replace("\n", "\n").encode()
+private_key = PrefectSecret('SNOWFLAKE_PRIVATE_KEY').run().encode()
 snowflake_passphrase = PrefectSecret('SNOWFLAKE_PASSPHRASE').run().encode()
 
 p_key = serialization.load_pem_private_key(
@@ -20,7 +20,7 @@ pkb = p_key.private_bytes(
 
 # https://docs.prefect.io/api/latest/tasks/aws.html#awssecretsmanager
 
-def query():
+def get_query():
     snowflake_account = PrefectSecret('SNOWFLAKE_ACCOUNT').run()
     snowflake_user = PrefectSecret('SNOWFLAKE_USER').run()
     return SnowflakeQuery(

@@ -4,8 +4,9 @@ from datetime import datetime
 import boto3
 import pandas as pd
 import pytz
+from pandas import DataFrame
 from prefect import task, Flow
-from sagemaker.feature_store.feature_group import FeatureGroup
+from sagemaker.feature_store.feature_group import FeatureGroup, IngestionManagerPandas
 from sagemaker.session import Session
 
 from src.api_clients.prefect_key_value_store_client import set_kv, get_kv
@@ -14,9 +15,12 @@ from src.api_clients import snowflake_client
 
 
 @task
-def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed):
+def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed: datetime) -> DataFrame:
     """
-    Pull data from snowflake materialized tables
+    Pull data from snowflake materialized tables and save it to a dataframe.
+
+    Args:
+    - flow_last_executed: The earliest date for which we'd like to pull updates to this table.
 
     Returns:
 
@@ -26,7 +30,7 @@ def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed):
             select
                 RESOLVED_ID_TIME_ADDED_KEY::string as ID,
                 to_varchar(time_added,'yyyy-MM-dd"T"HH:mm:ssZ')::string as UNLOADED_AT,
-                to_varchar(time_updated,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_UPDATED,
+                --to_varchar(time_updated,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_UPDATED,
                 RESOLVED_ID::string as RESOLVED_ID,
                 'null'::string as RESOLVED_URL,
                 DAY7_SAVE_COUNT::integer as "7_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
@@ -42,16 +46,16 @@ def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed):
                 WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT,
                 '1.1'::string as VERSION
             from analytics.dbt.pre_curated_reading_metrics
-            where time_updated > '{flow_last_executed}'
+            where time_added > '{flow_last_executed}'
             ;
         """
 
-    query_result = snowflake_client.query().run(query=prereview_engagement_sql)
+    query_result = snowflake_client.get_query().run(query=prereview_engagement_sql)
     df = pd.DataFrame(query_result)
     return df
 
 @task
-def dataframe_to_feature_group(df: pd.DataFrame, feature_group_name: str):
+def dataframe_to_feature_group(df: pd.DataFrame, feature_group_name: str) -> IngestionManagerPandas :
     """
     Update SageMaker feature group.
 
@@ -72,13 +76,16 @@ def dataframe_to_feature_group(df: pd.DataFrame, feature_group_name: str):
     return feature_group.ingest(data_frame=df, max_workers=4, max_processes=4, wait=True)
 
 @task
-def get_last_executed_value(flow_name, default_if_absent='2000-01-01 00:00:00'):
+def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:00') -> datetime:
     """
     Query Prefect KV Store to get the execution date from previous Flow state
-     data extraction
+
+    Args:
+        - flow_name: The name of the flow in Prefect Cloud to fetch metadata from
+        - default_if_absent: The date to use as the last executed date if it is absent from the metadata, which will allow this flow to run the first time targeting a new Prefect Cloud env.
 
     Returns:
-    'start_data' from the json metadata that represents the execution date
+    'last_executed_date' from the json metadata that represents the most recent execution date before right now
 
     """
     default_state_params_json = json.dumps({'last_executed': default_if_absent})
@@ -87,11 +94,15 @@ def get_last_executed_value(flow_name, default_if_absent='2000-01-01 00:00:00'):
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
 @task
-def update_last_executed_value(for_flow, default_if_absent='2000-01-01 00:00:00'):
+def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:00:00') -> None:
     """
      Does the following:
      - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days, hours, and seconds: Represents the next run data for the Flow
      - Updates the Prefect KV Store to set the 'last_executed' with the next execution date
+
+     Args:
+        - for_flow: The name of the flow in Prefect Cloud to write metadata to
+        - default_if_absent: The date to use as the last executed date if it isn't specified. THIS RESETS THE FLOW to fetch every record from the table!!
 
      Returns:
      The next execution date
