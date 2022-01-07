@@ -46,11 +46,11 @@ def prereview_engagement_from_snowflake_to_dataframe(flow_last_executed: datetim
                 WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT,
                 '1.1'::string as VERSION
             from analytics.dbt.pre_curated_reading_metrics
-            where time_added > '{flow_last_executed}'
+            where time_added > %s
             ;
         """
 
-    query_result = snowflake_client.get_query().run(query=prereview_engagement_sql)
+    query_result = snowflake_client.get_query().run(query=prereview_engagement_sql, data=(flow_last_executed,))
     df = pd.DataFrame(query_result)
     return df
 
