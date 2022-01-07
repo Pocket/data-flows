@@ -20,7 +20,7 @@ pkb = p_key.private_bytes(
 
 # https://docs.prefect.io/api/latest/tasks/aws.html#awssecretsmanager
 
-def get_snowflake_query():
+def query():
     snowflake_account = PrefectSecret('SNOWFLAKE_ACCOUNT').run()
     snowflake_user = PrefectSecret('SNOWFLAKE_USER').run()
     return SnowflakeQuery(
