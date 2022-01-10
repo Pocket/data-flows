@@ -99,7 +99,7 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
     return df
 
 @task
-def dataframe_to_feature_group(df: pd.DataFrame, feature_group_name: str) -> IngestionManagerPandas :
+def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str) -> IngestionManagerPandas :
     """
     Update SageMaker feature group.
 
@@ -117,13 +117,16 @@ def dataframe_to_feature_group(df: pd.DataFrame, feature_group_name: str) -> Ing
                                     sagemaker_client=boto_session.client(service_name='sagemaker'),
                                     sagemaker_featurestore_runtime_client=boto_session.client(service_name='sagemaker-featurestore-runtime'))
     feature_group = FeatureGroup(name=feature_group_name, sagemaker_session=feature_store_session)
-    return feature_group.ingest(data_frame=df, max_workers=4, max_processes=4, wait=True)
+    return feature_group.ingest(data_frame=dataframe, max_workers=4, max_processes=4, wait=True)
 
 FLOW_NAME = "PreReview Engagement to Feature Group Flow"
 with Flow(FLOW_NAME) as flow:
-    flow_last_executed = get_last_executed_value(flow_name=FLOW_NAME)
-    update_last_executed_value(for_flow=FLOW_NAME)
-    dataframe = extract_from_snowflake(flow_last_executed=flow_last_executed)
-    result = dataframe_to_feature_group(df=dataframe, feature_group_name='new-tab-prospect-modeling-data')
+    promised_get_last_executed_flow_result = get_last_executed_value(flow_name=FLOW_NAME)
+
+    # this variable name is used in testing
+    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME)
+
+    promised_extract_from_snowflake_result = extract_from_snowflake(flow_last_executed=promised_get_last_executed_flow_result)
+    promised_dataframe_to_feature_group_result = dataframe_to_feature_group(dataframe=promised_extract_from_snowflake_result, feature_group_name='new-tab-prospect-modeling-data')
 
 flow.run()
