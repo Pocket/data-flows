@@ -431,7 +431,7 @@ class DataFlows extends TerraformStack {
       roleArn: app.ecsService.service.iamRole, // THIS IS WRONG.
       tags: config.tags,
       // Stolen from: https://nuvalence.io/blog/aws-step-function-integration-with-ecs-or-fargate-tasks-data-in-and-out
-      definition: JSON.stringify({
+      definition: Fn.jsonencode({
         StartAt: "DeployPrefectCloud",
         States: {
           DeployPrefectCloud: {
