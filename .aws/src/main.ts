@@ -3,17 +3,17 @@ import {App, Fn, RemoteBackend, TerraformStack} from 'cdktf';
 import {config} from './config';
 import {RunTaskRole} from "./runTaskRole";
 import {PocketALBApplication, PocketVPC,} from '@pocket-tools/terraform-modules';
-import {DataFlowsCodePipeline} from "./lib/DataFlowsCodePipeline";
-import { SFN, ECS } from '@cdktf/provider-aws';
+import {PocketECSCodePipeline} from "./lib/DataFlowsCodePipeline";
 
 // Providers
 import {
   AwsProvider,
-  DataSources,
-  IAM,
-  KMS,
-  SNS,
-  S3,
+  datasources,
+  iam,
+  kms,
+  sns,
+  sfn,
+  s3,
 } from '@cdktf/provider-aws';
 import { LocalProvider } from '@cdktf/provider-local';
 import { NullProvider } from '@cdktf/provider-null';
@@ -32,8 +32,8 @@ class DataFlows extends TerraformStack {
       workspaces: [{ prefix: `${config.name}-` }],
     });
 
-    const region = new DataSources.DataAwsRegion(this, 'region');
-    const caller = new DataSources.DataAwsCallerIdentity(this, 'caller');
+    const region = new datasources.DataAwsRegion(this, 'region');
+    const caller = new datasources.DataAwsCallerIdentity(this, 'caller');
 
     const pocketVPC = new PocketVPC(this, 'pocket-shared-vpc');
 
@@ -55,12 +55,11 @@ class DataFlows extends TerraformStack {
       caller,
       configBucket,
       runTaskKwargsObject,
-      storageBucket,
       runTaskRole,
     });
 
+    // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
     const deployStepFunction = this.createDeployStepFunction(pocketApp, pocketVPC);
-
     this.createApplicationCodePipeline(pocketApp, deployStepFunction);
   }
 
@@ -69,7 +68,7 @@ class DataFlows extends TerraformStack {
    * @private
    */
   private getCodeDeploySnsTopic() {
-    return new SNS.DataAwsSnsTopic(this, 'data_products_notifications', {
+    return new sns.DataAwsSnsTopic(this, 'data_products_notifications', {
       name: `DataAndLearning-${config.environment}-ChatBot`,
     });
   }
@@ -79,7 +78,7 @@ class DataFlows extends TerraformStack {
    * @private
    */
   private getSecretsManagerKmsAlias() {
-    return new KMS.DataAwsKmsAlias(this, 'kms_alias', {
+    return new kms.DataAwsKmsAlias(this, 'kms_alias', {
       name: 'alias/aws/secretsmanager',
     });
   }
@@ -87,49 +86,74 @@ class DataFlows extends TerraformStack {
   /**
    * Create CodePipeline to build and deploy terraform and ecs
    * @param app
+   * @param prefectCouldDeployStepFunction
    * @private
    */
-  private createApplicationCodePipeline(app: PocketALBApplication, prefectCouldDeployStepFunction: SFN.SfnStateMachine) {
-    new DataFlowsCodePipeline(this, 'code-pipeline', {
+  private createApplicationCodePipeline(app: PocketALBApplication, prefectCouldDeployStepFunction: sfn.SfnStateMachine) {
+    new PocketECSCodePipeline(this, 'code-pipeline', {
       prefix: config.prefix,
-      prefectCouldDeployStepFunction,
       source: {
         codeStarConnectionArn: config.codePipeline.githubConnectionArn,
         repository: config.codePipeline.repository,
         branchName: config.codePipeline.branch,
       },
+      postDeployStages: [
+        {
+          name: 'Prefect_Registration',
+          action: [this.getDeployPrefectCloudAction(prefectCouldDeployStepFunction)],
+        },
+      ],
     });
   }
 
   /**
-   * Create an S3 bucket for Prefect configuration objects.
+   * Pipeline -> StepFunction -> ECS Task
+   * https://nuvalence.io/blog/aws-step-function-integration-with-ecs-or-fargate-tasks-data-in-and-out
+   * https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codepipeline
+   */
+  private getDeployPrefectCloudAction = (prefectCouldDeployStepFunction: sfn.SfnStateMachine) => ({
+      name: 'Deploy_Prefect_Cloud',
+      category: 'Deploy',
+      owner: 'AWS',
+      provider: 'StepFunctions',
+      outputArtifacts: ['DeployPrefectCloudOutput'],
+      version: '1',
+      configuration: {
+          stateMachineArn: prefectCouldDeployStepFunction.arn,
+          ExecutionNamePrefix: 'CodePipelineDeploy',
+      },
+      runOrder: 3,
+  })
+
+  /**
+   * Create an s3 bucket for Prefect configuration objects.
    * @private
    */
-  private createConfigBucket(): S3.S3Bucket {
+  private createConfigBucket(): s3.S3Bucket {
     // Set preventDestroy to false, because the contents of this bucket is generated through code on deployment.
     return this.createBucket('config', false);
   }
 
   /**
-   * Create an S3 bucket Prefect storage
+   * Create an s3 bucket Prefect storage
    *
    * After registration, the flow will be stored under <slugified-flow-name>/<slugified-current-timestamp>
-   * Flows configured with S3 storage also default to using a S3Result for persisting any task results in this bucket.
+   * Flows configured with s3 storage also default to using a S3Result for persisting any task results in this bucket.
    * @see https://docs.prefect.io/orchestration/flow_config/storage.html
    * @private
    */
-  private createStorageBucket(): S3.S3Bucket {
+  private createStorageBucket(): s3.S3Bucket {
     return this.createBucket('storage');
   }
 
   /**
-   * Create an S3 bucket.
+   * Create an s3 bucket.
    * @param name
    * @param preventDestroy If true, the bucket is protected from being destroyed.
    * @private
    */
-  private createBucket(name: string, preventDestroy: boolean = true): S3.S3Bucket {
-    return new S3.S3Bucket(this, `prefect-${name.toLowerCase()}-bucket`, {
+  private createBucket(name: string, preventDestroy: boolean = true): s3.S3Bucket {
+    return new s3.S3Bucket(this, `prefect-${name.toLowerCase()}-bucket`, {
       bucket: `pocket-${config.name}-${name}-${config.environment}`.toLowerCase(),
       acl: 'private',
       forceDestroy: !preventDestroy, // Allow the bucket to be deleted even if it's not empty.
@@ -148,10 +172,10 @@ class DataFlows extends TerraformStack {
    * @see https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html
    */
   private getPrefectRunTaskPolicies(dependencies: {
-    region: DataSources.DataAwsRegion;
-    caller: DataSources.DataAwsCallerIdentity;
+    region: datasources.DataAwsRegion;
+    caller: datasources.DataAwsCallerIdentity;
     runTaskRole: RunTaskRole;
-  }): IAM.DataAwsIamPolicyDocumentStatement[] {
+  }): iam.DataAwsIamPolicyDocumentStatement[] {
     const {
       region,
       caller,
@@ -213,7 +237,7 @@ class DataFlows extends TerraformStack {
    * @see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ECS.Client.run_task
    * @private
    */
-  private createRunTaskKwargsObject(bucket: string, vpc: PocketVPC): S3.S3BucketObject {
+  private createRunTaskKwargsObject(bucket: string, vpc: PocketVPC): s3.S3BucketObject {
     const runTaskKwargs = {
         networkConfiguration: {
             awsvpcConfiguration: {
@@ -226,7 +250,7 @@ class DataFlows extends TerraformStack {
 
     const content = Fn.yamlencode(runTaskKwargs);
 
-    return new S3.S3BucketObject(this, 'run-task-kwargs-object', {
+    return new s3.S3BucketObject(this, 'run-task-kwargs-object', {
       bucket,
       key: 'run_task_kwargs.yml',
       content,
@@ -235,13 +259,12 @@ class DataFlows extends TerraformStack {
   }
 
   private createPocketAlbApplication(dependencies: {
-    region: DataSources.DataAwsRegion;
-    caller: DataSources.DataAwsCallerIdentity;
-    secretsManagerKmsAlias: KMS.DataAwsKmsAlias;
-    snsTopic: SNS.DataAwsSnsTopic;
-    configBucket: S3.S3Bucket;
-    runTaskKwargsObject: S3.S3BucketObject;
-    storageBucket: S3.S3Bucket;
+    region: datasources.DataAwsRegion;
+    caller: datasources.DataAwsCallerIdentity;
+    secretsManagerKmsAlias: kms.DataAwsKmsAlias;
+    snsTopic: sns.DataAwsSnsTopic;
+    configBucket: s3.S3Bucket;
+    runTaskKwargsObject: s3.S3BucketObject;
     runTaskRole: RunTaskRole;
   }): PocketALBApplication {
     const {
@@ -251,7 +274,6 @@ class DataFlows extends TerraformStack {
       snsTopic,
       configBucket,
       runTaskKwargsObject,
-      storageBucket,
       runTaskRole,
     } = dependencies;
 
@@ -386,7 +408,7 @@ class DataFlows extends TerraformStack {
         targetMaxCapacity: 10,
       },
       alarms: {
-        //TODO: When you start using the service add the pagerduty arns as an action `pagerDuty.snsNonCriticalAlarmTopic.arn`
+        //TODO: When you start using the service add the pagerduty ARNs as an action `pagerDuty.snsNonCriticalAlarmTopic.arn`
         http5xxErrorPercentage: {
           threshold: 25,
           evaluationPeriods: 4,
@@ -397,14 +419,14 @@ class DataFlows extends TerraformStack {
     });
   }
 
-  private createDeployStepFunction(app: PocketALBApplication, vpc: PocketVPC): SFN.SfnStateMachine {
+  private createDeployStepFunction(app: PocketALBApplication, vpc: PocketVPC): sfn.SfnStateMachine {
     const ecsTaskDefinitionArn = 'arn:aws:ecs:us-east-1:996905175585:task-definition/DataFlows-Prod:8'; // TODO: Make property public app.ecsService.taskDefinition.arn
     const ecsClusterArn = 'arn:aws:ecs:us-east-1:996905175585:cluster/DataFlows-Prod'; // TODO: Make property public from app
     const containerName = 'app'; // TODO: ...
     const subnets = vpc.privateSubnetIds;
     const securityGroups = vpc.defaultSecurityGroups.ids;
 
-    return new SFN.SfnStateMachine(this, 'deploy-prefect-cloud-state-machine', {
+    return new sfn.SfnStateMachine(this, 'deploy-prefect-cloud-state-machine', {
       name: `${config.prefix}-DeployPrefectCloud`,
       roleArn: app.ecsService.service.iamRole, // THIS IS WRONG.
       tags: config.tags,
