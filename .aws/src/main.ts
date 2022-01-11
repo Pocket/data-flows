@@ -48,7 +48,7 @@ class DataFlows extends TerraformStack {
     const runTaskRole = new RunTaskRole(this, 'run-task-role', storageBucket);
 
     // Create the Prefect agent in ECS.
-    const pocketApp = this.createPocketAlbApplication({
+    const prefectAgentApp = this.createPrefectAgentApp({
       secretsManagerKmsAlias: this.getSecretsManagerKmsAlias(),
       snsTopic: this.getCodeDeploySnsTopic(),
       region,
@@ -59,8 +59,14 @@ class DataFlows extends TerraformStack {
     });
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
-    const deployStepFunction = this.createDeployStepFunction(pocketApp, pocketVPC);
-    this.createApplicationCodePipeline(pocketApp, deployStepFunction);
+    const deployStepFunction = this.createDeployStepFunction({
+      region,
+      caller,
+      prefectAgentApp,
+      pocketVPC,
+      role: runTaskRole.iamRole, // TODO: Create a role for registration. It only needs to write to the storage bucket.
+    });
+    this.createApplicationCodePipeline(prefectAgentApp, deployStepFunction);
   }
 
   /**
@@ -126,7 +132,7 @@ class DataFlows extends TerraformStack {
   })
 
   /**
-   * Create an s3 bucket for Prefect configuration objects.
+   * Create a s3 bucket for Prefect configuration objects.
    * @private
    */
   private createConfigBucket(): s3.S3Bucket {
@@ -258,7 +264,7 @@ class DataFlows extends TerraformStack {
     });
   }
 
-  private createPocketAlbApplication(dependencies: {
+  private createPrefectAgentApp(dependencies: {
     region: datasources.DataAwsRegion;
     caller: datasources.DataAwsCallerIdentity;
     secretsManagerKmsAlias: kms.DataAwsKmsAlias;
@@ -419,16 +425,29 @@ class DataFlows extends TerraformStack {
     });
   }
 
-  private createDeployStepFunction(app: PocketALBApplication, vpc: PocketVPC): sfn.SfnStateMachine {
-    const ecsTaskDefinitionArn = 'arn:aws:ecs:us-east-1:996905175585:task-definition/DataFlows-Prod:8'; // TODO: Make property public app.ecsService.taskDefinition.arn
-    const ecsClusterArn = 'arn:aws:ecs:us-east-1:996905175585:cluster/DataFlows-Prod'; // TODO: Make property public from app
+  private createDeployStepFunction(dependencies: {
+    region: datasources.DataAwsRegion;
+    caller: datasources.DataAwsCallerIdentity;
+    prefectAgentApp: PocketALBApplication;
+    role: iam.IamRole;
+    pocketVPC: PocketVPC;
+  }): sfn.SfnStateMachine {
+    const {
+      region,
+      caller,
+      prefectAgentApp,
+      role,
+      pocketVPC,
+    } = dependencies;
+    const ecsTaskDefinitionArn = `arn:aws:ecs:${region.name}:${caller.accountId}:task-definition/DataFlows-Prod:8`; // TODO: Make property public app.ecsService.taskDefinition.arn
+    const ecsClusterArn = `arn:aws:ecs:${region.name}:${caller.accountId}:cluster/${config.prefix}`; // TODO: Make property public from app
     const containerName = 'app'; // TODO: ...
-    const subnets = vpc.privateSubnetIds;
-    const securityGroups = vpc.defaultSecurityGroups.ids;
+    const subnets = pocketVPC.privateSubnetIds;
+    const securityGroups = pocketVPC.defaultSecurityGroups.ids;
 
     return new sfn.SfnStateMachine(this, 'deploy-prefect-cloud-state-machine', {
       name: `${config.prefix}-DeployPrefectCloud`,
-      roleArn: app.ecsService.service.iamRole, // THIS IS WRONG.
+      roleArn: role.arn,
       tags: config.tags,
       // Stolen from: https://nuvalence.io/blog/aws-step-function-integration-with-ecs-or-fargate-tasks-data-in-and-out
       definition: Fn.jsonencode({
@@ -443,15 +462,19 @@ class DataFlows extends TerraformStack {
               TaskDefinition: ecsTaskDefinitionArn,
               NetworkConfiguration: {
                 AwsvpcConfiguration: {
+                  // Without `Fn.element` synth errors: `Found an encoded list token string in a scalar string context`.
+                  // Without `Fn.sort`, terraform apply errors: `cannot read elements from set of string.`
+                  //Subnets: [Fn.element(Fn.sort(subnets), 0)],
+                  //SecurityGroups: [Fn.element(securityGroups, 0)],
                   Subnets: subnets,
                   SecurityGroups: securityGroups,
-                  AssignPublicIp: "ENABLED" // TODO: Is public IP required?
+                  // AssignPublicIp: "ENABLED" // TODO: Is public IP required?
                 }
               },
               Overrides: {
                 ContainerOverrides: [{
                   Name: containerName,
-                  "Command.$": "bin/register_flows.py"
+                  Command: "bin/register_flows.py",
                   // TODO: Consider overriding ports
                 }]
               }
