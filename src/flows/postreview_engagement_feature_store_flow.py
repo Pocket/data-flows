@@ -72,27 +72,42 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
     A dataframe containing the results of a snowflake query represented as a pandas dataframe
     """
     prereview_engagement_sql = f"""
-            select
-                RESOLVED_ID_TIME_ADDED_KEY::string as ID,
-                to_varchar(time_added,'yyyy-MM-dd"T"HH:mm:ssZ')::string as UNLOADED_AT,
-                to_varchar(time_updated,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_UPDATED,
-                RESOLVED_ID::string as RESOLVED_ID,
-                'null'::string as RESOLVED_URL,
-                DAY7_SAVE_COUNT::integer as "7_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY6_SAVE_COUNT::integer as "6_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY5_SAVE_COUNT::integer as "5_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY4_SAVE_COUNT::integer as "4_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY3_SAVE_COUNT::integer as "3_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY2_SAVE_COUNT::integer as "2_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY1_SAVE_COUNT::integer as "1_DAYS_PRIOR_SAVE_COUNT",
-                WEEK1_SAVE_COUNT::integer as ALL_TIME_SAVE_COUNT,
-                WEEK1_OPEN_COUNT::integer as ALL_TIME_OPEN_COUNT,
-                WEEK1_SHARE_COUNT::integer as ALL_TIME_SHARE_COUNT,
-                WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT
-            from analytics.dbt.pre_curated_reading_metrics
-            where time_updated > %s
-            ;
-        """
+        select
+            to_varchar(TIME_LIVE,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_LIVE,
+            to_varchar(TIME_UPDATED,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_UPDATED,
+            PROSPECT_ID::integer as PROSPECT_ID,
+            RESOLVED_ID::string as RESOLVED_ID,
+            TITLE::string as TITLE,
+            STATUS::string as STATUS,
+            CURATOR::string as CURATOR,
+            NEWTAB_IMPRESSIONS_FIRST_DAY::integer as NEWTAB_IMPRESSIONS_FIRST_DAY,
+            NEWTAB_IMPRESSIONS_FIRST_WEEK::integer as NEWTAB_IMPRESSIONS_FIRST_WEEK,
+            NEWTAB_IMPRESSIONS_FIRST_MONTH::integer as NEWTAB_IMPRESSIONS_FIRST_MONTH,
+            NEWTAB_OPENS_FIRST_DAY::integer as NEWTAB_OPENS_FIRST_DAY,
+            NEWTAB_OPENS_FIRST_WEEK::integer as NEWTAB_OPENS_FIRST_WEEK,
+            NEWTAB_OPENS_FIRST_MONTH::integer as NEWTAB_OPENS_FIRST_MONTH,
+            POCKET_APP_SAVES_FIRST_DAY::integer as POCKET_APP_SAVES_FIRST_DAY,
+            POCKET_APP_SAVES_FIRST_WEEK::integer as POCKET_APP_SAVES_FIRST_WEEK,
+            POCKET_APP_SAVES_FIRST_MONTH::integer as POCKET_APP_SAVES_FIRST_MONTH,
+            POCKET_APP_OPENS_FIRST_DAY::integer as POCKET_APP_OPENS_FIRST_DAY,
+            POCKET_APP_OPENS_FIRST_WEEK::integer as POCKET_APP_OPENS_FIRST_WEEK,
+            POCKET_APP_OPENS_FIRST_MONTH::integer as POCKET_APP_OPENS_FIRST_MONTH,
+            RECS_SURFACES_SAVES_FIRST_DAY::integer as RECS_SURFACES_SAVES_FIRST_DAY,
+            RECS_SURFACES_SAVES_FIRST_WEEK::integer as RECS_SURFACES_SAVES_FIRST_WEEK,
+            RECS_SURFACES_SAVES_FIRST_MONTH::integer as RECS_SURFACES_SAVES_FIRST_MONTH,
+            RECS_SURFACES_OPENS_FIRST_DAY::integer as RECS_SURFACES_OPENS_FIRST_DAY,
+            RECS_SURFACES_OPENS_FIRST_WEEK::integer as RECS_SURFACES_OPENS_FIRST_WEEK,
+            RECS_SURFACES_OPENS_FIRST_MONTH::integer as RECS_SURFACES_OPENS_FIRST_MONTH,
+            POCKET_APP_TIMESPEND_FIRST_DAY::string as POCKET_APP_TIMESPEND_FIRST_DAY,
+            POCKET_APP_TIMESPEND_FIRST_WEEK::string as POCKET_APP_TIMESPEND_FIRST_WEEK,
+            POCKET_APP_TIMESPEND_FIRST_MONTH::string as POCKET_APP_TIMESPEND_FIRST_MONTH,
+            TIME_PERIOD_TOTAL_NEWTAB_SAVES::integer as TIME_PERIOD_TOTAL_NEWTAB_SAVES,
+            TIME_PERIOD_TOTAL_NEWTAB_DISMISSALS::integer as TIME_PERIOD_TOTAL_NEWTAB_DISMISSALS,            
+            '1.1'::string as VERSION
+        from analytics.dbt.all_surfaces_engagements_past_30_day_aggregations
+        where TIME_UPDATED > %s
+        ;
+    """
 
     query_result = snowflake_client.get_query().run(query=prereview_engagement_sql, data=(flow_last_executed,))
     df = pd.DataFrame(query_result)
@@ -119,7 +134,7 @@ def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str)
     feature_group = FeatureGroup(name=feature_group_name, sagemaker_session=feature_store_session)
     return feature_group.ingest(data_frame=dataframe, max_workers=4, max_processes=4, wait=True)
 
-FLOW_NAME = "PreReview Engagement to Feature Group Flow"
+FLOW_NAME = "PostReview Engagement to Feature Group Flow"
 with Flow(FLOW_NAME) as flow:
     promised_get_last_executed_flow_result = get_last_executed_value(flow_name=FLOW_NAME)
 
@@ -127,6 +142,6 @@ with Flow(FLOW_NAME) as flow:
     promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME)
 
     promised_extract_from_snowflake_result = extract_from_snowflake(flow_last_executed=promised_get_last_executed_flow_result)
-    promised_dataframe_to_feature_group_result = dataframe_to_feature_group(dataframe=promised_extract_from_snowflake_result, feature_group_name='new-tab-prospect-modeling-data')
+    promised_dataframe_to_feature_group_result = dataframe_to_feature_group(dataframe=promised_extract_from_snowflake_result, feature_group_name='postreview-enagement-aggregate-metrics')
 
 flow.run()
