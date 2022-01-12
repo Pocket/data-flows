@@ -73,24 +73,27 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
     """
     prereview_engagement_sql = f"""
             select
-                RESOLVED_ID_TIME_ADDED_KEY::string as ID,
-                to_varchar(time_added,'yyyy-MM-dd"T"HH:mm:ssZ')::string as UNLOADED_AT,
-                --to_varchar(time_updated,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_UPDATED,
-                RESOLVED_ID::string as RESOLVED_ID,
-                'null'::string as RESOLVED_URL,
-                DAY7_SAVE_COUNT::integer as "7_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY6_SAVE_COUNT::integer as "6_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY5_SAVE_COUNT::integer as "5_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY4_SAVE_COUNT::integer as "4_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY3_SAVE_COUNT::integer as "3_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY2_SAVE_COUNT::integer as "2_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
-                DAY1_SAVE_COUNT::integer as "1_DAYS_PRIOR_SAVE_COUNT",
-                WEEK1_SAVE_COUNT::integer as ALL_TIME_SAVE_COUNT,
-                WEEK1_OPEN_COUNT::integer as ALL_TIME_OPEN_COUNT,
-                WEEK1_SHARE_COUNT::integer as ALL_TIME_SHARE_COUNT,
-                WEEK1_FAVORITE_COUNT::integer as ALL_TIME_FAVORITE_COUNT
+                RESOLVED_ID_TIME_ADDED_FEED_ID_KEY as ID,
+                to_varchar(updated_at,'yyyy-MM-dd"T"HH:mm:ssZ') as UPDATED_AT,
+                to_varchar(time_added,'yyyy-MM-dd"T"HH:mm:ssZ') as TIME_ADDED,
+                RESOLVED_ID as RESOLVED_ID,
+                FEED_ID as FEED_ID,
+                STATUS as STATUS,
+                TYPE as TYPE,
+                RESOLVED_URL as RESOLVED_URL,
+                DAY7_SAVE_COUNT as "7_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+                DAY6_SAVE_COUNT as "6_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+                DAY5_SAVE_COUNT as "5_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+                DAY4_SAVE_COUNT as "4_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+                DAY3_SAVE_COUNT as "3_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+                DAY2_SAVE_COUNT as "2_DAYS_PRIOR_CUMULATIVE_SAVE_COUNT",
+                DAY1_SAVE_COUNT as "1_DAYS_PRIOR_SAVE_COUNT",
+                WEEK1_SAVE_COUNT as ALL_TIME_SAVE_COUNT,
+                WEEK1_OPEN_COUNT as ALL_TIME_OPEN_COUNT,
+                WEEK1_SHARE_COUNT as ALL_TIME_SHARE_COUNT,
+                WEEK1_FAVORITE_COUNT as ALL_TIME_FAVORITE_COUNT
             from analytics.dbt.pre_curated_reading_metrics
-            where time_added > %s
+            where updated_at > %s
             ;
         """
 
