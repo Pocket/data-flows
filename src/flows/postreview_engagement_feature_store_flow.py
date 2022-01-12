@@ -26,7 +26,7 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
     prereview_engagement_sql = f"""
         select
             to_varchar(TIME_LIVE,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_LIVE,
---             to_varchar(TIME_UPDATED,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_UPDATED,
+            to_varchar(TIME_UPDATED,'yyyy-MM-dd"T"HH:mm:ssZ')::string as UPDATED_AT,
             PROSPECT_ID,
             RESOLVED_ID,
             TITLE,
@@ -56,7 +56,7 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
             TIME_PERIOD_TOTAL_NEWTAB_SAVES,
             TIME_PERIOD_TOTAL_NEWTAB_DISMISSALS            
         from analytics.dbt.all_surfaces_engagements_past_30_day_aggregations
-        where TIME_LIVE > %s
+        where UPDATED_AT > %s
         ;
     """
 
