@@ -1,12 +1,16 @@
-import {Resource} from "cdktf";
-import {Construct} from "constructs";
-import {datasources, iam, s3} from "@cdktf/provider-aws";
-import {config} from "./config";
+import { Resource } from 'cdktf';
+import { Construct } from 'constructs';
+import { datasources, iam, s3 } from '@cdktf/provider-aws';
+import { config } from './config';
 
 export class RunTaskRole extends Resource {
   public readonly iamRole: iam.IamRole;
 
-  constructor(scope: Construct, name: string, prefectStorageBucket: s3.S3Bucket) {
+  constructor(
+    scope: Construct,
+    name: string,
+    prefectStorageBucket: s3.S3Bucket
+  ) {
     super(scope, name);
 
     const region = new datasources.DataAwsRegion(this, 'region');
@@ -21,7 +25,9 @@ export class RunTaskRole extends Resource {
     ]);
 
     // Get existing policies that run tasks need.
-    const existingPolicies = this.getExistingPolicies(config.prefect.runTaskRole.existingPolicies);
+    const existingPolicies = this.getExistingPolicies(
+      config.prefect.runTaskRole.existingPolicies
+    );
 
     // Create a role with the above policies.
     this.iamRole = this.createRunTaskRole([
@@ -49,7 +55,9 @@ export class RunTaskRole extends Resource {
    * @param statement
    * @private
    */
-  private createRunTaskRolePolicy(statement: iam.DataAwsIamPolicyDocumentStatement[]): iam.IamPolicy {
+  private createRunTaskRolePolicy(
+    statement: iam.DataAwsIamPolicyDocumentStatement[]
+  ): iam.IamPolicy {
     const dataEcsTaskRolePolicy = new iam.DataAwsIamPolicyDocument(
       this,
       'data-run-task-role-policy',
@@ -73,19 +81,12 @@ export class RunTaskRole extends Resource {
     const s3Bucket = new s3.DataAwsS3Bucket(
       this,
       'pocket-data-learning-bucket',
-      {bucket: config.prefect.runTaskRole.dataLearningBucketName}
+      { bucket: config.prefect.runTaskRole.dataLearningBucketName }
     );
 
     return {
-      actions: [
-        's3:GetObject*',
-        's3:ListBucket*',
-        's3:HeadObject',
-      ],
-      resources: [
-        s3Bucket.arn,
-        `${s3Bucket.arn}/*`,
-      ],
+      actions: ['s3:GetObject*', 's3:ListBucket*', 's3:HeadObject'],
+      resources: [s3Bucket.arn, `${s3Bucket.arn}/*`],
       effect: 'Allow',
     };
   }
@@ -96,9 +97,9 @@ export class RunTaskRole extends Resource {
    */
   private getStepFunctionExecuteAccess(): iam.DataAwsIamPolicyDocumentStatement {
     return {
-      actions: [ 'states:StartExecution' ],
+      actions: ['states:StartExecution'],
       //TODO: Limit the resource to Metaflow step functions
-      resources: [ 'arn:aws:states:*:*:stateMachine:*'],
+      resources: ['arn:aws:states:*:*:stateMachine:*'],
       effect: 'Allow',
     };
   }
@@ -109,7 +110,7 @@ export class RunTaskRole extends Resource {
    */
   private putFeatureGroupRecordsAccess(): iam.DataAwsIamPolicyDocumentStatement {
     return {
-      actions: [ 'sagemaker:PutRecord' ],
+      actions: ['sagemaker:PutRecord'],
       resources: ['arn:aws:sagemaker:*:*:feature-group/*'],
       effect: 'Allow',
     };
@@ -120,17 +121,12 @@ export class RunTaskRole extends Resource {
    * @see https://docs.prefect.io/orchestration/flow_config/storage.html#pickle-vs-script-based-storage
    * @private
    */
-  private getPrefectStorageS3BucketWriteAccess(s3Bucket: s3.S3Bucket): iam.DataAwsIamPolicyDocumentStatement {
+  private getPrefectStorageS3BucketWriteAccess(
+    s3Bucket: s3.S3Bucket
+  ): iam.DataAwsIamPolicyDocumentStatement {
     return {
-      actions: [
-        's3:GetObject*',
-        's3:PutObject*',
-        's3:ListBucket*',
-      ],
-      resources: [
-        s3Bucket.arn,
-        `${s3Bucket.arn}/*`,
-      ],
+      actions: ['s3:GetObject*', 's3:PutObject*', 's3:ListBucket*'],
+      resources: [s3Bucket.arn, `${s3Bucket.arn}/*`],
       effect: 'Allow',
     };
   }
@@ -139,7 +135,9 @@ export class RunTaskRole extends Resource {
    * Creates an iam role for ECS tasks that execute the prefect task.
    * @private
    */
-  private createRunTaskRole(policies: (iam.IamPolicy | iam.DataAwsIamPolicy)[]): iam.IamRole {
+  private createRunTaskRole(
+    policies: (iam.IamPolicy | iam.DataAwsIamPolicy)[]
+  ): iam.IamRole {
     const dataEcsTaskAssume = new iam.DataAwsIamPolicyDocument(
       this,
       'run-task-assume',

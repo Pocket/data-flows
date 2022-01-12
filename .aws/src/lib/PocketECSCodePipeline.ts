@@ -84,8 +84,8 @@ export class PocketECSCodePipeline extends Resource {
    */
   private getStages = () => [
     this.getSourceStage(),
-    this.getDeployStage(),
     ...(this.config.postDeployStages ? this.config.postDeployStages : []),
+    this.getDeployStage(),
   ];
 
   private createS3KmsAlias() {
@@ -175,7 +175,7 @@ export class PocketECSCodePipeline extends Resource {
                 'codebuild:StartBuildBatch',
               ],
               resources: [
-                `arn:aws:codebuild:*:*:project/${this.codeBuildProjectName}`,
+                `arn:aws:codebuild:*:*:project/${this.codeBuildProjectName}*`,
               ],
             },
             {
