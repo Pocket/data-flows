@@ -79,12 +79,10 @@ export class DataFlowsCodePipeline extends Resource {
 
   private createFlowRegistrationCodeBuildProject(): codebuild.CodebuildProject {
     // TODO: Get image ARN from PocketApp
-    const region = this.dependencies.region;
-    const caller = this.dependencies.caller;
-    const imageRepo = `dataflows-${config.environment.toLowerCase()}-app:latest`;
-    const image = `${caller.accountId}.dkr.ecr.${region.name}.amazonaws.com/${imageRepo}:latest`;
+    const imageTag = `dataflows-${config.environment.toLowerCase()}-app:latest`;
+    const imageArn = `${this.dependencies.caller.accountId}.dkr.ecr.${this.dependencies.region.name}.amazonaws.com/${imageTag}`;
 
-    const codeBuildRole = this.createFlowRegistrationIamRole(imageRepo);
+    const codeBuildRole = this.createFlowRegistrationIamRole(imageArn);
 
     return new codebuild.CodebuildProject(this, 'deploy-prefect-codebuild', {
       name: `${config.prefix}-PrefectRegistration`,
@@ -97,7 +95,7 @@ export class DataFlowsCodePipeline extends Resource {
       cache: { type: 'NO_CACHE' },
       environment: {
         computeType: 'BUILD_GENERAL1_SMALL',
-        image,
+        image: imageArn,
         type: 'LINUX_CONTAINER',
         imagePullCredentialsType: 'SERVICE_ROLE',
       },
@@ -113,10 +111,7 @@ export class DataFlowsCodePipeline extends Resource {
     });
   }
 
-  private createFlowRegistrationIamRole(imageRepoName: string) {
-    const region = this.dependencies.region;
-    const caller = this.dependencies.caller;
-
+  private createFlowRegistrationIamRole(imageArn: string) {
     const dataCodebuildAssume = new iam.DataAwsIamPolicyDocument(
       this,
       'flow_registration_codebuild_assume_role',
@@ -142,9 +137,9 @@ export class DataFlowsCodePipeline extends Resource {
       tags: config.tags,
     });
 
-    const dataPolicy = new iam.DataAwsIamPolicyDocument(
+    const policy = new iam.DataAwsIamPolicyDocument(
       this,
-      'flow_registration_policy_document',
+      'flow_registration_policy',
       {
         version: '2012-10-17',
         statement: [
@@ -154,39 +149,28 @@ export class DataFlowsCodePipeline extends Resource {
               'ecr:BatchGetImage',
               'ecr:BatchCheckLayerAvailability',
             ],
-            resources: [
-              `arn:aws:ecr:${region.name}:${caller.accountId}:repository/${imageRepoName}`,
-            ],
+            resources: [imageArn],
             effect: 'Allow',
           },
           {
             actions: [
-              'logs:CreateLogGroup',
-              'logs:CreateLogStream',
-              'logs:PutLogEvents',
+              'codebuild:CreateReportGroup',
+              'codebuild:CreateReport',
+              'codebuild:UpdateReport',
+              'codebuild:BatchPutTestCases',
             ],
-            resources: [
-              `arn:aws:logs:${region.name}:${caller.accountId}:log-group:/aws/codebuild/*`,
-            ],
+            resources: ['*'],
             effect: 'Allow',
           },
         ],
       }
     );
 
-    const policy = new iam.IamPolicy(this, 'flow_registration_policy', {
-      name: `${config.prefix}-RegistrationPolicy`,
-      policy: dataPolicy.json,
+    // TODO: Limit permissions. It needs to run an ECS task and write to the Prefect S3 storage bucket.
+    new iam.IamRolePolicyAttachment(this, 'codebuild_admin_policy_attachment', {
+      policyArn: 'arn:aws:iam::aws:policy/AdministratorAccess',
+      role: codeBuildRole.name,
     });
-
-    new iam.IamRolePolicyAttachment(
-      this,
-      'flow_registration_policy_attachment',
-      {
-        policyArn: policy.arn,
-        role: codeBuildRole.name,
-      }
-    );
     return codeBuildRole;
   }
 }
