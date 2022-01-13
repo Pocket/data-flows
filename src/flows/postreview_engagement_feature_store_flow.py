@@ -27,6 +27,7 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
         select
             to_varchar(TIME_LIVE,'yyyy-MM-dd"T"HH:mm:ssZ')::string as TIME_LIVE,
             to_varchar(UPDATED_AT,'yyyy-MM-dd"T"HH:mm:ssZ')::string as UPDATED_AT,
+            FEED_ID,
             PROSPECT_ID,
             RESOLVED_ID,
             TITLE,
