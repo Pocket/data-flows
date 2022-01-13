@@ -101,7 +101,7 @@ export class DataFlowsCodePipeline extends Resource {
         environmentVariable: [
           {
             name: 'PREFECT_APIKEY_PARAMETER_NAME',
-            value: `${config.name}/${config.environment}/PREFECT_API_KEY`,
+            value: `/${config.name}/${config.environment}/PREFECT_API_KEY`,
           }
         ],
       },

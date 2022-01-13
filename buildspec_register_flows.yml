@@ -13,4 +13,5 @@ env:
 phases:
   build:
     commands:
+      - 'prefect auth login --key $PREFECT_APIKEY'
       - 'python bin/register_flows.py'
