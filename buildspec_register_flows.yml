@@ -12,4 +12,4 @@ env:
 phases:
   build:
     commands:
-      - 'pipenv run python bin/register_flows.py'
+      - 'python bin/register_flows.py'
