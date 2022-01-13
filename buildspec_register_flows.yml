@@ -7,11 +7,12 @@ version: 0.2
 
 env:
   parameter-store:
-    PREFECT_APIKEY: $PREFECT_APIKEY_PARAMETER_NAME
+    # Prefect will look for an environment variable PREFECT__CLOUD__API_KEY to authenticate with Prefect Cloud.
+    # See https://docs.prefect.io/orchestration/concepts/api_keys.html#using-api-keys
+    PREFECT__CLOUD__API_KEY: $PREFECT_APIKEY_PARAMETER_NAME
 
 
 phases:
   build:
     commands:
-      - 'prefect auth login --key $PREFECT_APIKEY'
       - 'python bin/register_flows.py'
