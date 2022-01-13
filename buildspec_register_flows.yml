@@ -1,0 +1,15 @@
+version: 0.2
+#https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html
+
+#####
+# Builds flows and registers them with Prefect Cloud
+#####
+
+env:
+  variables:
+    PREFECT_APIKEY: 'TODO'
+
+phases:
+  build:
+    commands:
+      - 'pipenv run python bin/register_flows.py'

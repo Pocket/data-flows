@@ -101,7 +101,7 @@ export class DataFlowsCodePipeline extends Resource {
       },
       source: {
         type: 'CODEPIPELINE',
-        buildspec: 'buildspec.yml', // TODO: Use custom buildspec that registers Prefect flows.
+        buildspec: 'buildspec_register_flows.yml',
       },
       vpcConfig: {
         vpcId: this.dependencies.pocketVPC.vpc.id,
@@ -136,35 +136,6 @@ export class DataFlowsCodePipeline extends Resource {
       assumeRolePolicy: dataCodebuildAssume.json,
       tags: config.tags,
     });
-
-    const policy = new iam.DataAwsIamPolicyDocument(
-      this,
-      'flow_registration_policy',
-      {
-        version: '2012-10-17',
-        statement: [
-          {
-            actions: [
-              'ecr:GetDownloadUrlForLayer',
-              'ecr:BatchGetImage',
-              'ecr:BatchCheckLayerAvailability',
-            ],
-            resources: [imageArn],
-            effect: 'Allow',
-          },
-          {
-            actions: [
-              'codebuild:CreateReportGroup',
-              'codebuild:CreateReport',
-              'codebuild:UpdateReport',
-              'codebuild:BatchPutTestCases',
-            ],
-            resources: ['*'],
-            effect: 'Allow',
-          },
-        ],
-      }
-    );
 
     // TODO: Limit permissions. It needs to run an ECS task and write to the Prefect S3 storage bucket.
     new iam.IamRolePolicyAttachment(this, 'codebuild_admin_policy_attachment', {
