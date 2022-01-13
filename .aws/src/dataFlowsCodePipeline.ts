@@ -3,6 +3,7 @@ import {
   codebuild,
   codepipeline,
   datasources,
+  ecr,
   iam,
   s3,
 } from '@cdktf/provider-aws';
@@ -13,10 +14,13 @@ import {
 } from '@pocket-tools/terraform-modules';
 import { config } from './config';
 import { PocketECSCodePipeline } from './lib/PocketECSCodePipeline';
+import {RunTaskRole} from "./runTaskRole";
 
 export class DataFlowsCodePipeline extends Resource {
   private readonly pocketEcsCodePipeline: PocketECSCodePipeline;
   private readonly flowRegistrationCodeBuildProject: codebuild.CodebuildProject;
+  private readonly prefectImageRepository: ecr.DataAwsEcrRepository;
+  private readonly prefectImageUri: string;
 
   constructor(
     scope: Construct,
@@ -26,10 +30,14 @@ export class DataFlowsCodePipeline extends Resource {
       caller: datasources.DataAwsCallerIdentity;
       storageBucket: s3.S3Bucket;
       prefectAgentApp: PocketALBApplication;
+      runTaskRole: RunTaskRole,
       pocketVPC: PocketVPC;
     }
   ) {
     super(scope, name);
+
+    this.prefectImageRepository = this.getPrefectEcrRepository();
+    this.prefectImageUri = `${this.prefectImageRepository.repositoryUrl}:latest`;
 
     this.flowRegistrationCodeBuildProject =
       this.createFlowRegistrationCodeBuildProject();
@@ -78,11 +86,7 @@ export class DataFlowsCodePipeline extends Resource {
   });
 
   private createFlowRegistrationCodeBuildProject(): codebuild.CodebuildProject {
-    // TODO: Get image ARN from PocketApp
-    const imageTag = `dataflows-${config.environment.toLowerCase()}-app:latest`;
-    const imageArn = `${this.dependencies.caller.accountId}.dkr.ecr.${this.dependencies.region.name}.amazonaws.com/${imageTag}`;
-
-    const codeBuildRole = this.createFlowRegistrationIamRole(imageArn);
+    const codeBuildRole = this.createFlowRegistrationIamRole();
 
     return new codebuild.CodebuildProject(this, 'deploy-prefect-codebuild', {
       name: `${config.prefix}-PrefectRegistration`,
@@ -95,14 +99,34 @@ export class DataFlowsCodePipeline extends Resource {
       cache: { type: 'NO_CACHE' },
       environment: {
         computeType: 'BUILD_GENERAL1_SMALL',
-        image: imageArn,
+        image: this.prefectImageUri,
         type: 'LINUX_CONTAINER',
         imagePullCredentialsType: 'SERVICE_ROLE',
         environmentVariable: [
           {
+            // Parameter store parameter name that holds the Prefect API key. CodeBuild will securely load this secret.
             name: 'PREFECT_APIKEY_PARAMETER_NAME',
             value: `/${config.name}/${config.environment}/PREFECT_API_KEY`,
-          }
+          },
+          {
+            name: 'PREFECT_PROJECT_NAME',
+            value: config.prefect.projectName,
+          },
+          {
+            // S3 Storage bucket where the flows will be stored.
+            name: 'PREFECT_STORAGE_BUCKET',
+            value: this.dependencies.storageBucket.bucket,
+          },
+          {
+            // S3 Storage bucket where the flows will be stored.
+            name: 'PREFECT_IMAGE',
+            value: this.prefectImageUri,
+          },
+          {
+            // IAM Role ARN for the ECS TaskRole to run flows.
+            name: 'PREFECT_RUN_TASK_ROLE',
+            value: this.dependencies.runTaskRole.iamRole.arn,
+          },
         ],
       },
       source: {
@@ -117,7 +141,7 @@ export class DataFlowsCodePipeline extends Resource {
     });
   }
 
-  private createFlowRegistrationIamRole(imageArn: string) {
+  private createFlowRegistrationIamRole() {
     const dataCodebuildAssume = new iam.DataAwsIamPolicyDocument(
       this,
       'flow_registration_codebuild_assume_role',
@@ -149,5 +173,12 @@ export class DataFlowsCodePipeline extends Resource {
       role: codeBuildRole.name,
     });
     return codeBuildRole;
+  }
+
+  private getPrefectEcrRepository(): ecr.DataAwsEcrRepository {
+    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
+      // TODO: If Terraform-Modules would expose the ECR repository that it creates, we could reference the repo name.
+      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
+    });
   }
 }

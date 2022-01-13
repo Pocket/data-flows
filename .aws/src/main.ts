@@ -69,6 +69,7 @@ class DataFlows extends TerraformStack {
       caller,
       storageBucket,
       prefectAgentApp,
+      runTaskRole,
       pocketVPC,
     });
   }
@@ -254,7 +255,7 @@ class DataFlows extends TerraformStack {
       domain: config.domain,
       containerConfigs: [
         {
-          name: 'app',
+          name: config.prefect.agentContainerName,
           portMappings: [
             {
               hostPort: config.prefect.port,
