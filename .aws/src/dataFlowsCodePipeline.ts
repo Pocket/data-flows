@@ -98,6 +98,12 @@ export class DataFlowsCodePipeline extends Resource {
         image: imageArn,
         type: 'LINUX_CONTAINER',
         imagePullCredentialsType: 'SERVICE_ROLE',
+        environmentVariable: [
+          {
+            name: 'PREFECT_APIKEY_PARAMETER_NAME',
+            value: `${config.name}/${config.environment}/PREFECT_API_KEY`,
+          }
+        ],
       },
       source: {
         type: 'CODEPIPELINE',

@@ -6,8 +6,9 @@ version: 0.2
 #####
 
 env:
-  variables:
-    PREFECT_APIKEY: 'TODO'
+  parameter-store:
+    PREFECT_APIKEY: $PREFECT_APIKEY_PARAMETER_NAME
+
 
 phases:
   build:
