@@ -133,4 +133,5 @@ with Flow(FLOW_NAME) as flow:
     promised_extract_from_snowflake_result = extract_from_snowflake(flow_last_executed=promised_get_last_executed_flow_result)
     promised_dataframe_to_feature_group_result = dataframe_to_feature_group(dataframe=promised_extract_from_snowflake_result, feature_group_name=FEATURE_GROUP_NAME)
 
-flow.run()
+if __name__ == "__main__":
+    flow.run()

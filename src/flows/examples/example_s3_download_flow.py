@@ -8,3 +8,6 @@ s3_download = S3Download()
 
 with Flow("s3download_flow") as flow:
     s3download_result = s3_download(key=s3_bucket_key, bucket=s3_bucket_source, as_bytes=True)
+
+if __name__ == "__main__":
+    flow.run()

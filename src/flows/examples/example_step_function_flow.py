@@ -101,3 +101,6 @@ activate_step_function = StepActivate(
 
 with Flow("step_function_flow") as flow:
     step_function_result = activate_step_function(execution_name=str(uuid.uuid4()))
+
+if __name__ == "__main__":
+    flow.run()

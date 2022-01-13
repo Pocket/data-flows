@@ -15,3 +15,6 @@ def log_versions():
 
 with Flow("hello_world") as flow:
     log_versions()
+
+if __name__ == "__main__":
+    flow.run()

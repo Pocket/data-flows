@@ -41,3 +41,6 @@ with Flow("User Impression Feature Group Flow") as flow:
     dfs = extract_parquet_as_df.map(parquet_file=parquet_files, bucket=unmapped(snowflake_bucket))
     xdfs = transform_user_impressions_df.map(dfs)
     load_featue_group.map(df=xdfs, feature_group_name=unmapped(feature_group))
+
+if __name__ == "__main__":
+    flow.run()
