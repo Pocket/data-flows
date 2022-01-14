@@ -63,6 +63,7 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
 
     query_result = snowflake_client.get_query().run(query=prereview_engagement_sql, data=(flow_last_executed,))
     df = pd.DataFrame(query_result)
+    df['TITLE'] = df['TITLE'].apply(lambda title: title.strip() if title else title)
     return df
 
 @task
