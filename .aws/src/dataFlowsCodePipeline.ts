@@ -10,10 +10,10 @@ import {
 import { Construct } from 'constructs';
 import {
   PocketALBApplication,
+  PocketECSCodePipeline,
   PocketVPC,
 } from '@pocket-tools/terraform-modules';
 import { config } from './config';
-import { PocketECSCodePipeline } from './lib/PocketECSCodePipeline';
 import {RunTaskRole} from "./runTaskRole";
 
 export class DataFlowsCodePipeline extends Resource {
