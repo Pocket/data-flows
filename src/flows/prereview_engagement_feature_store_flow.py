@@ -3,19 +3,19 @@ from datetime import datetime
 
 import boto3
 import pandas as pd
-import pytz
 from pandas import DataFrame
 from prefect import task, Flow
 from sagemaker.feature_store.feature_group import FeatureGroup, IngestionManagerPandas
 from sagemaker.session import Session
 
-from src.api_clients.prefect_key_value_store_client import set_kv, get_kv
 # Setting the working directory to project root makes the path start at "src"
 from src.api_clients import snowflake_client
 from src.api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
 
-FLOW_NAME = "PreReview Engagement to Feature Group Flow1"
+# Setting variables used for the flow
+FLOW_NAME = "PreReview Engagement to Feature Group Flow"
 FEATURE_GROUP_NAME = "prereview-engagement-metrics"
+
 
 @task
 def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
@@ -57,6 +57,7 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
 
     query_result = snowflake_client.get_query().run(query=prereview_engagement_sql, data=(flow_last_executed,))
     df = pd.DataFrame(query_result)
+    print(f'Row Count: {len(df)}')
     return df
 
 @task
@@ -83,10 +84,15 @@ def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str)
 with Flow(FLOW_NAME) as flow:
     promised_get_last_executed_flow_result = get_last_executed_value(flow_name=FLOW_NAME)
 
-    # this variable name is used in testing
-    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME)
-
     promised_extract_from_snowflake_result = extract_from_snowflake(flow_last_executed=promised_get_last_executed_flow_result)
-    promised_dataframe_to_feature_group_result = dataframe_to_feature_group(dataframe=promised_extract_from_snowflake_result, feature_group_name=FEATURE_GROUP_NAME)
 
-flow.run()
+    # Set upstream dependency on the "dataframe_to_feature_group" task
+    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME).set_upstream(
+        dataframe_to_feature_group(
+            dataframe=promised_extract_from_snowflake_result,
+            feature_group_name=FEATURE_GROUP_NAME
+        )
+    )
+
+if __name__ == "__main__":
+    flow.run()

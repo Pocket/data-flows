@@ -3,7 +3,8 @@ from datetime import datetime
 
 import pytz
 from prefect import task
-from prefect.backend import set_key_value, get_key_value, delete_key, list_keys
+from prefect.backend import set_key_value, get_key_value
+from prefect.triggers import all_successful
 
 
 def set_kv(key: str, value: str):
@@ -36,16 +37,21 @@ def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
 
-@task
+@task(trigger=all_successful)
 def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:00:00') -> None:
     """
      Does the following:
-     - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days, hours, and seconds: Represents the next run data for the Flow
+     - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days,
+       hours, and seconds: Represents the next run data for the Flow
      - Updates the Prefect KV Store to set the 'last_executed' with the next execution date
+
+     Note: This task is assigned the "all_successful" trigger - to make sure it only runs if all upstream
+     tasks are successful
 
      Args:
         - for_flow: The name of the flow in Prefect Cloud to write metadata to
-        - default_if_absent: The date to use as the last executed date if it isn't specified. THIS RESETS THE FLOW to fetch every record from the table!!
+        - default_if_absent: The date to use as the last executed date if it isn't specified. THIS RESETS THE FLOW
+          to fetch every record from the table!!
 
      Returns:
      The next execution date
