@@ -8,12 +8,13 @@ from pandas import DataFrame
 from prefect import task, Flow
 from sagemaker.feature_store.feature_group import FeatureGroup, IngestionManagerPandas
 from sagemaker.session import Session
-
+from prefect.triggers import all_successful
 from src.api_clients.prefect_key_value_store_client import set_kv, get_kv
 # Setting the working directory to project root makes the path start at "src"
 from src.api_clients import snowflake_client
 
-FLOW_NAME = "PreReview Engagement to Feature Group Flow1"
+# Setting variables used for the flow
+FLOW_NAME = "PreReview Engagement to Feature Group Flow"
 FEATURE_GROUP_NAME = "prereview-engagement-metrics"
 
 @task
@@ -31,19 +32,25 @@ def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:
     """
     default_state_params_json = json.dumps({'last_executed': default_if_absent})
     state_params_json = get_kv(flow_name, default_state_params_json)
+    print(f"state_params_json for '{flow_name}': {state_params_json}")
     last_executed = json.loads(state_params_json).get('last_executed')
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
-@task
+@task(trigger=all_successful)
 def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:00:00') -> None:
     """
      Does the following:
-     - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days, hours, and seconds: Represents the next run data for the Flow
+     - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days,
+       hours, and seconds: Represents the next run data for the Flow
      - Updates the Prefect KV Store to set the 'last_executed' with the next execution date
+
+     Note: This task is assigned the "all_successful" trigger - to make sure it only runs if all upstream
+     tasks are successful
 
      Args:
         - for_flow: The name of the flow in Prefect Cloud to write metadata to
-        - default_if_absent: The date to use as the last executed date if it isn't specified. THIS RESETS THE FLOW to fetch every record from the table!!
+        - default_if_absent: The date to use as the last executed date if it isn't specified. THIS RESETS THE FLOW
+          to fetch every record from the table!!
 
      Returns:
      The next execution date
@@ -101,6 +108,7 @@ def extract_from_snowflake(flow_last_executed: datetime) -> DataFrame:
 
     query_result = snowflake_client.get_query().run(query=prereview_engagement_sql, data=(flow_last_executed,))
     df = pd.DataFrame(query_result)
+    print(f'Row Count: {len(df)}')
     return df
 
 @task
@@ -127,10 +135,14 @@ def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str)
 with Flow(FLOW_NAME) as flow:
     promised_get_last_executed_flow_result = get_last_executed_value(flow_name=FLOW_NAME)
 
-    # this variable name is used in testing
-    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME)
-
     promised_extract_from_snowflake_result = extract_from_snowflake(flow_last_executed=promised_get_last_executed_flow_result)
-    promised_dataframe_to_feature_group_result = dataframe_to_feature_group(dataframe=promised_extract_from_snowflake_result, feature_group_name=FEATURE_GROUP_NAME)
+
+    # Set upstream dependency on the "dataframe_to_feature_group" task
+    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME).set_upstream(
+        dataframe_to_feature_group(
+            dataframe=promised_extract_from_snowflake_result,
+            feature_group_name=FEATURE_GROUP_NAME
+        )
+    )
 
 flow.run()
