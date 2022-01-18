@@ -94,5 +94,6 @@ with Flow(FLOW_NAME) as flow:
         )
     )
 
+# for execution in development only
 if __name__ == "__main__":
     flow.run()
