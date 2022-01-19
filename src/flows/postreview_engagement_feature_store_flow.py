@@ -1,7 +1,7 @@
 from prefect import task, Flow
 
 # Setting the working directory to project root makes the path start at "src"
-from src.common_tasks.get_set_flow_state import get_last_executed_value, update_last_executed_value
+from src.api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
 from src.common_tasks.extract_data import extract_from_snowflake
 from src.common_tasks.transform_data import df_field_strip
 from src.common_tasks.load_data import dataframe_to_feature_group
