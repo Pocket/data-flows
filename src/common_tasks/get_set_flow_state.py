@@ -3,6 +3,7 @@ from datetime import datetime
 import pytz
 from prefect import task
 from prefect.triggers import all_successful
+import prefect
 from src.api_clients.prefect_key_value_store_client import get_kv, set_kv
 
 @task
@@ -43,6 +44,7 @@ def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:0
      Returns:
      The next execution date
      """
+    logger = prefect.context.get("logger")
     default_state_params_json = json.dumps({'last_executed': default_if_absent,})
     state_params_json = get_kv(for_flow, default_state_params_json)
 
@@ -53,5 +55,5 @@ def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:0
     now_pacific_time = timezone.localize(now)
     state_params_dict['last_executed'] = now_pacific_time.strftime('%Y-%m-%d %H:%M:%S')
 
-    print(f"Set last executed time to: {state_params_dict['last_executed']}")
+    logger.info(f"Set last executed time to: {state_params_dict['last_executed']}")
     set_kv(for_flow, json.dumps(state_params_dict))

@@ -6,6 +6,7 @@ from pandas import DataFrame
 import pandas as pd
 from src.api_clients import snowflake_client
 from prefect import task
+import prefect
 
 @task
 def extract_from_snowflake(flow_last_executed: datetime, query: str) -> DataFrame:
@@ -19,8 +20,8 @@ def extract_from_snowflake(flow_last_executed: datetime, query: str) -> DataFram
 
     A dataframe containing the results of a snowflake query represented as a pandas dataframe
     """
-
+    logger = prefect.context.get("logger")
     query_result = snowflake_client.get_query().run(query=query, data=(flow_last_executed,))
     df = pd.DataFrame(query_result)
-    print(f'Row Count: {len(df)}')
+    logger.info(f'Row Count: {len(df)}')
     return df

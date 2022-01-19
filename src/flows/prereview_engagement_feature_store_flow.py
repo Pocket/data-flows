@@ -43,13 +43,13 @@ with Flow(FLOW_NAME) as flow:
         query=extract_sql
     )
 
-    # Set upstream dependency on the "dataframe_to_feature_group" task
-    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME).set_upstream(
-        dataframe_to_feature_group(
-            dataframe=promised_extract_from_snowflake_result,
-            feature_group_name=FEATURE_GROUP_NAME
-        )
+    promised_dataframe_to_feature_group_result = dataframe_to_feature_group(
+        dataframe=promised_extract_from_snowflake_result,
+        feature_group_name=FEATURE_GROUP_NAME
     )
+
+    # Set upstream dependency on the "dataframe_to_feature_group" task
+    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME).set_upstream(promised_dataframe_to_feature_group_result)
 
 # for execution in development only
 if __name__ == "__main__":
