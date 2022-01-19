@@ -3,7 +3,8 @@ from datetime import datetime
 
 import pytz
 from prefect import task
-from prefect.backend import set_key_value, get_key_value, delete_key, list_keys
+from prefect.backend import set_key_value, get_key_value
+from prefect.triggers import all_successful
 
 
 def set_kv(key: str, value: str):
@@ -36,7 +37,7 @@ def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
 
-@task
+@task(trigger=all_successful)
 def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:00:00') -> None:
     """
      Does the following:
