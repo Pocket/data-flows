@@ -1,3 +1,6 @@
+"""The Load Data Module
+This module holds common data load tasks (part of the ETL process) used by Prefect.
+"""
 import boto3
 import pandas as pd
 from prefect import task

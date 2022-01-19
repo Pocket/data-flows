@@ -1,3 +1,6 @@
+"""The Extract Data Module
+This module holds common data extract tasks (part of the ETL process) used by Prefect.
+"""
 from datetime import datetime
 from pandas import DataFrame
 import pandas as pd
