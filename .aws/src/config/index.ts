@@ -10,10 +10,16 @@ const githubConnectionArn = isDev
   ? 'arn:aws:codestar-connections:us-east-1:410318598490:connection/7426c139-1aa0-49e2-aabc-5aef11092032'
   : 'arn:aws:codestar-connections:us-east-1:996905175585:connection/5fa5aa2b-a2d2-43e3-ab5a-72ececfc1870';
 const branch = isDev ? 'dev' : 'main';
+
+// Git branch name is used to determine which Prefect project to register the tasks in: dev or prod.
+// In the future we might support feature deployments where the project is created automatically during deployment.
+const prefectProjectName = branch;
 const prefect = {
   api: 'https://api.prefect.io',  // Use Prefect Cloud
   port: 8080,  // Port for health check server
-  agentLabels: [environment],
+  projectName: prefectProjectName,
+  agentContainerName: 'app',
+  agentLabels: [prefectProjectName],
   agentLevel: isDev ? 'DEBUG' : 'INFO',
   runTaskRole: {
     dataLearningBucketName: isDev ? 'pocket-data-learning-dev' : 'pocket-data-learning',
