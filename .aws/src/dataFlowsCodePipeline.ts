@@ -53,7 +53,7 @@ export class DataFlowsCodePipeline extends Resource {
         repository: config.codePipeline.repository,
         branchName: config.codePipeline.branch,
       },
-      preDeployStages: [
+      postDeployStages: [
         {
           name: 'Register_Prefect_Flows',
           action: [
@@ -133,15 +133,16 @@ export class DataFlowsCodePipeline extends Resource {
         type: 'CODEPIPELINE',
         buildspec: 'buildspec_register_flows.yml',
       },
-      vpcConfig: {
-        vpcId: this.dependencies.pocketVPC.vpc.id,
-        subnets: Fn.toset(this.dependencies.pocketVPC.privateSubnetIds),
-        securityGroupIds: this.dependencies.pocketVPC.defaultSecurityGroups.ids,
-      },
     });
   }
 
   private createFlowRegistrationIamRole() {
+    const region = this.dependencies.region;
+    const caller = this.dependencies.caller;
+    // This matches the SourceOutput S3 object ARN. I believe the bucket is created by CodePipeline, but we could
+    // specify one ourselves in Terraform-Modules. I couldn't find how to get this value dynamically so I'm using `-*`.
+    const sourceArtifactObjectArn = `arn:aws:s3:::pocket-codepipeline-*/${config.prefix}-CodePi/*`;
+
     const dataCodebuildAssume = new iam.DataAwsIamPolicyDocument(
       this,
       'flow_registration_codebuild_assume_role',
@@ -161,17 +162,88 @@ export class DataFlowsCodePipeline extends Resource {
       }
     );
 
+    const dataPolicy = new iam.DataAwsIamPolicyDocument(
+      this,
+      'flow_registration_policy_document',
+      {
+        version: '2012-10-17',
+        statement: [
+          {
+            // Allow CodeBuild to log to CloudWatch.
+            actions: [
+              'logs:CreateLogGroup',
+              'logs:CreateLogStream',
+              'logs:PutLogEvents',
+            ],
+            resources: [
+              `arn:aws:logs:${region.name}:${caller.accountId}:log-group:/aws/codebuild/*`,
+            ],
+            effect: 'Allow',
+          },
+          {
+            // GetAuthorizationToken grants permission to get a temporary token to access the ECR repository below.
+            // It cannot be limited to a particular resource:
+            // https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerregistry.html
+            actions: ['ecr:GetAuthorizationToken'],
+            resources: ['*'],
+            effect: 'Allow',
+          },
+          {
+            // I copied these actions from an AWS CodeBuild example:
+            // https://docs.aws.amazon.com/codebuild/latest/userguide/sample-ecr.html
+            actions: [
+              'ecr:GetDownloadUrlForLayer',
+              'ecr:BatchGetImage',
+              'ecr:BatchCheckLayerAvailability',
+            ],
+            resources: [this.prefectImageRepository.arn],
+            effect: 'Allow',
+          },
+          {
+            // Allow CodeBuild to inject the PREFECT_API_KEY from Parameter Store.
+            actions: ['ssm:GetParameter*'],
+            resources: [
+              `arn:aws:ssm:${region.name}:${caller.accountId}:parameter/${config.name}/${config.environment}/PREFECT_API_KEY`,
+            ],
+            effect: 'Allow',
+          },
+          {
+            // Allow CodeBuild to get the SourceOutput artifact from S3.
+            actions: ['s3:GetObject'],
+            resources: [sourceArtifactObjectArn],
+            effect: 'Allow',
+          },
+          {
+            // Allow CodeBuild to write to the Prefect Storage bucket.
+            actions: [
+              's3:PutObject',
+            ],
+            resources: [
+              `${this.dependencies.storageBucket.arn}/*`,
+            ],
+            effect: 'Allow',
+          },
+        ],
+      }
+    );
+
+    const policy = new iam.IamPolicy(this, 'flow_registration_policy', {
+      name: `${config.prefix}-RegistrationPolicy`,
+      policy: dataPolicy.json,
+    });
+
     const codeBuildRole = new iam.IamRole(this, 'codebuild_role', {
       name: `${config.shortName}-${config.environment}-FlowRegistrationRole`,
       assumeRolePolicy: dataCodebuildAssume.json,
       tags: config.tags,
     });
 
-    // TODO: Limit permissions. It needs to run an ECS task and write to the Prefect S3 storage bucket.
     new iam.IamRolePolicyAttachment(this, 'codebuild_admin_policy_attachment', {
-      policyArn: 'arn:aws:iam::aws:policy/AdministratorAccess',
+      // policyArn: 'arn:aws:iam::aws:policy/AdministratorAccess',
+      policyArn: policy.arn,
       role: codeBuildRole.name,
     });
+
     return codeBuildRole;
   }
 
