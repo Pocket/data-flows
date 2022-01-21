@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ebf726ae66ccbdc1b86ab7a8d7f11da206bdaa0700db771239875b3526f28b81"
+            "sha256": "680333fc0c56a4be080797e59e96f58f529982b21a18767de4cfba794b730ae0"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -348,13 +348,6 @@
             ],
             "version": "==0.2.0"
         },
-        "graphviz": {
-            "hashes": [
-                "sha256:09ed0cde452d015fe77c4845a210eb642f28d245f5bc250d4b97808cb8f49078",
-                "sha256:f34088c08be2ec16279dfa9c3b4ff3d1453c5c67597a33e2819b000e18d4c546"
-            ],
-            "version": "==0.19.1"
-        },
         "heapdict": {
             "hashes": [
                 "sha256:6065f90933ab1bb7e50db403b90cab653c853690c5992e69294c2de2b253fc92",
@@ -595,7 +588,7 @@
                 "sha256:e60ef82c358ded965fdd3132b5738eade055f48067ac8a5a8ac75acc00cad31f",
                 "sha256:f8ad59e6e341f38266f1549c7c2ec70ea0e3d1effb62a44e5c3dba41c55f0187"
             ],
-            "markers": "python_version < '3.10' and platform_machine != 'aarch64' and platform_machine != 'arm64'",
+            "markers": "python_version >= '3.8'",
             "version": "==1.22.1"
         },
         "oauthlib": {
@@ -712,8 +705,7 @@
         "prefect": {
             "extras": [
                 "aws",
-                "snowflake",
-                "viz"
+                "snowflake"
             ],
             "hashes": [
                 "sha256:192d00c9bdab2cdfb2b985f6e9814cd6c38001165e9f60fe6966da69bebe7c11",
@@ -901,11 +893,11 @@
         },
         "pyparsing": {
             "hashes": [
-                "sha256:04ff808a5b90911829c55c4e26f75fa5ca8a2f5f36aa3a51f68e27033341d3e4",
-                "sha256:d9bdec0013ef1eb5a84ab39a3b3868911598afa494f5faa038647101504e2b81"
+                "sha256:18ee9022775d270c55187733956460083db60b37d0d0fb357445f3094eed3eea",
+                "sha256:a6c06a88f252e6c322f65faf8f418b16213b51bdfaece0524c1c1bc30c63c484"
             ],
             "markers": "python_version >= '3.6'",
-            "version": "==3.0.6"
+            "version": "==3.0.7"
         },
         "python-box": {
             "hashes": [
@@ -1203,5 +1195,14 @@
             "version": "==3.7.0"
         }
     },
-    "develop": {}
+    "develop": {
+        "graphviz": {
+            "hashes": [
+                "sha256:09ed0cde452d015fe77c4845a210eb642f28d245f5bc250d4b97808cb8f49078",
+                "sha256:f34088c08be2ec16279dfa9c3b4ff3d1453c5c67597a33e2819b000e18d4c546"
+            ],
+            "index": "pypi",
+            "version": "==0.19.1"
+        }
+    }
 }

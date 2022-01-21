@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-prefect = {extras = ["aws", "snowflake", "viz"], version = "*"}
+prefect = {extras = ["aws", "snowflake"], version = "*"}
 pandas = "*"
 fastparquet = "*"
 pyarrow = "*"
@@ -12,6 +12,7 @@ s3fs = {version = "~=0.4.0", extras = ["boto3"]}
 sagemaker = "*"
 
 [dev-packages]
+graphviz = ">=0.8.3"
 
 [requires]
 python_version = "3.9"
