@@ -14,7 +14,7 @@ import {
   PocketVPC,
 } from '@pocket-tools/terraform-modules';
 import { config } from './config';
-import {RunTaskRole} from "./runTaskRole";
+import {RunTaskRole} from "./RunTaskRole";
 
 export class DataFlowsCodePipeline extends Resource {
   private readonly pocketEcsCodePipeline: PocketECSCodePipeline;
