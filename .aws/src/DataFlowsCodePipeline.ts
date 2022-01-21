@@ -91,7 +91,7 @@ export class DataFlowsCodePipeline extends Resource {
     return new codebuild.CodebuildProject(this, 'deploy-prefect-codebuild', {
       name: `${config.prefix}-PrefectRegistration`,
       description: 'Registers Prefect flows with Prefect Cloud',
-      buildTimeout: 60, // Timeout in hours
+      buildTimeout: 60, // Timeout in minutes
       serviceRole: codeBuildRole.arn,
       artifacts: {
         type: 'CODEPIPELINE',
