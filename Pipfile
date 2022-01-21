@@ -4,13 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-prefect = {extras = ["aws", "snowflake"], version = "*"}
+prefect = {extras = ["aws", "snowflake", "viz"], version = "*"}
 pandas = "*"
 fastparquet = "*"
 pyarrow = "*"
 s3fs = {version = "~=0.4.0", extras = ["boto3"]}
 sagemaker = "*"
-
 
 [dev-packages]
 
