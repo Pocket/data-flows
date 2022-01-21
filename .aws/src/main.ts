@@ -331,7 +331,6 @@ class DataFlows extends TerraformStack {
             ],
             effect: 'Allow',
           },
-          //This policy could probably go in the shared module in the future.
           {
             actions: ['ssm:GetParameter*'],
             resources: [parameterArnPrefix, `${parameterArnPrefix}/*`],

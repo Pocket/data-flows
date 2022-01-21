@@ -25,6 +25,11 @@ Steps:
 1. Run `pipenv install` in the project root directory.
 2. In PyCharm, [configure pipenv as the interpreter](https://www.jetbrains.com/help/pycharm/pipenv.html#pipenv-existing-project).
 
+## Initial Deployment
+The following manual steps are required when this service is deployed
+to an AWS environment for the first time (replace `{environment}` with the environment name):
+- Create SSM Parameter `/DataFlows/{environment}/PREFECT_API_KEY` with the Prefect API key.
+
 ## Road map
 
 ### CI/CD
