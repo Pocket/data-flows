@@ -30,6 +30,11 @@ The following manual steps are required when this service is deployed
 to an AWS environment for the first time (replace `{environment}` with the environment name):
 - Create SSM Parameter `/DataFlows/{environment}/PREFECT_API_KEY` with the Prefect API key.
 
+## Productionizing a New Flow
+
+Here are some things you'll want to do for using a flow in production:
+- Get the flow into on-call alerts (instructions [here](https://github.com/Pocket/data-flows/wiki/Getting-a-new-Flow-into-On-Call-Alerts))
+
 ## Road map
 
 ### CI/CD
