@@ -30,6 +30,8 @@ assert state.result[promised_update_last_executed_flow_result].is_successful()
 assert state.result[promised_extract_from_snowflake_result].is_successful()
 assert state.result[promised_dataframe_to_feature_group_result].is_successful()
 
+state = flow.run()
+
 assert type(state.result[promised_get_last_executed_flow_result].result) == datetime.datetime
 assert state.result[promised_update_last_executed_flow_result].result == None
 assert type(state.result[promised_extract_from_snowflake_result].result) == DataFrame
