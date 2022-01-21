@@ -1,6 +1,4 @@
-import prefect
 from prefect import task, Flow, Parameter, unmapped
-from prefect.run_configs import ECSRun
 from prefect.tasks.aws.s3 import S3List
 import pandas as pd
 import boto3
@@ -44,17 +42,5 @@ with Flow("User Impression Feature Group Flow") as flow:
     xdfs = transform_user_impressions_df.map(dfs)
     load_featue_group.map(df=xdfs, feature_group_name=unmapped(feature_group))
 
-
-# flow.run()
-
-flow.storage = prefect.storage.S3(
-    bucket='pocket-dataflows-storage-prod',
-    add_default_labels=False
-)
-
-flow.run_config = ECSRun(
-    labels=['Prod'],
-    image='996905175585.dkr.ecr.us-east-1.amazonaws.com/dataflows-prod-app:latest',
-)
-
-flow.register(project_name="prefect-tutorial")
+if __name__ == "__main__":
+    flow.run()
