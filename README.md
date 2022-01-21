@@ -25,6 +25,11 @@ Steps:
 1. Run `pipenv install` in the project root directory.
 2. In PyCharm, [configure pipenv as the interpreter](https://www.jetbrains.com/help/pycharm/pipenv.html#pipenv-existing-project).
 
+## Productionizing a Flow
+
+Here are some things you'll want to do for using a flow in production:
+- Get the flow into on-call alerts (instructions [here](https://github.com/Pocket/data-flows/wiki/Getting-a-new-Flow-into-On-Call-Alerts))
+
 ## Road map
 
 ### CI/CD
