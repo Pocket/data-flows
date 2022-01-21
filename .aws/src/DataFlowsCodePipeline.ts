@@ -239,7 +239,6 @@ export class DataFlowsCodePipeline extends Resource {
     });
 
     new iam.IamRolePolicyAttachment(this, 'codebuild_admin_policy_attachment', {
-      // policyArn: 'arn:aws:iam::aws:policy/AdministratorAccess',
       policyArn: policy.arn,
       role: codeBuildRole.name,
     });
