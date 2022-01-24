@@ -1,7 +1,6 @@
 import { Construct } from 'constructs';
 import { App, Fn, RemoteBackend, TerraformStack } from 'cdktf';
 import { config } from './config';
-import { RunTaskRole } from './RunTaskRole';
 import { DataFlowsCodePipeline } from './DataFlowsCodePipeline';
 import {
   PocketALBApplication,
@@ -12,6 +11,7 @@ import {
 import {
   AwsProvider,
   datasources,
+  ecr,
   iam,
   kms,
   sns,
@@ -19,6 +19,7 @@ import {
 } from '@cdktf/provider-aws';
 import { LocalProvider } from '@cdktf/provider-local';
 import { NullProvider } from '@cdktf/provider-null';
+import { DataFlowsTask } from './DataFlowsTask';
 
 class DataFlows extends TerraformStack {
   constructor(scope: Construct, name: string) {
@@ -49,9 +50,6 @@ class DataFlows extends TerraformStack {
     // Create a bucket with Prefect storage.
     const storageBucket = this.createStorageBucket();
 
-    // Create the role for ECS tasks that actually execute our task code.
-    const runTaskRole = new RunTaskRole(this, 'run-task-role', storageBucket);
-
     // Create the Prefect agent in ECS.
     const prefectAgentApp = this.createPrefectAgentApp({
       secretsManagerKmsAlias: this.getSecretsManagerKmsAlias(),
@@ -60,7 +58,16 @@ class DataFlows extends TerraformStack {
       caller,
       configBucket,
       runTaskKwargsObject,
-      runTaskRole,
+    });
+
+    const ecrRepository = this.getPrefectEcrRepository();
+    const imageUri = `${ecrRepository.repositoryUrl}:latest`;
+
+    const flowTask = new DataFlowsTask(this, 'ecs-flows', {
+      region,
+      caller,
+      imageUri,
+      prefectStorageBucket: storageBucket,
     });
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
@@ -69,8 +76,16 @@ class DataFlows extends TerraformStack {
       caller,
       storageBucket,
       prefectAgentApp,
-      runTaskRole,
+      taskDefinitionArn: flowTask.taskDefinition.arn,
+      runTaskRole: flowTask.ecsIam.taskRole,
       pocketVPC,
+    });
+  }
+
+  private getPrefectEcrRepository(): ecr.DataAwsEcrRepository {
+    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
+      // TODO: If Terraform-Modules would expose the ECR repository that it creates, we could reference the repo name.
+      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
     });
   }
 
@@ -144,9 +159,8 @@ class DataFlows extends TerraformStack {
   private getPrefectRunTaskPolicies(dependencies: {
     region: datasources.DataAwsRegion;
     caller: datasources.DataAwsCallerIdentity;
-    runTaskRole: RunTaskRole;
   }): iam.DataAwsIamPolicyDocumentStatement[] {
-    const { region, caller, runTaskRole } = dependencies;
+    const { region, caller } = dependencies;
 
     // This condition is added to operations to restrict them to the DataFlows ECS cluster.
     const DataFlowsClusterCondition = {
@@ -180,15 +194,6 @@ class DataFlows extends TerraformStack {
           'ecs:ListTaskDefinitions',
         ],
         resources: ['*'],
-        effect: 'Allow',
-      },
-      // Prefect needs to be able to pass the execution role and task role to the tasks it starts.
-      {
-        actions: ['iam:PassRole'],
-        resources: [
-          runTaskRole.iamRole.arn,
-          `arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskExecutionRole`,
-        ],
         effect: 'Allow',
       },
     ];
@@ -231,7 +236,6 @@ class DataFlows extends TerraformStack {
     snsTopic: sns.DataAwsSnsTopic;
     configBucket: s3.S3Bucket;
     runTaskKwargsObject: s3.S3BucketObject;
-    runTaskRole: RunTaskRole;
   }): PocketALBApplication {
     const {
       region,
@@ -240,7 +244,6 @@ class DataFlows extends TerraformStack {
       snsTopic,
       configBucket,
       runTaskKwargsObject,
-      runTaskRole,
     } = dependencies;
 
     // Parameter store ARN prefix for this service.
@@ -274,10 +277,6 @@ class DataFlows extends TerraformStack {
             'FARGATE',
             '--run-task-kwargs',
             `s3://${runTaskKwargsObject.bucket}/${runTaskKwargsObject.key}`,
-            '--task-role-arn',
-            runTaskRole.iamRole.arn,
-            '--execution-role-arn',
-            `arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskExecutionRole`,
             '--agent-address',
             `http://0.0.0.0:${config.prefect.port}`, // run a HTTP server for use as a health check
           ],
@@ -341,7 +340,6 @@ class DataFlows extends TerraformStack {
           ...this.getPrefectRunTaskPolicies({
             region,
             caller,
-            runTaskRole,
           }),
           // Give read access to the configBucket, such that Prefect can load the config files from there.
           {
