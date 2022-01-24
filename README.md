@@ -3,8 +3,12 @@ Data flows orchestrated using Prefect
 
 ## Local development
 1. Create a Prefect API key on the [API keys page](https://cloud.prefect.io/user/keys).
-2. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
-3. Choose how to run code:
+2. Decrypt and format your Snowflake private key, that you'll use in the next step when filling in the `.env` file:
+   1. Run `openssl rsa -in ~/.snowflake/rsa_key.p8` and enter the passphrase for this file when prompted.
+   2. Copy the value, after (but not including) `-----BEGIN RSA PRIVATE KEY-----` and before (not including) `-----END RSA PRIVATE KEY-----`.
+   3. In a text editor, remove all newlines (`\n`).
+3. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
+4. Choose how to run code:
    1. Docker compose: consistent environment
    2. pipenv: fast startup
 
