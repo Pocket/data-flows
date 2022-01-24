@@ -53,16 +53,16 @@ class AuthenticableSnowflakeQuery(SnowflakeQuery):
             private_key = os.environ.get(private_key_env_var_name).encode()
 
         if account is None and account_env_var_name in os.environ:
-            account = os.environ.get(account_env_var_name).encode()
+            account = os.environ.get(account_env_var_name)
 
         if user is None and user_env_var_name in os.environ:
-            user = os.environ.get(user_env_var_name).encode()
+            user = os.environ.get(user_env_var_name)
 
         if role is None and role_env_var_name in os.environ:
-            role = os.environ.get(role_env_var_name).encode()
+            role = os.environ.get(role_env_var_name)
 
         if warehouse is None and warehouse_env_var_name in os.environ:
-            warehouse = os.environ.get(warehouse_env_var_name).encode()
+            warehouse = os.environ.get(warehouse_env_var_name)
 
         if private_key_passphrase_env_var_name:
             private_key_passphrase = os.environ[private_key_passphrase_env_var_name].encode()
