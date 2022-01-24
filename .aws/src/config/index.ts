@@ -28,15 +28,17 @@ const prefect = {
     cpu: 1024,
     memory: 4096,
     // To securely inject an environment variable FOO_BAR in the ECS task that executes Prefect Flows, add 'FOO_BAR' to
+    dataLearningBucketName: isDev
+      ? 'pocket-data-learning-dev'
+      : 'pocket-data-learning',
     // the list below and create Parameters /DataFlows/Prod/FOO_BAR and /DataFlows/Dev/FOO_BAR in Prod and Dev.
     parameterStoreNames: [
       'SNOWFLAKE_PRIVATE_KEY',
       'SNOWFLAKE_ACCOUNT',
       'SNOWFLAKE_USER',
+      'SNOWFLAKE_ROLE',
+      'SNOWFLAKE_WAREHOUSE',
     ],
-    dataLearningBucketName: isDev
-      ? 'pocket-data-learning-dev'
-      : 'pocket-data-learning',
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
     existingPolicies: isDev ? [] : ['PocketDataProductReadOnly'],
