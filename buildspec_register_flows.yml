@@ -19,4 +19,4 @@ phases:
   build:
     commands:
 
-      - 'python bin/register_flows.py'
+      - 'python deploy/register_flows.py'

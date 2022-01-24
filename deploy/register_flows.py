@@ -64,7 +64,6 @@ class FlowDeployment:
 def create_ecs_run(
         environment: str,
         project_name: str,
-        image: str,
         task_definition_arn: str,
 ) -> ECSRun:
     """
@@ -78,7 +77,6 @@ def create_ecs_run(
     """
     return ECSRun(
         labels=[PREFECT_PROJECT_NAME],
-        image=PREFECT_IMAGE,
         task_definition_arn=task_definition_arn,
     )
 
@@ -89,7 +87,6 @@ if __name__ == "__main__":
     ENVIRONMENT = environ['ENVIRONMENT']
     PREFECT_PROJECT_NAME = environ['PREFECT_PROJECT_NAME']
     PREFECT_STORAGE_BUCKET = environ['PREFECT_STORAGE_BUCKET']
-    PREFECT_IMAGE = environ['PREFECT_IMAGE']
     PREFECT_TASK_DEFINITION_ARN = environ['PREFECT_TASK_DEFINITION_ARN']
 
     FLOWS_PATH = r'./src/flows'
@@ -100,7 +97,6 @@ if __name__ == "__main__":
     ecs_run = create_ecs_run(
         environment=ENVIRONMENT,
         project_name=PREFECT_PROJECT_NAME,
-        image=PREFECT_IMAGE,
         task_definition_arn=PREFECT_TASK_DEFINITION_ARN,
     )
 

@@ -196,6 +196,15 @@ class DataFlows extends TerraformStack {
         resources: ['*'],
         effect: 'Allow',
       },
+      // Prefect needs to be able to pass the execution role and task role to the tasks it starts.
+      {
+        actions: ['iam:PassRole'],
+        resources: [
+          `arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskExecutionRole`,
+          `arn:aws:iam::${caller.accountId}:role/${config.prefix}-Flow-TaskRole`,
+        ],
+        effect: 'Allow',
+      },
     ];
   }
 
