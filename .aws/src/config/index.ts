@@ -27,10 +27,10 @@ const prefect = {
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
     cpu: 1024,
     memory: 4096,
-    // To securely inject an environment variable FOO_BAR in the ECS task that executes Prefect Flows, add 'FOO_BAR' to
     dataLearningBucketName: isDev
       ? 'pocket-data-learning-dev'
       : 'pocket-data-learning',
+    // To securely inject an environment variable FOO_BAR in the ECS task that executes Prefect Flows, add 'FOO_BAR' to
     // the list below and create Parameters /DataFlows/Prod/FOO_BAR and /DataFlows/Dev/FOO_BAR in Prod and Dev.
     parameterStoreNames: [
       'SNOWFLAKE_PRIVATE_KEY',
@@ -38,6 +38,8 @@ const prefect = {
       'SNOWFLAKE_USER',
       'SNOWFLAKE_ROLE',
       'SNOWFLAKE_WAREHOUSE',
+      'DBT_CLOUD_TOKEN',
+      'DBT_CLOUD_ACCOUNT_ID',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
