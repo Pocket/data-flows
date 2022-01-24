@@ -8,11 +8,7 @@ import {
   s3,
 } from '@cdktf/provider-aws';
 import { Construct } from 'constructs';
-import {
-  PocketALBApplication,
-  PocketECSCodePipeline,
-  PocketVPC,
-} from '@pocket-tools/terraform-modules';
+import { PocketECSCodePipeline } from '@pocket-tools/terraform-modules';
 import { config } from './config';
 import { DataFlowsARN } from './DataFlowsARN';
 
@@ -22,6 +18,10 @@ export class DataFlowsCodePipeline extends Resource {
   private readonly prefectImageRepository: ecr.DataAwsEcrRepository;
   private readonly prefectImageUri: string;
 
+  // This matches the SourceOutput S3 object ARN. I believe the bucket is created by CodePipeline, but we could
+  // specify one ourselves in Terraform-Modules. I couldn't find how to get this value dynamically so I'm using `-*`.
+  private readonly sourceArtifactObjectArn: string = `arn:aws:s3:::pocket-codepipeline-*/${config.prefix}-*`;
+
   constructor(
     scope: Construct,
     name: string,
@@ -29,10 +29,7 @@ export class DataFlowsCodePipeline extends Resource {
       region: datasources.DataAwsRegion;
       caller: datasources.DataAwsCallerIdentity;
       storageBucket: s3.S3Bucket;
-      prefectAgentApp: PocketALBApplication;
-      taskDefinitionArn: string;
-      runTaskRole: iam.IamRole;
-      pocketVPC: PocketVPC;
+      flowTaskDefinitionArn: string;
     }
   ) {
     super(scope, name);
@@ -125,7 +122,7 @@ export class DataFlowsCodePipeline extends Resource {
           {
             // Task Definition ARN for the ECS TaskRole to run flows.
             name: 'PREFECT_TASK_DEFINITION_ARN',
-            value: this.dependencies.taskDefinitionArn,
+            value: this.dependencies.flowTaskDefinitionArn,
           },
         ],
       },
@@ -139,10 +136,6 @@ export class DataFlowsCodePipeline extends Resource {
   private createFlowRegistrationIamRole() {
     const region = this.dependencies.region;
     const caller = this.dependencies.caller;
-    // This matches the SourceOutput S3 object ARN. I believe the bucket is created by CodePipeline, but we could
-    // specify one ourselves in Terraform-Modules. I couldn't find how to get this value dynamically so I'm using `-*`.
-    const sourceArtifactObjectArn = `arn:aws:s3:::pocket-codepipeline-*/${config.prefix}-*`;
-    const dataFlowsARN = new DataFlowsARN(region, caller);
 
     const dataCodebuildAssume = new iam.DataAwsIamPolicyDocument(
       this,
@@ -203,13 +196,15 @@ export class DataFlowsCodePipeline extends Resource {
           {
             // Allow CodeBuild to inject the PREFECT_API_KEY from Parameter Store.
             actions: ['ssm:GetParameter*'],
-            resources: [dataFlowsARN.getParameterStoreArn('PREFECT_API_KEY')],
+            resources: [
+              DataFlowsARN.getParameterArn(region, caller, 'PREFECT_API_KEY'),
+            ],
             effect: 'Allow',
           },
           {
             // Allow CodeBuild to get the SourceOutput artifact from S3.
             actions: ['s3:GetObject'],
-            resources: [sourceArtifactObjectArn],
+            resources: [this.sourceArtifactObjectArn],
             effect: 'Allow',
           },
           {

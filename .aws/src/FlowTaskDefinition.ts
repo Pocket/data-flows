@@ -1,25 +1,19 @@
 import { Resource } from 'cdktf';
-import { cloudwatch, datasources, ecs, s3 } from '@cdktf/provider-aws';
+import { cloudwatch, datasources, ecs, iam } from '@cdktf/provider-aws';
 import { Construct } from 'constructs';
 import { buildDefinitionJSON } from '@pocket-tools/terraform-modules';
 import { config } from './config';
 import { DataFlowsARN } from './DataFlowsARN';
-import { DataFlowsEcsIam } from './DataFlowsEcsIam';
 
 /**
  * This class creates ECS and IAM resources for executing Prefect Flows in ECS.
  */
-export class DataFlowsTask extends Resource {
+export class FlowTaskDefinition extends Resource {
   /**
    * We create a custom ECS Task Definition to inject secrets as environment variables (currently for Snowflake and Dbt)
    * @private
    */
   public taskDefinition: ecs.EcsTaskDefinition;
-  /**
-   * Task and Execution role for the ECS task.
-   * @private
-   */
-  public ecsIam: DataFlowsEcsIam;
 
   constructor(
     scope: Construct,
@@ -28,22 +22,13 @@ export class DataFlowsTask extends Resource {
       region: datasources.DataAwsRegion;
       caller: datasources.DataAwsCallerIdentity;
       imageUri: string;
-      prefectStorageBucket: s3.S3Bucket;
+      taskRole: iam.IamRole;
     }
   ) {
     super(scope, name);
 
-    // Create task and execution IAM roles
-    this.ecsIam = new DataFlowsEcsIam(
-      this,
-      'data-flows-ecs-iam',
-      this.dependencies.prefectStorageBucket
-    );
-
-    const flowContainerDefinitions = this.getFlowContainerDefinitions(
-      this.createFlowLogGroup()
-    );
-
+    const logGroup = this.createFlowLogGroup();
+    const flowContainerDefinitions = this.getFlowContainerDefinitions(logGroup);
     this.taskDefinition = this.createTaskDefinition(flowContainerDefinitions);
   }
 
@@ -55,8 +40,8 @@ export class DataFlowsTask extends Resource {
     return new ecs.EcsTaskDefinition(this, 'flow-task-definition', {
       family: `${config.prefix}-Flow`,
       containerDefinitions: flowContainerDefinitions,
-      executionRoleArn: `arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskExecutionRole`,
-      taskRoleArn: this.ecsIam.taskRole.arn,
+      executionRoleArn: DataFlowsARN.getFlowExecutionRoleArn(caller),
+      taskRoleArn: this.dependencies.taskRole.arn,
       cpu: config.prefect.runTask.cpu.toString(),
       memory: config.prefect.runTask.memory.toString(),
       requiresCompatibilities: ['FARGATE'],
@@ -73,15 +58,13 @@ export class DataFlowsTask extends Resource {
   private getFlowContainerDefinitions(
     flowLogGroup: cloudwatch.CloudwatchLogGroup
   ): string {
-    const dataFlowsARN = new DataFlowsARN(
-      this.dependencies.region,
-      this.dependencies.caller
-    );
+    const region = this.dependencies.region;
+    const caller = this.dependencies.caller;
 
     const secretEnvVars = config.prefect.runTask.parameterStoreNames.map(
       (name) => ({
         name: name,
-        valueFrom: dataFlowsARN.getParameterStoreArn(name),
+        valueFrom: DataFlowsARN.getParameterArn(region, caller, name),
       })
     );
 
@@ -91,7 +74,7 @@ export class DataFlowsTask extends Resource {
       name: 'flow',
       containerImage: this.dependencies.imageUri,
       logGroup: flowLogGroup.name,
-      logGroupRegion: this.dependencies.region.name,
+      logGroupRegion: region.name,
       envVars: [
         // Prefect's ECS agent sets this environment variable, but I couldn't find what purpose it serves.
         {
