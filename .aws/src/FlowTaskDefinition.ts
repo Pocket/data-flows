@@ -6,13 +6,13 @@ import { config } from './config';
 import { DataFlowsARN } from './DataFlowsARN';
 
 /**
- * This class creates ECS and IAM resources for executing Prefect Flows in ECS.
+ * ECS Task Definition for executing Prefect Flows in ECS.
+ * We create a custom ECS Task Definition to inject secrets as environment variables (currently for Snowflake and Dbt)
+ * Note that the Prefect ECS agent sets additional kwargs when it calls ecs_client.run_task, e.g. the Docker command
+ * that determines which Prefect Flow is executed.
+ * @see https://github.com/PrefectHQ/prefect/blob/master/src/prefect/agent/ecs/agent.py
  */
 export class FlowTaskDefinition extends Resource {
-  /**
-   * We create a custom ECS Task Definition to inject secrets as environment variables (currently for Snowflake and Dbt)
-   * @private
-   */
   public taskDefinition: ecs.EcsTaskDefinition;
 
   constructor(
@@ -42,8 +42,8 @@ export class FlowTaskDefinition extends Resource {
       containerDefinitions: flowContainerDefinitions,
       executionRoleArn: DataFlowsARN.getFlowExecutionRoleArn(caller),
       taskRoleArn: this.dependencies.taskRole.arn,
-      cpu: config.prefect.runTask.cpu.toString(),
-      memory: config.prefect.runTask.memory.toString(),
+      cpu: config.prefect.flowTask.cpu.toString(),
+      memory: config.prefect.flowTask.memory.toString(),
       requiresCompatibilities: ['FARGATE'],
       networkMode: 'awsvpc',
       tags: config.tags,
@@ -61,7 +61,7 @@ export class FlowTaskDefinition extends Resource {
     const region = this.dependencies.region;
     const caller = this.dependencies.caller;
 
-    const secretEnvVars = config.prefect.runTask.parameterStoreNames.map(
+    const secretEnvVars = config.prefect.flowTask.parameterStoreNames.map(
       (name) => ({
         name: name,
         valueFrom: DataFlowsARN.getParameterArn(region, caller, name),

@@ -21,8 +21,8 @@ const prefect = {
   agentContainerName: 'app',
   agentLabels: [prefectProjectName],
   agentLevel: isDev ? 'DEBUG' : 'INFO',
-  // runTask configures the ECS tasks that execute the Prefect flows.
-  runTask: {
+  // The flowTask object below configures the ECS tasks that execute the Prefect flows.
+  flowTask: {
     // See the documentation below for valid values for CPU and memory:
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
     cpu: 1024,
