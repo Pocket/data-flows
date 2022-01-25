@@ -53,7 +53,7 @@ export class FlowTaskRole extends Resource {
   ): iam.IamPolicy {
     const dataEcsTaskRolePolicy = new iam.DataAwsIamPolicyDocument(
       this,
-      'flow-task-role-policy',
+      'data-flow-task-role-policy',
       {
         version: '2012-10-17',
         statement,
