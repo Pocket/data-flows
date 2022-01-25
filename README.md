@@ -3,7 +3,7 @@ Data flows orchestrated using Prefect
 
 ## Local development
 1. Create a Prefect API key on the [API keys page](https://cloud.prefect.io/user/keys).
-2. Decrypt and format your Snowflake private key, that you'll use in the next step when filling in the `.env` file:
+2. Decrypt and format your Snowflake private key. You'll use it in the next step when filling in the `.env` file.
    1. Run `openssl rsa -in ~/.snowflake/rsa_key.p8` and enter the passphrase for this file when prompted.
    2. Copy the value, after (but not including) `-----BEGIN RSA PRIVATE KEY-----` and before (not including) `-----END RSA PRIVATE KEY-----`.
    3. In a text editor, remove all newlines (`\n`).
@@ -30,9 +30,25 @@ Steps:
 2. In PyCharm, [configure pipenv as the interpreter](https://www.jetbrains.com/help/pycharm/pipenv.html#pipenv-existing-project).
 
 ## Initial Deployment
-The following manual steps are required when this service is deployed
-to an AWS environment for the first time (replace `{environment}` with the environment name):
-- Create SSM Parameter `/DataFlows/{environment}/PREFECT_API_KEY` with the Prefect API key.
+This section lists the manual steps that have to be taken
+when this service is deployed to an AWS environment for the first time. 
+
+### Prefect
+Create a [Prefect project](https://docs.prefect.io/orchestration/concepts/projects.html)
+with the name equal to the git branch name which will trigger the deployment.
+
+### AWS SSM Parameter Store
+The following parameters need to be created in the SSM Parameter Store.
+Replace `{environment}` with the environment name as defined in
+[.aws/src/config](https://github.com/Pocket/data-flows/blob/main/.aws/src/config/index.ts).
+
+1. `/DataFlows/{environment}/PREFECT_API_KEY` with a Prefect service account API key with 'user' permissions to the 
+previously created project.
+2. `/DataFlows/{environment}/SNOWFLAKE_PRIVATE_KEY` with the decrypted base64 Snowflake private key.
+3. `/DataFlows/{environment}/SNOWFLAKE_ACCOUNT` with the Snowflake account id.
+4. `/DataFlows/{environment}/SNOWFLAKE_USER` with the Snowflake username.
+5. `/DataFlows/{environment}/DBT_CLOUD_TOKEN` with the Dbt service account token.
+6. `/DataFlows/{environment}/DBT_ACCOUNT_ID` with the account id that's present in the Dbt cloud url.
 
 ## Productionizing a New Flow
 
