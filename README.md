@@ -42,13 +42,14 @@ The following parameters need to be created in the SSM Parameter Store.
 Replace `{environment}` with the environment name as defined in
 [.aws/src/config](https://github.com/Pocket/data-flows/blob/main/.aws/src/config/index.ts).
 
-1. `/DataFlows/{environment}/PREFECT_API_KEY` with a Prefect service account API key with 'user' permissions to the 
-previously created project.
-2. `/DataFlows/{environment}/SNOWFLAKE_PRIVATE_KEY` with the decrypted base64 Snowflake private key.
-3. `/DataFlows/{environment}/SNOWFLAKE_ACCOUNT` with the Snowflake account id.
-4. `/DataFlows/{environment}/SNOWFLAKE_USER` with the Snowflake username.
-5. `/DataFlows/{environment}/DBT_CLOUD_TOKEN` with the Dbt service account token.
-6. `/DataFlows/{environment}/DBT_ACCOUNT_ID` with the account id that's present in the Dbt cloud url.
+| Name                                             | Type         | Description                                                                                |
+|--------------------------------------------------|--------------|--------------------------------------------------------------------------------------------|
+| `/DataFlows/{environment}/PREFECT_API_KEY`       | SecureString | Prefect service account API key with 'user' permissions to the  previously created project |
+| `/DataFlows/{environment}/SNOWFLAKE_PRIVATE_KEY` | SecureString | Decrypted base64 Snowflake private key                                                     |
+| `/DataFlows/{environment}/SNOWFLAKE_ACCOUNT`     | String       | Snowflake account id                                                                       |
+| `/DataFlows/{environment}/SNOWFLAKE_USER`        | String       | Snowflake username                                                                         |
+| `/DataFlows/{environment}/DBT_CLOUD_TOKEN`       | SecureString | Dbt service account token                                                                  |
+| `/DataFlows/{environment}/DBT_CLOUD_ACCOUNT_ID`  | String       | Dbt account id that you can find in the Dbt cloud url                                      |
 
 ## Productionizing a New Flow
 
