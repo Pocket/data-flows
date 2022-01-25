@@ -91,11 +91,16 @@ class DataFlows extends TerraformStack {
     });
   }
 
+  /**
+   * Gets the Prefect Agent ECR repository created by PocketALBApplication.
+   * Terraform-Modules doesn't make this repository available, so we have to get it using DataAwsEcrRepository.
+   * @param application
+   * @private
+   */
   private getPrefectEcrRepository(
     application: PocketALBApplication
   ): ecr.DataAwsEcrRepository {
     return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
-      // If Terraform-Modules would expose the ECR repository that it creates, we could reference the repo name.
       name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
       // The ECS repository is created in PocketALBApplication.ecsService, so we have a dependency on that.
       dependsOn: [application.ecsService],
