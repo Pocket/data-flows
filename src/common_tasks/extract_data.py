@@ -8,6 +8,11 @@ from src.api_clients import snowflake_client
 from prefect import task
 import prefect
 
+
+class NoDataFromPastDayException(Exception):
+    def __init__(self):
+        super().__init__("Prefect has received no new click data for the past day. There's probably a problem.")
+
 @task
 def extract_from_snowflake(flow_last_executed: datetime, query: str) -> DataFrame:
     """
@@ -24,4 +29,6 @@ def extract_from_snowflake(flow_last_executed: datetime, query: str) -> DataFram
     query_result = snowflake_client.get_query().run(query=query, data=(flow_last_executed,))
     df = pd.DataFrame(query_result)
     logger.info(f'Row Count: {len(df)}')
+    if not len(df) and (datetime.utcnow() - flow_last_executed).seconds / 3600 > 23:
+        raise NoDataFromPastDayException()
     return df

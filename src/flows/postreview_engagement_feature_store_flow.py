@@ -8,7 +8,7 @@ from src.common_tasks.load_data import dataframe_to_feature_group
 
 # Setting variables used for the flow
 FLOW_NAME = "PostReview Engagement to Feature Group Flow"
-FEATURE_GROUP_NAME = "postreview-enagement-aggregate-metrics"
+FEATURE_GROUP_NAME = "production-postreview-enagement-aggregate-metrics"
 
 extract_sql = f"""
     select

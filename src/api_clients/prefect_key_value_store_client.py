@@ -2,8 +2,8 @@ import json
 from datetime import datetime
 
 import pytz
+import prefect
 from prefect import task
-from prefect.backend import set_key_value, get_key_value
 from prefect.triggers import all_successful
 
 from prefect.backend import set_key_value, get_key_value
@@ -34,6 +34,8 @@ def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:
     default_state_params_json = json.dumps({'last_executed': default_if_absent})
     state_params_json = get_kv(flow_name, default_state_params_json)
     last_executed = json.loads(state_params_json).get('last_executed')
+    logger = prefect.context.get("logger")
+    logger.info(f"Loading data from Snowflake since {last_executed}")
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
 
 
