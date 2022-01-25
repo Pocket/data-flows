@@ -102,10 +102,6 @@ export class DataFlowsCodePipeline extends Resource {
         imagePullCredentialsType: 'SERVICE_ROLE',
         environmentVariable: [
           {
-            name: 'ENVIRONMENT',
-            value: config.environment,
-          },
-          {
             // Parameter store parameter name that holds the Prefect API key. CodeBuild will securely load this secret.
             name: 'PREFECT_APIKEY_PARAMETER_NAME',
             value: `/${config.name}/${config.environment}/PREFECT_API_KEY`,
