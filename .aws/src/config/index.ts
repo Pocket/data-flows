@@ -36,8 +36,6 @@ const prefect = {
       'SNOWFLAKE_PRIVATE_KEY',
       'SNOWFLAKE_ACCOUNT',
       'SNOWFLAKE_USER',
-      'SNOWFLAKE_ROLE',
-      'SNOWFLAKE_WAREHOUSE',
       'DBT_CLOUD_TOKEN',
       'DBT_CLOUD_ACCOUNT_ID',
     ],
