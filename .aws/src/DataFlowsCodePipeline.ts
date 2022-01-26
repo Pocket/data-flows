@@ -127,6 +127,11 @@ export class DataFlowsCodePipeline extends Resource {
             name: 'PREFECT_RUN_TASK_ROLE',
             value: this.dependencies.runTaskRole.iamRole.arn,
           },
+          {
+            // Environment variable for deployment.
+            name: 'ENV',
+            value: config.fullEnvironment,
+          },
         ],
       },
       source: {
