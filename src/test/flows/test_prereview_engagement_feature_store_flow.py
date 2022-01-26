@@ -4,7 +4,7 @@ from pandas import DataFrame
 from prefect.core.edge import Edge
 from sagemaker.feature_store.feature_group import IngestionManagerPandas
 
-from src.flows.prereview_engagement_feature_store_flow import *
+from flows.prereview_engagement_feature_store_flow import *
 
 assert promised_get_last_executed_flow_result in flow.tasks
 assert promised_update_last_executed_flow_result in flow.tasks

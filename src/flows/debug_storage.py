@@ -3,7 +3,7 @@ from prefect import task, Flow
 import sys
 import os
 
-from src.api_clients.pocket_snowflake_query import PocketSnowflakeQuery
+from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 
 # Setting variables used for the flow
 FLOW_NAME = "Debug Prefect Storage"
