@@ -5,17 +5,18 @@ from typing import Callable
 
 import prefect
 from prefect.run_configs import RunConfig, ECSRun
-from prefect.storage import Storage, Docker
+from prefect.storage import Storage, Docker, Local
 
 
 # Takes in a path to the flow, and returns a storage object.
 STORAGE_FACTORY_TYPE = Callable[[str], Storage]
 
 
-def create_docker_storage(flow_path: str) -> Storage:
-    return Docker(
+def create_local_storage(flow_path: str) -> Storage:
+    return Local(
         stored_as_script=True,  # We store the flows in the Docker image
         path=flow_path,  # Direct path to the storage in the Docker container
+        add_default_labels=False,  # Don't label the flow with the local machine name
     )
 
 
@@ -79,7 +80,7 @@ if __name__ == "__main__":
 
     FlowDeployment(
         project_name=PREFECT_PROJECT_NAME,
-        storage_factory=create_docker_storage,
+        storage_factory=create_local_storage,
         run_config=ECSRun(
             labels=[PREFECT_PROJECT_NAME],
             task_definition_arn=PREFECT_TASK_DEFINITION_ARN,
