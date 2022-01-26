@@ -111,11 +111,6 @@ export class DataFlowsCodePipeline extends Resource {
             value: config.prefect.projectName,
           },
           {
-            // S3 Storage bucket where the flows will be stored.
-            name: 'PREFECT_STORAGE_BUCKET',
-            value: this.dependencies.storageBucket.bucket,
-          },
-          {
             // Task Definition ARN for the ECS TaskRole to run flows.
             name: 'PREFECT_TASK_DEFINITION_ARN',
             value: this.dependencies.flowTaskDefinitionArn,

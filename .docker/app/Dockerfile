@@ -1,7 +1,7 @@
 # The prefecthq image contains "common" dependencies, such as AWS.
 # It's defined by prefect as 'orchestration_extras' in setup.py here:
 # @see https://github.com/PrefectHQ/prefect/blob/master/setup.py#L31-L45
-FROM prefecthq/prefect:0.15.10-python3.9
+FROM prefecthq/prefect:0.15.13-python3.9
 
 # Install pipenv
 RUN pip install pipenv
@@ -20,3 +20,7 @@ RUN if [ "$GIT_SHA" = "local" ]; then pip install -r dev-requirements.txt; fi
 
 #Sentry GITSHA
 ENV GIT_SHA=$GIT_SHA
+
+# Copy code
+COPY src /src
+ENV FLOWS_PATH=/src/flows/

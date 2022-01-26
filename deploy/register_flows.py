@@ -1,12 +1,22 @@
 #!/usr/bin/env python
-
-import copy
 import os
 from os import environ
+from typing import Callable
 
 import prefect
 from prefect.run_configs import RunConfig, ECSRun
-from prefect.storage import Storage, S3
+from prefect.storage import Storage, Docker
+
+
+# Takes in a path to the flow, and returns a storage object.
+STORAGE_FACTORY_TYPE = Callable[[str], Storage]
+
+
+def create_docker_storage(flow_path: str) -> Storage:
+    return Docker(
+        stored_as_script=True,  # We store the flows in the Docker image
+        path=flow_path,  # Direct path to the storage in the Docker container
+    )
 
 
 class FlowDeployment:
@@ -14,15 +24,18 @@ class FlowDeployment:
     Discovers, builds, and registers flows with Prefect Cloud.
     """
 
-    def __init__(self, project_name: str, storage: Storage, run_config: RunConfig):
+    def __init__(self, project_name: str, storage_factory: STORAGE_FACTORY_TYPE, run_config: RunConfig, build: bool):
         """
         :param project_name: Name of the Prefect project to deploy flows to.
-        :param storage: Prefect storage option: https://docs.prefect.io/orchestration/execution/storage_options.html
+        :param storage_factory: Function that returns a Prefect storage object
+                                https://docs.prefect.io/orchestration/execution/storage_options.html
         :param run_config: Prefect run config: https://docs.prefect.io/orchestration/flow_config/run_configs.html
+        :param build: If false, the Prefect Flows will not be built into the storage, but only registered.
         """
         self.project_name = project_name
-        self.storage = storage
+        self.storage_factory = storage_factory
         self.run_config = run_config
+        self.build = build
 
     def register_flow(self, file_path: str):
         """
@@ -31,10 +44,10 @@ class FlowDeployment:
         """
         flow = prefect.utilities.storage.extract_flow_from_file(file_path)
         # If storage objects are shared across flows the flow will be built multiple times.
-        flow.storage = copy.deepcopy(self.storage)
-        flow.run_config = copy.deepcopy(self.run_config)
+        flow.storage = self.storage_factory(file_path)
+        flow.run_config = self.run_config
         # flow.register builds the flow and registers it with Prefect.
-        flow.register(self.project_name)
+        flow.register(self.project_name, build=self.build)
 
     def register_all_flows(self, flows_path: str):
         """
@@ -62,18 +75,15 @@ class FlowDeployment:
 if __name__ == "__main__":
     # TODO: It would be cleaner to use command line arguments instead of loading values from environment variables.
     PREFECT_PROJECT_NAME = environ['PREFECT_PROJECT_NAME']
-    PREFECT_STORAGE_BUCKET = environ['PREFECT_STORAGE_BUCKET']
     PREFECT_TASK_DEFINITION_ARN = environ['PREFECT_TASK_DEFINITION_ARN']
-    FLOWS_PATH = r'./src/flows'
+    FLOWS_PATH = environ['FLOWS_PATH']
 
     FlowDeployment(
         project_name=PREFECT_PROJECT_NAME,
-        storage=S3(
-            bucket=PREFECT_STORAGE_BUCKET,
-            add_default_labels=False,
-        ),
+        storage_factory=create_docker_storage,
         run_config=ECSRun(
             labels=[PREFECT_PROJECT_NAME],
             task_definition_arn=PREFECT_TASK_DEFINITION_ARN,
         ),
+        build=False,  # The flows are included in the Docker image, so don't need to be built by Prefect.
     ).register_all_flows(FLOWS_PATH)
