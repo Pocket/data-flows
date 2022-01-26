@@ -27,7 +27,7 @@ class FlowDeployment:
     def __init__(self, project_name: str, storage_factory: STORAGE_FACTORY_TYPE, run_config: RunConfig, build: bool):
         """
         :param project_name: Name of the Prefect project to deploy flows to.
-        :param storage_factory: Function that returns a Prefect storage object
+        :param storage_factory: Function that returns a Prefect storage object and accepts the flow path as an argument.
                                 https://docs.prefect.io/orchestration/execution/storage_options.html
         :param run_config: Prefect run config: https://docs.prefect.io/orchestration/flow_config/run_configs.html
         :param build: If false, the Prefect Flows will not be built into the storage, but only registered.
@@ -43,7 +43,6 @@ class FlowDeployment:
         :param file_path: Path of the Python file where the flow is defined.
         """
         flow = prefect.utilities.storage.extract_flow_from_file(file_path)
-        # If storage objects are shared across flows the flow will be built multiple times.
         flow.storage = self.storage_factory(file_path)
         flow.run_config = self.run_config
         # flow.register builds the flow and registers it with Prefect.
