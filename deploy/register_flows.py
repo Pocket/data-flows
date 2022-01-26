@@ -89,7 +89,7 @@ if __name__ == "__main__":
         project_name=PREFECT_PROJECT_NAME,
         storage_factory=create_local_storage,
         run_config=ECSRun(
-            labels=[PREFECT_PROJECT_NAME,'746b7aa7e23d'],
+            labels=[PREFECT_PROJECT_NAME],
             task_definition_arn=PREFECT_TASK_DEFINITION_ARN,
         ),
         build=False,  # The flows are included in the Docker image, so don't need to be built by Prefect.
