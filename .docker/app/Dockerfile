@@ -20,3 +20,8 @@ RUN if [ "$GIT_SHA" = "local" ]; then pip install -r dev-requirements.txt; fi
 
 #Sentry GITSHA
 ENV GIT_SHA=$GIT_SHA
+
+ENV DATA_FLOWS_SOURCE_DIR=/src
+COPY src $DATA_FLOWS_SOURCE_DIR
+# Set PYTHONPATH such that our modules can be imported.
+ENV PYTHONPATH="$DATA_FLOWS_SOURCE_DIR:${PYTHONPATH}"
