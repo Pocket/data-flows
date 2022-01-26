@@ -5,8 +5,7 @@ from typing import Any
 from prefect.tasks.snowflake import SnowflakeQuery
 from prefect.utilities.tasks import defaults_from_attrs
 from snowflake.connector import DictCursor
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class AuthenticableSnowflakeQuery(SnowflakeQuery):
@@ -17,9 +16,10 @@ class AuthenticableSnowflakeQuery(SnowflakeQuery):
             user_env_var_name: str = "SNOWFLAKE_USER",
             role_env_var_name: str = "SNOWFLAKE_ROLE",
             warehouse_env_var_name: str = "SNOWFLAKE_WAREHOUSE",
+            cursor_type: SnowflakeCursor = DictCursor,
             **kwargs: Any,
     ):
-        super().__init__(**kwargs)
+        super().__init__(cursor_type=cursor_type, **kwargs)
         self.private_key_env_var_name = private_key_env_var_name
         self.account_env_var_name = account_env_var_name
         self.user_env_var_name = user_env_var_name
@@ -31,7 +31,8 @@ class AuthenticableSnowflakeQuery(SnowflakeQuery):
         "account_env_var_name",
         "user_env_var_name",
         "role_env_var_name",
-        "warehouse_env_var_name"
+        "warehouse_env_var_name",
+        "cursor_type",
     )
     def run(
             self,
@@ -45,6 +46,7 @@ class AuthenticableSnowflakeQuery(SnowflakeQuery):
             role: str = None,
             warehouse_env_var_name: str = None,
             warehouse: str = None,
+            cursor_type: SnowflakeCursor = DictCursor,
             **kwargs):
         if private_key is None and private_key_env_var_name in os.environ:
             private_key = base64.b64decode(os.environ.get(private_key_env_var_name))
@@ -72,4 +74,4 @@ class AuthenticableSnowflakeQuery(SnowflakeQuery):
 
 
 def get_query():
-    return AuthenticableSnowflakeQuery(cursor_type=DictCursor)
+    return AuthenticableSnowflakeQuery()
