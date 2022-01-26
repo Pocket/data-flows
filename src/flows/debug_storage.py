@@ -6,7 +6,7 @@ import os
 from src.api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 
 # Setting variables used for the flow
-FLOW_NAME = "PostReview Engagement to Feature Group Flow"
+FLOW_NAME = "Debug Prefect Storage"
 
 @task
 def get_debug_info():

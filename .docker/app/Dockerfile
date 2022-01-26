@@ -21,11 +21,7 @@ RUN if [ "$GIT_SHA" = "local" ]; then pip install -r dev-requirements.txt; fi
 #Sentry GITSHA
 ENV GIT_SHA=$GIT_SHA
 
-# HACK: Stop Prefect ECS Agent from raising an exception when we provide a task_definition_arn and use Docker storage:
-#       Cannot provide `task_definition_arn` when using `Docker` storage
-#       This replaces the if-condition with "False". We should get this fixed in the Prefect repo and then upgrade.
-RUN sed -i -E "s/if isinstance.*?, Docker\):/if False:/" /usr/local/lib/python3.9/site-packages/prefect/agent/ecs/agent.py
-
-# Copy code
-COPY src /src
-ENV FLOWS_PATH=/src/flows/
+ENV DATA_FLOWS_SOURCE_DIR=/src
+COPY src $DATA_FLOWS_SOURCE_DIR
+# Set PYTHONPATH such that our modules can be imported.
+ENV PYTHONPATH="$DATA_FLOWS_SOURCE_DIR;${PYTHONPATH}"
