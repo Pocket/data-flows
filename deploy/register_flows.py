@@ -44,8 +44,15 @@ class FlowDeployment:
         :param file_path: Path of the Python file where the flow is defined.
         """
         flow = prefect.utilities.storage.extract_flow_from_file(file_path)
-        flow.storage = self.storage_factory(file_path)
+
+        storage = self.storage_factory(file_path)
+        if not self.build:
+            # If Prefect builds the flow, it automatically adds the flow to the storage. Otherwise we have to do it.
+            storage.add_flow(flow)
+        flow.storage = storage
+
         flow.run_config = self.run_config
+
         # flow.register builds the flow and registers it with Prefect.
         flow.register(self.project_name, build=self.build)
 
