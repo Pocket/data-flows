@@ -11,8 +11,8 @@ pyarrow = "*"
 s3fs = {version = "~=0.4.0", extras = ["boto3"]}
 sagemaker = "*"
 
-
 [dev-packages]
+graphviz = ">=0.8.3"
 
 [requires]
 python_version = "3.9"
