@@ -64,11 +64,7 @@ if __name__ == "__main__":
     PREFECT_PROJECT_NAME = environ['PREFECT_PROJECT_NAME']
     PREFECT_STORAGE_BUCKET = environ['PREFECT_STORAGE_BUCKET']
     PREFECT_TASK_DEFINITION_ARN = environ['PREFECT_TASK_DEFINITION_ARN']
-
     FLOWS_PATH = r'./src/flows'
-    TASK_DEFINITION_PATH = os.path.join(
-        os.path.dirname(__file__), "task_definition.yaml"
-    )
 
     FlowDeployment(
         project_name=PREFECT_PROJECT_NAME,
