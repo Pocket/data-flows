@@ -24,4 +24,3 @@ services:
       - PREFECT__CLOUD__AGENT__LABELS=["local"]
       - PREFECT__CLOUD__AGENT__LEVEL=DEBUG
       - AWS_DEFAULT_REGION=us-east-1
-      - RUN_TASK_KWARGS=foobar
