@@ -65,6 +65,7 @@ if __name__ == "__main__":
     PREFECT_STORAGE_BUCKET = environ['PREFECT_STORAGE_BUCKET']
     PREFECT_IMAGE = environ['PREFECT_IMAGE']
     PREFECT_TASK_ROLE_ARN = environ['PREFECT_RUN_TASK_ROLE']
+    ENV = environ['ENV']
 
     FLOWS_PATH = r'./src/flows'
 
@@ -78,5 +79,6 @@ if __name__ == "__main__":
             labels=[PREFECT_PROJECT_NAME],
             image=PREFECT_IMAGE,
             task_role_arn=PREFECT_TASK_ROLE_ARN,
+            env={'ENV': ENV},
         )
     ).register_all_flows(FLOWS_PATH)
