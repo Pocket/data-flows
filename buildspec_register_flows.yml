@@ -15,7 +15,4 @@ env:
 phases:
   build:
     commands:
-
-      - 'ls -lR /src'
-      - 'echo $PYTHONPATH'
       - 'python deploy/register_flows.py'
