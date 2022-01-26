@@ -8,6 +8,7 @@ from snowflake.connector import DictCursor
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
+
 class AuthenticableSnowflakeQuery(SnowflakeQuery):
     def __init__(
             self,
@@ -60,8 +61,7 @@ class AuthenticableSnowflakeQuery(SnowflakeQuery):
         if warehouse is None and warehouse_env_var_name in os.environ:
             warehouse = os.environ.get(warehouse_env_var_name)
 
-
-        super().run(
+        return super().run(
             private_key=private_key,
             account=account,
             user=user,
@@ -69,6 +69,7 @@ class AuthenticableSnowflakeQuery(SnowflakeQuery):
             warehouse=warehouse,
             **kwargs
         )
+
 
 def get_query():
     return AuthenticableSnowflakeQuery(cursor_type=DictCursor)
