@@ -6,6 +6,7 @@ import pandas as pd
 from prefect import task
 from sagemaker.feature_store.feature_group import FeatureGroup, IngestionManagerPandas
 from sagemaker.session import Session
+import prefect
 
 @task
 def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str) -> IngestionManagerPandas :
@@ -21,6 +22,8 @@ def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str)
         success case: the success message from the feature group API
         failure case: a description of the feature group as it currently stands for debugging
     """
+    logger = prefect.context.get("logger")
+    logger.info(f"Feature Group: {feature_group_name}")
     boto_session = boto3.Session()
     feature_store_session = Session(boto_session=boto_session,
                                     sagemaker_client=boto_session.client(service_name='sagemaker'),

@@ -120,6 +120,11 @@ export class DataFlowsCodePipeline extends Resource {
             name: 'PREFECT_TASK_DEFINITION_ARN',
             value: this.dependencies.flowTaskDefinitionArn,
           },
+          {
+            // Environment variable for deployment.
+            name: 'ENV',
+            value: config.fullEnvironment,
+          },
         ],
       },
       source: {

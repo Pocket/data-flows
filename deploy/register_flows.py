@@ -64,6 +64,8 @@ if __name__ == "__main__":
     PREFECT_PROJECT_NAME = environ['PREFECT_PROJECT_NAME']
     PREFECT_STORAGE_BUCKET = environ['PREFECT_STORAGE_BUCKET']
     PREFECT_TASK_DEFINITION_ARN = environ['PREFECT_TASK_DEFINITION_ARN']
+    ENV = environ['ENV']
+
     FLOWS_PATH = r'./src/flows'
 
     FlowDeployment(
@@ -75,5 +77,6 @@ if __name__ == "__main__":
         run_config=ECSRun(
             labels=[PREFECT_PROJECT_NAME],
             task_definition_arn=PREFECT_TASK_DEFINITION_ARN,
+            env={'ENV': ENV},
         ),
     ).register_all_flows(FLOWS_PATH)

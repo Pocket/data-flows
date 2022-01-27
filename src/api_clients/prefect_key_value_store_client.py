@@ -5,6 +5,7 @@ import pytz
 from prefect import task
 from prefect.backend import set_key_value, get_key_value
 from prefect.triggers import all_successful
+import prefect
 
 from prefect.backend import set_key_value, get_key_value
 
@@ -61,5 +62,6 @@ def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:0
     now_pacific_time = timezone.localize(now)
     state_params_dict['last_executed'] = now_pacific_time.strftime('%Y-%m-%d %H:%M:%S')
 
-    print(f"Set last executed time to: {state_params_dict['last_executed']}")
+    logger = prefect.context.get("logger")
+    logger.info(f"Set last executed time to: {state_params_dict['last_executed']}")
     set_kv(for_flow, json.dumps(state_params_dict))
