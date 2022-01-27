@@ -15,7 +15,7 @@ services:
     ports:
       - '8080:8080'
     volumes:
-      - ./src:/app
+      - ./src:/src
       - ~/.aws:/root/.aws
     env_file:
       - .env

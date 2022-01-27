@@ -114,11 +114,6 @@ export class DataFlowsCodePipeline extends Resource {
           },
           {
             // S3 Storage bucket where the flows will be stored.
-            name: 'PREFECT_STORAGE_BUCKET',
-            value: this.dependencies.storageBucket.bucket,
-          },
-          {
-            // S3 Storage bucket where the flows will be stored.
             name: 'PREFECT_IMAGE',
             value: this.prefectImageUri,
           },
