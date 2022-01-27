@@ -23,5 +23,5 @@ ENV GIT_SHA=$GIT_SHA
 
 ENV DATA_FLOWS_SOURCE_DIR=/src
 COPY src $DATA_FLOWS_SOURCE_DIR
-# Set PYTHONPATH such that our modules can be imported.
+# Adding the src directory to PYTHONPATH allows our modules to be imported in Python.
 ENV PYTHONPATH="$DATA_FLOWS_SOURCE_DIR:${PYTHONPATH}"

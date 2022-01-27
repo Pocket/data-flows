@@ -13,6 +13,11 @@ STORAGE_FACTORY_TYPE = Callable[[str], Storage]
 
 
 def create_local_storage(flow_path: str) -> Storage:
+    """
+    Creates a local storage object for use in ECS.
+    :param flow_path: Path to the flow
+    :return:
+    """
     return Local(
         stored_as_script=True,  # We store the flows in the Docker image
         path=flow_path,  # Direct path to the storage in the Docker container
