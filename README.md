@@ -18,7 +18,8 @@ Prerequisites:
 
 Steps:
 1. Run `docker compose build && docker compose up`
-2. In PyCharm, [Configuring Docker Compose as a remote interpreter](https://www.jetbrains.com/help/pycharm/using-docker-compose-as-a-remote-interpreter.html#docker-compose-remote)
+2. In PyCharm, right-click on the _src_ directory > Mark Directory as > Sources Root
+3. In PyCharm, [Configuring Docker Compose as a remote interpreter](https://www.jetbrains.com/help/pycharm/using-docker-compose-as-a-remote-interpreter.html#docker-compose-remote)
 
 ### Option 2: PyCharm and pipenv
 Prerequisites:

@@ -6,17 +6,12 @@ version: 0.2
 #####
 
 env:
-  variables:
-    # By default, CodeBuild does not set PYTHONPATH, which results in an import error: No module named 'src'
-    PYTHONPATH: "."
   parameter-store:
     # Prefect will look for an environment variable PREFECT__CLOUD__API_KEY to authenticate with Prefect Cloud.
     # See https://docs.prefect.io/orchestration/concepts/api_keys.html#using-api-keys
     PREFECT__CLOUD__API_KEY: $PREFECT_APIKEY_PARAMETER_NAME
 
-
 phases:
   build:
     commands:
-
       - 'python deploy/register_flows.py'
