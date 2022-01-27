@@ -18,10 +18,6 @@ export class DataFlowsCodePipeline extends Resource {
   private readonly prefectImageRepository: ecr.DataAwsEcrRepository;
   private readonly prefectImageUri: string;
 
-  // This matches the SourceOutput S3 object ARN. I believe the bucket is created by CodePipeline, but we could
-  // specify one ourselves in Terraform-Modules. I couldn't find how to get this value dynamically so I'm using `-*`.
-  private readonly sourceArtifactObjectArn: string = `arn:aws:s3:::pocket-codepipeline-*/${config.prefix}-*`;
-
   constructor(
     scope: Construct,
     name: string,
@@ -132,6 +128,9 @@ export class DataFlowsCodePipeline extends Resource {
   private createFlowRegistrationIamRole() {
     const region = this.dependencies.region;
     const caller = this.dependencies.caller;
+    // This matches the SourceOutput S3 object ARN. I believe the bucket is created by CodePipeline, but we could
+    // specify one ourselves in Terraform-Modules. I couldn't find how to get this value dynamically so I'm using `-*`.
+    const sourceArtifactObjectArn = `arn:aws:s3:::pocket-codepipeline-*/${config.prefix}-*`;
 
     const dataCodebuildAssume = new iam.DataAwsIamPolicyDocument(
       this,
@@ -200,7 +199,7 @@ export class DataFlowsCodePipeline extends Resource {
           {
             // Allow CodeBuild to get the SourceOutput artifact from S3.
             actions: ['s3:GetObject'],
-            resources: [this.sourceArtifactObjectArn],
+            resources: [sourceArtifactObjectArn],
             effect: 'Allow',
           },
           {
