@@ -5,7 +5,7 @@ from typing import Callable
 
 import prefect
 from prefect.run_configs import RunConfig, ECSRun
-from prefect.storage import Storage, Docker, Local
+from prefect.storage import Storage, Local
 
 
 # Takes in a path to the flow, and returns a storage object.
