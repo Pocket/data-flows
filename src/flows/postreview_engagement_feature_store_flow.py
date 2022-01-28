@@ -5,10 +5,11 @@ from api_clients.prefect_key_value_store_client import get_last_executed_value, 
 from common_tasks.extract_data import extract_from_snowflake
 from common_tasks.transform_data import df_field_strip
 from common_tasks.load_data import dataframe_to_feature_group
+from utils import config
 
 # Setting variables used for the flow
 FLOW_NAME = "PostReview Engagement to Feature Group Flow"
-FEATURE_GROUP_NAME = "production-postreview-enagement-aggregate-metrics-v1"
+FEATURE_GROUP_NAME = f"{config.ENV}-postreview-enagement-aggregate-metrics-v1"
 
 extract_sql = f"""
     select
