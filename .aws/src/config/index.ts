@@ -2,6 +2,7 @@ const name = 'DataFlows';
 const domainPrefix = 'data-flows';
 const isDev = process.env.NODE_ENV === 'development';
 const environment = isDev ? 'Dev' : 'Prod';
+const fullEnvironment = isDev ? 'development' : 'production'
 const domain = isDev
   ? `${domainPrefix}.getpocket.dev`
   : `${domainPrefix}.readitlater.com`;
@@ -36,6 +37,7 @@ export const config = {
   circleCIPrefix: `/${name}/CircleCI/${environment}`,
   shortName: 'DATAFL',
   environment,
+  fullEnvironment,
   domain,
   prefect,
   codePipeline: {

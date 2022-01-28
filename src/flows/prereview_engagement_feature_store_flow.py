@@ -1,13 +1,14 @@
 from prefect import task, Flow
 
 # Setting the working directory to project root makes the path start at "src"
-from src.api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
-from src.common_tasks.extract_data import extract_from_snowflake
-from src.common_tasks.load_data import dataframe_to_feature_group
+from api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
+from common_tasks.extract_data import extract_from_snowflake
+from common_tasks.load_data import dataframe_to_feature_group
+from utils import config
 
 # Setting variables used for the flow
 FLOW_NAME = "PreReview Engagement to Feature Group Flow"
-FEATURE_GROUP_NAME = "prereview-engagement-metrics"
+FEATURE_GROUP_NAME = f"{config.ENV}-prereview-engagement-metrics-v1"
 
 extract_sql = f"""
         select
