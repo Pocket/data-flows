@@ -3,8 +3,12 @@ Data flows orchestrated using Prefect
 
 ## Local development
 1. Create a Prefect API key on the [API keys page](https://cloud.prefect.io/user/keys).
-2. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
-3. Choose how to run code:
+2. Decrypt and format your Snowflake private key. You'll use it in the next step when filling in the `.env` file.
+   1. Run `openssl rsa -in ~/.snowflake/rsa_key.p8` and enter the passphrase for this file when prompted.
+   2. Copy the value, after (but not including) `-----BEGIN RSA PRIVATE KEY-----` and before (not including) `-----END RSA PRIVATE KEY-----`.
+   3. In a text editor, remove all newlines (`\n`).
+3. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
+4. Choose how to run code:
    1. Docker compose: consistent environment
    2. pipenv: fast startup
 
@@ -27,9 +31,26 @@ Steps:
 2. In PyCharm, [configure pipenv as the interpreter](https://www.jetbrains.com/help/pycharm/pipenv.html#pipenv-existing-project).
 
 ## Initial Deployment
-The following manual steps are required when this service is deployed
-to an AWS environment for the first time (replace `{environment}` with the environment name):
-- Create SSM Parameter `/DataFlows/{environment}/PREFECT_API_KEY` with the Prefect API key.
+This section lists the manual steps that have to be taken
+when this service is deployed to an AWS environment for the first time. 
+
+### Prefect
+Create a [Prefect project](https://docs.prefect.io/orchestration/concepts/projects.html)
+with the name equal to the git branch name which will trigger the deployment.
+
+### AWS SSM Parameter Store
+The following parameters need to be created in the SSM Parameter Store.
+Replace `{Env}` with the environment name as defined in
+[.aws/src/config](https://github.com/Pocket/data-flows/blob/main/.aws/src/config/index.ts).
+
+| Name                                             | Type         | Description                                                                                |
+|--------------------------------------------------|--------------|--------------------------------------------------------------------------------------------|
+| `/DataFlows/{Env}/PREFECT_API_KEY`       | SecureString | Prefect service account API key with 'user' permissions to the  previously created project |
+| `/DataFlows/{Env}/SNOWFLAKE_PRIVATE_KEY` | SecureString | Decrypted base64 Snowflake private key                                                     |
+| `/DataFlows/{Env}/SNOWFLAKE_ACCOUNT`     | String       | Snowflake account id                                                                       |
+| `/DataFlows/{Env}/SNOWFLAKE_USER`        | String       | Snowflake username                                                                         |
+| `/DataFlows/{Env}/DBT_CLOUD_TOKEN`       | SecureString | Dbt service account token                                                                  |
+| `/DataFlows/{Env}/DBT_CLOUD_ACCOUNT_ID`  | String       | Dbt account id that you can find in the Dbt cloud url                                      |
 
 ## Productionizing a New Flow
 

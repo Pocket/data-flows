@@ -16,19 +16,35 @@ const branch = isDev ? 'dev' : 'main';
 // In the future we might support feature deployments where the project is created automatically during deployment.
 const prefectProjectName = branch;
 const prefect = {
-  api: 'https://api.prefect.io',  // Use Prefect Cloud
-  port: 8080,  // Port for health check server
+  api: 'https://api.prefect.io', // Use Prefect Cloud
+  port: 8080, // Port for health check server
   projectName: prefectProjectName,
   agentContainerName: 'app',
   agentLabels: [prefectProjectName],
   agentLevel: isDev ? 'DEBUG' : 'INFO',
-  runTaskRole: {
-    dataLearningBucketName: isDev ? 'pocket-data-learning-dev' : 'pocket-data-learning',
+  // The flowTask object below configures the ECS tasks that execute the Prefect flows.
+  flowTask: {
+    // See the documentation below for valid values for CPU and memory:
+    // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
+    cpu: 1024,
+    memory: 4096,
+    dataLearningBucketName: isDev
+      ? 'pocket-data-learning-dev'
+      : 'pocket-data-learning',
+    // To securely inject an environment variable FOO_BAR in the ECS task that executes Prefect Flows, add 'FOO_BAR' to
+    // the list below and create Parameters /DataFlows/Prod/FOO_BAR and /DataFlows/Dev/FOO_BAR in Prod and Dev.
+    parameterStoreNames: [
+      'SNOWFLAKE_PRIVATE_KEY',
+      'SNOWFLAKE_ACCOUNT',
+      'SNOWFLAKE_USER',
+      'DBT_CLOUD_TOKEN',
+      'DBT_CLOUD_ACCOUNT_ID',
+    ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
-    existingPolicies: isDev ? [] : ['PocketDataProductReadOnly']
-  }
-}
+    existingPolicies: isDev ? [] : ['PocketDataProductReadOnly'],
+  },
+};
 
 export const config = {
   name,

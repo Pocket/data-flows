@@ -87,8 +87,7 @@ class FlowDeployment:
 if __name__ == "__main__":
     # TODO: It would be cleaner to use command line arguments instead of loading values from environment variables.
     PREFECT_PROJECT_NAME = environ['PREFECT_PROJECT_NAME']
-    PREFECT_IMAGE = environ['PREFECT_IMAGE']
-    PREFECT_TASK_ROLE_ARN = environ['PREFECT_RUN_TASK_ROLE']
+    PREFECT_TASK_DEFINITION_ARN = environ['PREFECT_TASK_DEFINITION_ARN']
     ENV = environ['ENV']
 
     FLOWS_PATH = os.path.join(environ['DATA_FLOWS_SOURCE_DIR'], 'flows/')
@@ -98,8 +97,7 @@ if __name__ == "__main__":
         storage_factory=create_local_storage,
         run_config=ECSRun(
             labels=[PREFECT_PROJECT_NAME],
-            image=PREFECT_IMAGE,
-            task_role_arn=PREFECT_TASK_ROLE_ARN,
+            task_definition_arn=PREFECT_TASK_DEFINITION_ARN,
             env={'ENV': ENV},
         ),
         build=False,  # The flows are included in the Docker image, so don't need to be built by Prefect.

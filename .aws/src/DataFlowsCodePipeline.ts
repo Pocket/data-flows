@@ -1,4 +1,4 @@
-import { Fn, Resource } from 'cdktf';
+import { Resource } from 'cdktf';
 import {
   codebuild,
   codepipeline,
@@ -8,13 +8,9 @@ import {
   s3,
 } from '@cdktf/provider-aws';
 import { Construct } from 'constructs';
-import {
-  PocketALBApplication,
-  PocketECSCodePipeline,
-  PocketVPC,
-} from '@pocket-tools/terraform-modules';
+import { PocketECSCodePipeline } from '@pocket-tools/terraform-modules';
 import { config } from './config';
-import {RunTaskRole} from "./RunTaskRole";
+import { DataFlowsARN } from './DataFlowsARN';
 
 export class DataFlowsCodePipeline extends Resource {
   private readonly pocketEcsCodePipeline: PocketECSCodePipeline;
@@ -29,9 +25,7 @@ export class DataFlowsCodePipeline extends Resource {
       region: datasources.DataAwsRegion;
       caller: datasources.DataAwsCallerIdentity;
       storageBucket: s3.S3Bucket;
-      prefectAgentApp: PocketALBApplication;
-      runTaskRole: RunTaskRole,
-      pocketVPC: PocketVPC;
+      flowTaskDefinitionArn: string;
     }
   ) {
     super(scope, name);
@@ -113,14 +107,9 @@ export class DataFlowsCodePipeline extends Resource {
             value: config.prefect.projectName,
           },
           {
-            // S3 Storage bucket where the flows will be stored.
-            name: 'PREFECT_IMAGE',
-            value: this.prefectImageUri,
-          },
-          {
-            // IAM Role ARN for the ECS TaskRole to run flows.
-            name: 'PREFECT_RUN_TASK_ROLE',
-            value: this.dependencies.runTaskRole.iamRole.arn,
+            // Task Definition ARN for the ECS TaskRole to run flows.
+            name: 'PREFECT_TASK_DEFINITION_ARN',
+            value: this.dependencies.flowTaskDefinitionArn,
           },
           {
             // Environment variable for deployment.
@@ -203,7 +192,7 @@ export class DataFlowsCodePipeline extends Resource {
             // Allow CodeBuild to inject the PREFECT_API_KEY from Parameter Store.
             actions: ['ssm:GetParameter*'],
             resources: [
-              `arn:aws:ssm:${region.name}:${caller.accountId}:parameter/${config.name}/${config.environment}/PREFECT_API_KEY`,
+              DataFlowsARN.getParameterArn(region, caller, 'PREFECT_API_KEY'),
             ],
             effect: 'Allow',
           },
@@ -215,12 +204,8 @@ export class DataFlowsCodePipeline extends Resource {
           },
           {
             // Allow CodeBuild to write to the Prefect Storage bucket.
-            actions: [
-              's3:PutObject',
-            ],
-            resources: [
-              `${this.dependencies.storageBucket.arn}/*`,
-            ],
+            actions: ['s3:PutObject'],
+            resources: [`${this.dependencies.storageBucket.arn}/*`],
             effect: 'Allow',
           },
         ],
