@@ -1,8 +1,8 @@
-from prefect import task, Flow
+from prefect import Flow
 
 # Setting the working directory to project root makes the path start at "src"
 from api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
-from common_tasks.extract_data import extract_from_snowflake
+from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 from common_tasks.load_data import dataframe_to_feature_group
 from utils import config
 
@@ -39,8 +39,8 @@ extract_sql = f"""
 with Flow(FLOW_NAME) as flow:
     promised_get_last_executed_flow_result = get_last_executed_value(flow_name=FLOW_NAME)
 
-    promised_extract_from_snowflake_result = extract_from_snowflake(
-        flow_last_executed=promised_get_last_executed_flow_result,
+    promised_extract_from_snowflake_result = PocketSnowflakeQuery()(
+        data=(promised_get_last_executed_flow_result,),
         query=extract_sql
     )
 

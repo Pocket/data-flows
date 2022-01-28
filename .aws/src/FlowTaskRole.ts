@@ -1,9 +1,9 @@
 import { Resource } from 'cdktf';
 import { Construct } from 'constructs';
-import { datasources, iam, s3 } from '@cdktf/provider-aws';
+import { iam, s3 } from '@cdktf/provider-aws';
 import { config } from './config';
 
-export class RunTaskRole extends Resource {
+export class FlowTaskRole extends Resource {
   public readonly iamRole: iam.IamRole;
 
   constructor(
@@ -13,27 +13,20 @@ export class RunTaskRole extends Resource {
   ) {
     super(scope, name);
 
-    const region = new datasources.DataAwsRegion(this, 'region');
-    const caller = new datasources.DataAwsCallerIdentity(this, 'caller');
+    const existingPolicies = this.getExistingPolicies(
+      config.prefect.flowTask.existingPolicies
+    );
 
-    // Create a policy with all the additional access that run tasks need.
-    const runTaskRolePolicy = this.createRunTaskRolePolicy([
+    // Create a policy with all the additional access that the ECS tasks need to execute Flows.
+    const flowPolicy = this.createPolicy([
       this.getDataLearningS3BucketReadAccess(),
       this.getStepFunctionExecuteAccess(),
       this.getPrefectStorageS3BucketWriteAccess(prefectStorageBucket),
       this.putFeatureGroupRecordsAccess(),
     ]);
 
-    // Get existing policies that run tasks need.
-    const existingPolicies = this.getExistingPolicies(
-      config.prefect.runTaskRole.existingPolicies
-    );
-
     // Create a role with the above policies.
-    this.iamRole = this.createRunTaskRole([
-      ...existingPolicies,
-      runTaskRolePolicy,
-    ]);
+    this.iamRole = this.createRole([...existingPolicies, flowPolicy]);
   }
 
   /**
@@ -55,20 +48,20 @@ export class RunTaskRole extends Resource {
    * @param statement
    * @private
    */
-  private createRunTaskRolePolicy(
+  private createPolicy(
     statement: iam.DataAwsIamPolicyDocumentStatement[]
   ): iam.IamPolicy {
     const dataEcsTaskRolePolicy = new iam.DataAwsIamPolicyDocument(
       this,
-      'data-run-task-role-policy',
+      'data-flow-task-role-policy',
       {
         version: '2012-10-17',
         statement,
       }
     );
 
-    return new iam.IamPolicy(this, 'run-task-role-policy', {
-      name: `${config.prefix}-RunTaskRolePolicy`,
+    return new iam.IamPolicy(this, 'flow-task-role-policy', {
+      name: `${config.prefix}-FlowTaskRolePolicy`,
       policy: dataEcsTaskRolePolicy.json,
     });
   }
@@ -81,7 +74,7 @@ export class RunTaskRole extends Resource {
     const s3Bucket = new s3.DataAwsS3Bucket(
       this,
       'pocket-data-learning-bucket',
-      { bucket: config.prefect.runTaskRole.dataLearningBucketName }
+      { bucket: config.prefect.flowTask.dataLearningBucketName }
     );
 
     return {
@@ -135,12 +128,12 @@ export class RunTaskRole extends Resource {
    * Creates an iam role for ECS tasks that execute the prefect task.
    * @private
    */
-  private createRunTaskRole(
+  private createRole(
     policies: (iam.IamPolicy | iam.DataAwsIamPolicy)[]
   ): iam.IamRole {
     const dataEcsTaskAssume = new iam.DataAwsIamPolicyDocument(
       this,
-      'run-task-assume',
+      'flow-task-assume',
       {
         version: '2012-10-17',
         statement: [
@@ -158,19 +151,19 @@ export class RunTaskRole extends Resource {
       }
     );
 
-    const runTaskRole = new iam.IamRole(this, 'run-task-role', {
+    const role = new iam.IamRole(this, 'flow-task-role', {
       assumeRolePolicy: dataEcsTaskAssume.json,
-      name: `${config.prefix}-RunTaskRole`,
+      name: `${config.prefix}-FlowTaskRole`,
       tags: config.tags,
     });
 
     policies.forEach((policy) => {
       new iam.IamRolePolicyAttachment(this, policy.name.toLowerCase(), {
         policyArn: policy.arn,
-        role: runTaskRole.id,
+        role: role.id,
       });
     });
 
-    return runTaskRole;
+    return role;
   }
 }

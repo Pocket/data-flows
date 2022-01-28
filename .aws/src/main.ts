@@ -1,8 +1,6 @@
 import { Construct } from 'constructs';
 import { App, Fn, RemoteBackend, TerraformStack } from 'cdktf';
 import { config } from './config';
-import { RunTaskRole } from './RunTaskRole';
-import { DataFlowsCodePipeline } from './DataFlowsCodePipeline';
 import {
   PocketALBApplication,
   PocketVPC,
@@ -12,13 +10,19 @@ import {
 import {
   AwsProvider,
   datasources,
+  ecr,
   iam,
   kms,
-  sns,
   s3,
+  sns,
 } from '@cdktf/provider-aws';
 import { LocalProvider } from '@cdktf/provider-local';
 import { NullProvider } from '@cdktf/provider-null';
+
+import { FlowTaskDefinition } from './FlowTaskDefinition';
+import { FlowTaskRole } from './FlowTaskRole';
+import { DataFlowsARN } from './DataFlowsARN';
+import { DataFlowsCodePipeline } from './DataFlowsCodePipeline';
 
 class DataFlows extends TerraformStack {
   constructor(scope: Construct, name: string) {
@@ -49,8 +53,12 @@ class DataFlows extends TerraformStack {
     // Create a bucket with Prefect storage.
     const storageBucket = this.createStorageBucket();
 
-    // Create the role for ECS tasks that actually execute our task code.
-    const runTaskRole = new RunTaskRole(this, 'run-task-role', storageBucket);
+    // Create task role for ECS tasks that execute flows.
+    const flowTaskRole = new FlowTaskRole(
+      this,
+      'flow-task-role',
+      storageBucket
+    );
 
     // Create the Prefect agent in ECS.
     const prefectAgentApp = this.createPrefectAgentApp({
@@ -60,7 +68,18 @@ class DataFlows extends TerraformStack {
       caller,
       configBucket,
       runTaskKwargsObject,
-      runTaskRole,
+      flowTaskRole,
+    });
+
+    const ecrRepository = this.getPrefectEcrRepository(prefectAgentApp);
+    const imageUri = `${ecrRepository.repositoryUrl}:latest`;
+
+    // Create task definition for ECS tasks that execute flows.
+    const flowTaskDefinition = new FlowTaskDefinition(this, 'ecs-flows', {
+      region,
+      caller,
+      imageUri,
+      taskRole: flowTaskRole.iamRole,
     });
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
@@ -68,9 +87,23 @@ class DataFlows extends TerraformStack {
       region,
       caller,
       storageBucket,
-      prefectAgentApp,
-      runTaskRole,
-      pocketVPC,
+      flowTaskDefinitionArn: flowTaskDefinition.taskDefinition.arn,
+    });
+  }
+
+  /**
+   * Gets the Prefect Agent ECR repository created by PocketALBApplication.
+   * Terraform-Modules doesn't make this repository available, so we have to get it using DataAwsEcrRepository.
+   * @param application
+   * @private
+   */
+  private getPrefectEcrRepository(
+    application: PocketALBApplication
+  ): ecr.DataAwsEcrRepository {
+    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
+      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
+      // The ECS repository is created in PocketALBApplication.ecsService, so we have a dependency on that.
+      dependsOn: [application.ecsService],
     });
   }
 
@@ -144,9 +177,9 @@ class DataFlows extends TerraformStack {
   private getPrefectRunTaskPolicies(dependencies: {
     region: datasources.DataAwsRegion;
     caller: datasources.DataAwsCallerIdentity;
-    runTaskRole: RunTaskRole;
+    flowTaskRole: FlowTaskRole;
   }): iam.DataAwsIamPolicyDocumentStatement[] {
-    const { region, caller, runTaskRole } = dependencies;
+    const { region, caller, flowTaskRole } = dependencies;
 
     // This condition is added to operations to restrict them to the DataFlows ECS cluster.
     const DataFlowsClusterCondition = {
@@ -186,8 +219,8 @@ class DataFlows extends TerraformStack {
       {
         actions: ['iam:PassRole'],
         resources: [
-          runTaskRole.iamRole.arn,
-          `arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskExecutionRole`,
+          DataFlowsARN.getFlowExecutionRoleArn(caller),
+          flowTaskRole.iamRole.arn,
         ],
         effect: 'Allow',
       },
@@ -231,7 +264,7 @@ class DataFlows extends TerraformStack {
     snsTopic: sns.DataAwsSnsTopic;
     configBucket: s3.S3Bucket;
     runTaskKwargsObject: s3.S3BucketObject;
-    runTaskRole: RunTaskRole;
+    flowTaskRole: FlowTaskRole;
   }): PocketALBApplication {
     const {
       region,
@@ -240,12 +273,8 @@ class DataFlows extends TerraformStack {
       snsTopic,
       configBucket,
       runTaskKwargsObject,
-      runTaskRole,
+      flowTaskRole,
     } = dependencies;
-
-    // Parameter store ARN prefix for this service.
-    const parameterArnPrefix = `arn:aws:ssm:${region.name}:${caller.accountId}:parameter/${config.name}/${config.environment}`;
-
     return new PocketALBApplication(this, 'application', {
       internal: true,
       prefix: config.prefix,
@@ -274,10 +303,6 @@ class DataFlows extends TerraformStack {
             'FARGATE',
             '--run-task-kwargs',
             `s3://${runTaskKwargsObject.bucket}/${runTaskKwargsObject.key}`,
-            '--task-role-arn',
-            runTaskRole.iamRole.arn,
-            '--execution-role-arn',
-            `arn:aws:iam::${caller.accountId}:role/${config.prefix}-TaskExecutionRole`,
             '--agent-address',
             `http://0.0.0.0:${config.prefect.port}`, // run a HTTP server for use as a health check
           ],
@@ -299,7 +324,11 @@ class DataFlows extends TerraformStack {
           secretEnvVars: [
             {
               name: 'PREFECT__CLOUD__API_KEY',
-              valueFrom: `${parameterArnPrefix}/PREFECT_API_KEY`,
+              valueFrom: DataFlowsARN.getParameterArn(
+                region,
+                caller,
+                'PREFECT_API_KEY'
+              ),
             },
           ],
         },
@@ -333,7 +362,7 @@ class DataFlows extends TerraformStack {
           },
           {
             actions: ['ssm:GetParameter*'],
-            resources: [parameterArnPrefix, `${parameterArnPrefix}/*`],
+            resources: [DataFlowsARN.getParameterArn(region, caller, '*')],
             effect: 'Allow',
           },
         ],
@@ -341,7 +370,7 @@ class DataFlows extends TerraformStack {
           ...this.getPrefectRunTaskPolicies({
             region,
             caller,
-            runTaskRole,
+            flowTaskRole,
           }),
           // Give read access to the configBucket, such that Prefect can load the config files from there.
           {
