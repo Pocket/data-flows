@@ -117,7 +117,3 @@ class PocketSnowflakeQuery(SnowflakeQuery):
             return query_result
         elif output_type == OutputType.DATA_FRAME:
             return pd.DataFrame(query_result)
-
-
-def get_query():
-    return PocketSnowflakeQuery()
