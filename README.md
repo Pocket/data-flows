@@ -1,6 +1,15 @@
 # data-flows
 Data flows orchestrated using [Prefect](https://prefect.io).
 
+## Architecture
+
+- **ECS** runs Prefect Agent and Flow tasks
+- **Docker image** stores Flow code and libraries
+- **Auto-scaling** Prefect Agent
+- **Permissions** according to the [principle of least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege).
+
+![Image](docs/images/Pocket_Prefect_Architecture.png?raw=true)
+
 ## Local development environment
 We use two environments in this repo:
 1. A Python environment, for writing Prefect Flows. Code is located in `src/`.
