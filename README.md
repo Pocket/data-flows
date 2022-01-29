@@ -1,34 +1,36 @@
 # data-flows
-Data flows orchestrated using Prefect
+Data flows orchestrated using [Prefect](https://prefect.io).
 
-## Local development
+## Local development environment
+We use two environments in this repo:
+1. A Python environment, for writing Prefect Flows. Code is located in `src/`.
+2. A Node environment for AWS infrastructure that Prefect needs to run Flows. Code is located in `.aws/`.
+
+### 1. Local environment for developing Flows
+Prerequisites:
+- docker
+- PyCharm
+
+Steps:
 1. Create a Prefect API key on the [API keys page](https://cloud.prefect.io/user/keys).
 2. Decrypt and format your Snowflake private key. You'll use it in the next step when filling in the `.env` file.
    1. Run `openssl rsa -in ~/.snowflake/rsa_key.p8` and enter the passphrase for this file when prompted.
    2. Copy the value, after (but not including) `-----BEGIN RSA PRIVATE KEY-----` and before (not including) `-----END RSA PRIVATE KEY-----`.
    3. In a text editor, remove all newlines (`\n`).
 3. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
-4. Choose how to run code:
-   1. Docker compose: consistent environment
-   2. pipenv: fast startup
+4. Run `docker compose build && docker compose up`
+5. In PyCharm, right-click on the _src_ directory > Mark Directory as > Sources Root
+6. In PyCharm, [Configuring Docker Compose as a remote interpreter](https://www.jetbrains.com/help/pycharm/using-docker-compose-as-a-remote-interpreter.html#docker-compose-remote)
 
-### Option 1: Docker compose
-Prerequisites:
-- docker
+### 2. Local environment for AWS Infrastructure
+Prerequisites (see [How to set up a Node.js development environment](https://getpocket.atlassian.net/wiki/spaces/PE/pages/2230321181/How+to+set+up+a+Node.js+development+environment)):
+- node/npm
+- nvm
 
-Steps:
-1. Run `docker compose build && docker compose up`
-2. In PyCharm, right-click on the _src_ directory > Mark Directory as > Sources Root
-3. In PyCharm, [Configuring Docker Compose as a remote interpreter](https://www.jetbrains.com/help/pycharm/using-docker-compose-as-a-remote-interpreter.html#docker-compose-remote)
-
-### Option 2: PyCharm and pipenv
-Prerequisites:
-- pipenv
-- python 3.9 ([pyenv](https://github.com/pyenv/pyenv) makes it easy to manage Python versions)
-
-Steps:
-1. Run `pipenv install` in the project root directory.
-2. In PyCharm, [configure pipenv as the interpreter](https://www.jetbrains.com/help/pycharm/pipenv.html#pipenv-existing-project).
+Run the following commands in your terminal:
+1. `cd .aws` to go to the .aws directory in the project root
+2. `nvm use` to use the right Node version
+3. `npm ci` to install packages from package-lock.json
 
 ## Initial Deployment
 This section lists the manual steps that have to be taken
@@ -56,23 +58,6 @@ Replace `{Env}` with the environment name as defined in
 
 Here are some things you'll want to do for using a flow in production:
 - Get the flow into on-call alerts (instructions [here](https://github.com/Pocket/data-flows/wiki/Getting-a-new-Flow-into-On-Call-Alerts))
-
-## Road map
-
-### CI/CD
-As we're experimenting with Prefect we've deployed flows from our local machines. When we productionalize Prefect,
-we'll want to automate this. It might look something like this: 
-
-1. Set up Prefect projects for each environment (Prod, Dev).
-2. Set values in Parameter Store that tell CodeBuild which Prefect project to use, keyed on branch name.
-In [dl-metaflow-jobs's buildspec.yml](https://github.com/Pocket/dl-metaflow-jobs/blob/main/buildspec.yml)
-we have a similar pattern, but we assume there's only one deployment per AWS account.
-3. Collect all flows, and for each flow:
-   1. Set the storage and run configuration.
-   2. Register the flow with Prefect.
-
-There's [a Github discussion on Prefect CI/CD patterns](https://github.com/PrefectHQ/prefect/discussions/4042)
-with more details and more patterns.
 
 ## Open questions
 - Should we expire S3 results?
