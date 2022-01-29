@@ -125,6 +125,8 @@ Replace `{Env}` with the environment name as defined in
 
 ## Roadmap
 
+- Data validation
+- Persist [Prefect results](https://docs.prefect.io/core/concepts/results.html) to S3
 - Automated integration tests
 - Python linter
 - Sentry integration
