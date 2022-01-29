@@ -40,6 +40,27 @@ consider whether the flow you're going to run could have unintended consequences
 2. Run `source <(maws -o awscli)` and choose the AWS account that matches the value of `AWS_PROFILE` in your `.env` file.
 3. Run the flow in PyCharm, for example by right-clicking on the corresponding file in the `src/flows/` directory and choosing 'Run'.
 
+#### Installing additional libraries
+Libraries are managed using [pipenv](https://pipenv.pypa.io/en/latest/), to create a consistent run-time environment.
+Follow the steps below to install a new Python library. 
+
+1. Run `docker compose up`.
+2. In a new terminal, run `docker compose exec prefect pipenv install pydantic`, replacing `pydantic` with the library you want to install.
+   1. Add `--dev` for development libraries that don't need to be installed on production, for example `docker compose exec prefect pipenv install --dev pytest`.
+3. The output should look something like this:
+```shell
+$ docker compose exec prefect pipenv install pydantic
+Installing pydantic...
+Adding pydantic to Pipfile's [packages]...
+✔ Installation Succeeded 
+Installing dependencies from Pipfile.lock (46b380)...
+  🐍   ▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉ 68/68 — 00:00:20
+```
+3. Run `docker compose cp prefect:/Pipfile ./ && docker compose cp prefect:/Pipfile.lock ./` to copy the Pipenv files from your Docker container to your host.
+   1. Note: if you get `No such command: cp`, try upgrading Docker, or use [docker cp](https://docs.docker.com/engine/reference/commandline/cp/) instead.
+4. `Pipfile` and `Pipfile.lock` should have been changed. Commit those changes to git.
+5. Run `docker compose build` to rebuild your Docker image. 
+
 ### 2. Developing AWS Infrastructure
 
 #### Prerequisites:
