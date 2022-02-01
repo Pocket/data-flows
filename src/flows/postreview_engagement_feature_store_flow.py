@@ -1,4 +1,4 @@
-from prefect import task, Flow
+from prefect import Flow
 
 # Setting the working directory to project root makes the path start at "src"
 from api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
@@ -43,7 +43,7 @@ extract_sql = f"""
         POCKET_APP_TIMESPEND_FIRST_WEEK,
         POCKET_APP_TIMESPEND_FIRST_MONTH,
         TIME_PERIOD_TOTAL_NEWTAB_SAVES,
-        TIME_PERIOD_TOTAL_NEWTAB_DISMISSALS            
+        TIME_PERIOD_TOTAL_NEWTAB_DISMISSALS
     from analytics.dbt.all_surfaces_engagements_past_30_day_aggregations
     where UPDATED_AT > %s
     ;
@@ -65,7 +65,8 @@ with Flow(FLOW_NAME) as flow:
     )
 
     # Set upstream dependency on the "dataframe_to_feature_group" task
-    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME).set_upstream(promised_dataframe_to_feature_group_result)
+    promised_update_last_executed_flow_result = \
+        update_last_executed_value(for_flow=FLOW_NAME).set_upstream(promised_dataframe_to_feature_group_result)
 
 # for execution in development only
 if __name__ == "__main__":

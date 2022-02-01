@@ -5,8 +5,9 @@ from pandas import DataFrame
 import pandas as pd
 from prefect import task
 
+
 @task
-def df_field_strip(dataframe: pd.DataFrame, field_name: str, chars_to_remove: str=None) -> DataFrame:
+def df_field_strip(dataframe: pd.DataFrame, field_name: str, chars_to_remove: str = None) -> DataFrame:
     """
     This task removes the leading and the trailing characters of the string field in the DataFrame.
 
