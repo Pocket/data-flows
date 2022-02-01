@@ -50,7 +50,8 @@ with Flow(FLOW_NAME) as flow:
     )
 
     # Set upstream dependency on the "dataframe_to_feature_group" task
-    promised_update_last_executed_flow_result = update_last_executed_value(for_flow=FLOW_NAME).set_upstream(promised_dataframe_to_feature_group_result)
+    promised_update_last_executed_flow_result = \
+        update_last_executed_value(for_flow=FLOW_NAME).set_upstream(promised_dataframe_to_feature_group_result)
 
 # for execution in development only
 if __name__ == "__main__":

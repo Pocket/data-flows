@@ -6,9 +6,8 @@ from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.session import Session
 
 
-
 @task
-def extract_parquet_as_df(bucket:str, parquet_file: str):
+def extract_parquet_as_df(bucket: str, parquet_file: str):
     parquet_file = f"s3://{bucket}/{parquet_file}"
     return pd.read_parquet(parquet_file)
 
@@ -25,9 +24,11 @@ def transform_user_impressions_df(df: pd.DataFrame):
 @task
 def load_featue_group(df: pd.DataFrame, feature_group_name):
     boto_session = boto3.Session()
+    sagemaker_client = boto_session.client(service_name='sagemaker'),
+    sagemaker_featurestore_runtime_client = boto_session.client(service_name='sagemaker-featurestore-runtime')
     feature_store_session = Session(boto_session=boto_session,
-                                    sagemaker_client=boto_session.client(service_name='sagemaker'),
-                                    sagemaker_featurestore_runtime_client=boto_session.client(service_name='sagemaker-featurestore-runtime'))
+                                    sagemaker_client=sagemaker_client,
+                                    sagemaker_featurestore_runtime_client=sagemaker_featurestore_runtime_client)
     feature_group = FeatureGroup(name=feature_group_name, sagemaker_session=feature_store_session)
     feature_group.ingest(df, max_workers=4, max_processes=4, wait=True)
 

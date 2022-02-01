@@ -18,6 +18,8 @@ import {
 } from '@cdktf/provider-aws';
 import { LocalProvider } from '@cdktf/provider-local';
 import { NullProvider } from '@cdktf/provider-null';
+import {CodebuildProject} from "@cdktf/provider-aws/lib/codebuild";
+import {IamRole, IamRolePolicy} from "@cdktf/provider-aws/lib/iam";
 
 import { FlowTaskDefinition } from './FlowTaskDefinition';
 import { FlowTaskRole } from './FlowTaskRole';
@@ -25,6 +27,9 @@ import { DataFlowsARN } from './DataFlowsARN';
 import { DataFlowsCodePipeline } from './DataFlowsCodePipeline';
 
 class DataFlows extends TerraformStack {
+  private region: DataAwsRegion;
+  private caller: DataAwsCallerIdentity;
+
   constructor(scope: Construct, name: string) {
     super(scope, name);
 
@@ -38,8 +43,8 @@ class DataFlows extends TerraformStack {
       workspaces: [{ prefix: `${config.name}-` }],
     });
 
-    const region = new datasources.DataAwsRegion(this, 'region');
-    const caller = new datasources.DataAwsCallerIdentity(this, 'caller');
+    this.region = new datasources.DataAwsRegion(this, 'region');
+    this.caller = new datasources.DataAwsCallerIdentity(this, 'caller');
 
     const pocketVPC = new PocketVPC(this, 'pocket-shared-vpc');
 
@@ -64,8 +69,8 @@ class DataFlows extends TerraformStack {
     const prefectAgentApp = this.createPrefectAgentApp({
       secretsManagerKmsAlias: this.getSecretsManagerKmsAlias(),
       snsTopic: this.getCodeDeploySnsTopic(),
-      region,
-      caller,
+      region: this.region,
+      caller: this.caller,
       configBucket,
       runTaskKwargsObject,
       flowTaskRole,
@@ -84,8 +89,8 @@ class DataFlows extends TerraformStack {
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
     new DataFlowsCodePipeline(this, 'data-flows-code-pipeline', {
-      region,
-      caller,
+      region: this.region,
+      caller: this.caller,
       storageBucket,
       flowTaskDefinitionArn: flowTaskDefinition.taskDefinition.arn,
     });
@@ -104,6 +109,77 @@ class DataFlows extends TerraformStack {
       name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
       // The ECS repository is created in PocketALBApplication.ecsService, so we have a dependency on that.
       dependsOn: [application.ecsService],
+    });
+
+    this.getCodebuildLinter();
+  }
+
+  private getCodebuildLinter() {
+    const role = new IamRole(this, 'linter-role', {
+      name: `${config.prefix}-CodebuildLinterRole`,
+      assumeRolePolicy: `
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "codebuild.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }`
+    });
+
+    new IamRolePolicy(this, 'linter-role-policy', {
+      role: role.name,
+      policy: `
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Resource": [
+                "*"
+              ],
+              "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ]
+            },
+             "Action": [
+                "codebuild:CreateReportGroup",
+                "codebuild:CreateReport",
+                "codebuild:UpdateReport",
+                "codebuild:BatchPutTestCases",
+                "codebuild:BatchPutCodeCoverages"
+            ],
+            "Resource": "arn:aws:codebuild:${this.region}:${this.caller.accountId}:report-group/${config.prefix}*",
+            "Effect": "Allow"
+          ]
+        }`
+    });
+
+    return new CodebuildProject(this, 'codebuild_linter', {
+      name: `${config.prefix}-Linter`,
+      serviceRole: role.name,
+
+      artifacts: {
+        type: "NO_ARTIFACS"
+      },
+      environment: {
+        computeType: "BUILD_GENERAL1_SMALL",
+        image: "aws/codebuild/standard:5.0",
+        type: "LINUX_CONTAINER",
+        imagePullCredentialsType: "CODEBUILD",
+      },
+      source: {
+        type: 'GITHUB',
+        location: 'https://github.com/Pocket/data-flows.git',
+        buildspec: '', // TODO: Is this a buildspec file name or conents
+      },
     });
   }
 

@@ -8,8 +8,9 @@ from sagemaker.feature_store.feature_group import FeatureGroup, IngestionManager
 from sagemaker.session import Session
 import prefect
 
+
 @task
-def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str) -> IngestionManagerPandas :
+def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str) -> IngestionManagerPandas:
     """
     Update SageMaker feature group.
 
@@ -25,8 +26,10 @@ def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str)
     logger = prefect.context.get("logger")
     logger.info(f"Feature Group: {feature_group_name}")
     boto_session = boto3.Session()
+    sagemaker_featurestore_runtime_client = boto_session.client(service_name='sagemaker-featurestore-runtime')
+    sagemaker_client = boto_session.client(service_name='sagemaker')
     feature_store_session = Session(boto_session=boto_session,
-                                    sagemaker_client=boto_session.client(service_name='sagemaker'),
-                                    sagemaker_featurestore_runtime_client=boto_session.client(service_name='sagemaker-featurestore-runtime'))
+                                    sagemaker_client=sagemaker_client,
+                                    sagemaker_featurestore_runtime_client=sagemaker_featurestore_runtime_client)
     feature_group = FeatureGroup(name=feature_group_name, sagemaker_session=feature_store_session)
     return feature_group.ingest(data_frame=dataframe, max_workers=4, max_processes=4, wait=True)
