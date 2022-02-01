@@ -27,9 +27,6 @@ import { DataFlowsARN } from './DataFlowsARN';
 import { DataFlowsCodePipeline } from './DataFlowsCodePipeline';
 
 class DataFlows extends TerraformStack {
-  private region: DataAwsRegion;
-  private caller: DataAwsCallerIdentity;
-
   constructor(scope: Construct, name: string) {
     super(scope, name);
 
@@ -43,8 +40,8 @@ class DataFlows extends TerraformStack {
       workspaces: [{ prefix: `${config.name}-` }],
     });
 
-    this.region = new datasources.DataAwsRegion(this, 'region');
-    this.caller = new datasources.DataAwsCallerIdentity(this, 'caller');
+    const region = new datasources.DataAwsRegion(this, 'region');
+    const caller = new datasources.DataAwsCallerIdentity(this, 'caller');
 
     const pocketVPC = new PocketVPC(this, 'pocket-shared-vpc');
 
@@ -69,8 +66,8 @@ class DataFlows extends TerraformStack {
     const prefectAgentApp = this.createPrefectAgentApp({
       secretsManagerKmsAlias: this.getSecretsManagerKmsAlias(),
       snsTopic: this.getCodeDeploySnsTopic(),
-      region: this.region,
-      caller: this.caller,
+      region,
+      caller,
       configBucket,
       runTaskKwargsObject,
       flowTaskRole,
@@ -89,10 +86,15 @@ class DataFlows extends TerraformStack {
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
     new DataFlowsCodePipeline(this, 'data-flows-code-pipeline', {
-      region: this.region,
-      caller: this.caller,
+      region,
+      caller,
       storageBucket,
       flowTaskDefinitionArn: flowTaskDefinition.taskDefinition.arn,
+    });
+
+    this.getCodebuildLinter({
+      region,
+      caller,
     });
   }
 
@@ -110,11 +112,12 @@ class DataFlows extends TerraformStack {
       // The ECS repository is created in PocketALBApplication.ecsService, so we have a dependency on that.
       dependsOn: [application.ecsService],
     });
-
-    this.getCodebuildLinter();
   }
 
-  private getCodebuildLinter() {
+  private getCodebuildLinter(deps: {
+    region: datasources.DataAwsRegion,
+    caller: datasources.DataAwsCallerIdentity,
+  }) {
     const role = new IamRole(this, 'linter-role', {
       name: `${config.prefix}-CodebuildLinterRole`,
       assumeRolePolicy: `
@@ -156,7 +159,7 @@ class DataFlows extends TerraformStack {
                 "codebuild:BatchPutTestCases",
                 "codebuild:BatchPutCodeCoverages"
             ],
-            "Resource": "arn:aws:codebuild:${this.region}:${this.caller.accountId}:report-group/${config.prefix}*",
+            "Resource": "arn:aws:codebuild:${deps.region}:${deps.caller.accountId}:report-group/${config.prefix}*",
             "Effect": "Allow"
           ]
         }`
