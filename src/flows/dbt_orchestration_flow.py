@@ -6,7 +6,6 @@ PREFECT_PROJECT_NAME = config.PREFECT_PROJECT_NAME
 FLOW_NAME = "DBT Orchestration Flow"
 DBT_FLOW_NAME = "DBT Job Flow"
 
-
 with Flow(FLOW_NAME) as flow:
 
     dbt_job_flow_id = create_flow_run(flow_name=DBT_FLOW_NAME, project_name=PREFECT_PROJECT_NAME)

@@ -10,5 +10,3 @@ with Flow(FLOW_NAME) as flow:
 # for execution in development only
 if __name__ == "__main__":
     flow.run()
-    # Register the flow under the "dbt_orchestration" project instead of running the flow
-    # flow.register(project_name="dbt_orchestration")
