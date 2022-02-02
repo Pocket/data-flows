@@ -2,6 +2,7 @@
 # It's defined by prefect as 'orchestration_extras' in setup.py here:
 # @see https://github.com/PrefectHQ/prefect/blob/master/setup.py#L31-L45
 FROM prefecthq/prefect:0.15.10-python3.9
+ARG GIT_SHA=local
 
 # Install pipenv
 RUN pip install pipenv
