@@ -23,15 +23,27 @@ We use two environments in this repo:
 - PyCharm
 
 #### One-time setup of your local environment:
-1. Create a Prefect API key on the [API keys page](https://cloud.prefect.io/user/keys).
-2. Decrypt and format your Snowflake private key. You'll use it in the next step when filling in the `.env` file.
-   1. Run `openssl rsa -in ~/.snowflake/rsa_key.p8` and enter the passphrase for this file when prompted.
-   2. Copy the value, after (but not including) `-----BEGIN RSA PRIVATE KEY-----` and before (not including) `-----END RSA PRIVATE KEY-----`.
-   3. In a text editor, remove all newlines (`\n`).
-3. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
-4. Run `docker compose build && docker compose up`
-5. In PyCharm, right-click on the _src_ directory > Mark Directory as > Sources Root
-6. In PyCharm, [Configuring Docker Compose as a remote interpreter](https://www.jetbrains.com/help/pycharm/using-docker-compose-as-a-remote-interpreter.html#docker-compose-remote)
+1. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
+   1. Set `PREFECT__CLOUD__API_KEY` to a Prefect API key that you can create on the [API keys page](https://cloud.prefect.io/user/keys).
+   2. Set `SNOWFLAKE_PRIVATE_KEY` to your decrypted private key, as follows:
+      1. If you haven't already, [create Snowflake development credentials](https://getpocket.atlassian.net/wiki/spaces/PE/pages/2131099721/dbt+Development+Workflow#Set-up-your-development-credentials). These are usually stored in `~/.snowflake-keys`.
+      2. Run the following command to decrypt your private key `~/.snowflake-keys/rsa_key.p8`, and enter the passphrase for this file when prompted:
+          ```shell
+          openssl rsa -in ~/.snowflake-keys/rsa_key.p8 |\
+          tr -d '\n' |\
+          grep -Po "(?<=-----BEGIN RSA PRIVATE KEY-----).*?(?=-----END RSA PRIVATE KEY-----)"
+          ```
+         - Note: If this doesn't work, try running `openssl rsa -in ~/.snowflake-keys/rsa_key.p8`, and remove the newlines and comments in a text editor.
+      4. Set `SNOWFLAKE_PRIVATE_KEY` to the RSA key that was printed by the above command.
+2. Run `docker compose build && docker compose up` to check that you can start the Prefect agent. When the build is complete, you should see the agent start up and poll to Prefect Cloud:
+    ```shell
+    prefect_1  | DEBUG:agent:No ready flow runs found.
+    prefect_1  | [2022-02-03 23:18:53,127] DEBUG - agent | No ready flow runs found.
+    prefect_1  | [2022-02-03 23:18:53,128] DEBUG - agent | Sleeping flow run poller for 2.0 seconds...
+    ```
+3. Hit Ctrl+C to stop the Prefect agent.
+4. In PyCharm, right-click on the _src_ directory > Mark Directory as > Sources Root
+5. In PyCharm, [Configuring Docker Compose as a remote interpreter](https://www.jetbrains.com/help/pycharm/using-docker-compose-as-a-remote-interpreter.html#docker-compose-remote)
 
 #### Running Flows:
 1. :warning: Even when flows are executed locally they can affect production resources.
