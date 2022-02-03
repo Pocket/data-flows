@@ -8,7 +8,7 @@ from utils import config
 
 # Setting variables used for the flow
 FLOW_NAME = "PreReview Engagement to Feature Group Flow"
-FEATURE_GROUP_NAME = f"{config.ENV}-prereview-engagement-metrics-v1"
+FEATURE_GROUP_NAME = f"{config.ENVIRONMENT}-prereview-engagement-metrics-v1"
 
 extract_sql = f"""
         select
