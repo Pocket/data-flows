@@ -113,7 +113,7 @@ export class DataFlowsCodePipeline extends Resource {
           },
           {
             // Environment variable for deployment.
-            name: 'ENV',
+            name: 'ENVIRONMENT',
             value: config.fullEnvironment,
           },
         ],

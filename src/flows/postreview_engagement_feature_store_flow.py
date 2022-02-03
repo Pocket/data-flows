@@ -9,7 +9,7 @@ from utils import config
 
 # Setting variables used for the flow
 FLOW_NAME = "PostReview Engagement to Feature Group Flow"
-FEATURE_GROUP_NAME = f"{config.ENV}-postreview-enagement-aggregate-metrics-v1"
+FEATURE_GROUP_NAME = f"{config.ENVIRONMENT}-postreview-enagement-aggregate-metrics-v1"
 
 extract_sql = f"""
     select
