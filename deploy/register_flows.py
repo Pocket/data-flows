@@ -98,7 +98,7 @@ if __name__ == "__main__":
         run_config=ECSRun(
             labels=[PREFECT_PROJECT_NAME],
             task_definition_arn=PREFECT_TASK_DEFINITION_ARN,
-            env={'ENV': ENV},
+            env={'ENV': ENV, 'PREFECT_PROJECT_NAME': PREFECT_PROJECT_NAME},
         ),
         build=False,  # The flows are included in the Docker image, so don't need to be built by Prefect.
     ).register_all_flows(FLOWS_PATH)
