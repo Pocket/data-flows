@@ -1,44 +1,122 @@
 # data-flows
-Data flows orchestrated using Prefect
+Data flows orchestrated using [Prefect](https://prefect.io).
+
+## Architecture
+
+- **ECS** runs Prefect Agent and Flow tasks
+- **Docker image** stores Flow code and libraries
+- **Auto-scaling** Prefect Agent based on CPU usage
+- **Private subnet** shields tasks from the internet; only egress is needed 
+- **Permissions** according to the [principle of least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege).
+
+![Image](docs/images/Pocket_Prefect_Architecture.png?raw=true)
 
 ## Local development
-1. Create a Prefect API key on the [API keys page](https://cloud.prefect.io/user/keys).
-2. Decrypt and format your Snowflake private key. You'll use it in the next step when filling in the `.env` file.
-   1. Run `openssl rsa -in ~/.snowflake/rsa_key.p8` and enter the passphrase for this file when prompted.
-   2. Copy the value, after (but not including) `-----BEGIN RSA PRIVATE KEY-----` and before (not including) `-----END RSA PRIVATE KEY-----`.
-   3. In a text editor, remove all newlines (`\n`).
-3. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
-4. Choose how to run code:
-   1. Docker compose: consistent environment
-   2. pipenv: fast startup
+We use two environments in this repo:
+1. A Python environment, for writing Prefect Flows. Code is located in `src/`.
+2. A Node environment for AWS infrastructure that Prefect needs to run Flows. Code is located in `.aws/`.
 
-### Option 1: Docker compose
-Prerequisites:
+### 1. Developing Flows
+
+#### Prerequisites:
 - docker
+- PyCharm
 
-Steps:
-1. Run `docker compose build && docker compose up`
-2. In PyCharm, right-click on the _src_ directory > Mark Directory as > Sources Root
-3. In PyCharm, [Configuring Docker Compose as a remote interpreter](https://www.jetbrains.com/help/pycharm/using-docker-compose-as-a-remote-interpreter.html#docker-compose-remote)
+#### One-time setup of your local environment:
+1. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
+   1. Set `PREFECT__CLOUD__API_KEY` to a Prefect API key that you can create on the [API keys page](https://cloud.prefect.io/user/keys).
+   2. Set `SNOWFLAKE_PRIVATE_KEY` to your decrypted private key, as follows:
+      1. If you haven't already, [create Snowflake development credentials](https://getpocket.atlassian.net/wiki/spaces/PE/pages/2131099721/dbt+Development+Workflow#Set-up-your-development-credentials). These are usually stored in `~/.snowflake-keys`.
+      2. Run `openssl rsa -in ~/.snowflake/rsa_key.p8` and enter the passphrase for this file when prompted.
+      3. Copy the value, after (but not including) `-----BEGIN RSA PRIVATE KEY-----` and before (not including) `-----END RSA PRIVATE KEY-----`.
+      4. In a text editor, remove all newlines (`\n`). Set `SNOWFLAKE_PRIVATE_KEY` to the resulting string.
+2. Run `docker compose build && docker compose up` to check that you can start the Prefect agent. When the build is complete, you should see the agent start up and poll to Prefect Cloud:
+    ```shell
+    prefect_1  | DEBUG:agent:No ready flow runs found.
+    prefect_1  | [2022-02-03 23:18:53,127] DEBUG - agent | No ready flow runs found.
+    prefect_1  | [2022-02-03 23:18:53,128] DEBUG - agent | Sleeping flow run poller for 2.0 seconds...
+    ```
+3. Hit Ctrl+C to stop the Prefect agent.
+4. In PyCharm, right-click on the _src_ directory > Mark Directory as > Sources Root
+5. In PyCharm, [Configuring Docker Compose as a remote interpreter](https://www.jetbrains.com/help/pycharm/using-docker-compose-as-a-remote-interpreter.html#docker-compose-remote)
 
-### Option 2: PyCharm and pipenv
-Prerequisites:
-- pipenv
-- python 3.9 ([pyenv](https://github.com/pyenv/pyenv) makes it easy to manage Python versions)
+#### Running Flows:
+1. :warning: Even when flows are executed locally they can affect production resources.
+Check whether the `AWS_PROFILE` variable in your `.env` file has write access in production, and if so,
+consider whether the flow you're going to run could have unintended consequences. Ask if you're not sure.
+2. Run `source <(maws -o awscli)` and choose the AWS account that matches the value of `AWS_PROFILE` in your `.env` file.
+3. Run the flow in PyCharm, for example by right-clicking on the corresponding file in the `src/flows/` directory and choosing 'Run'.
 
-Steps:
-1. Run `pipenv install` in the project root directory.
-2. In PyCharm, [configure pipenv as the interpreter](https://www.jetbrains.com/help/pycharm/pipenv.html#pipenv-existing-project).
+#### Installing additional libraries
+Libraries are managed using [pipenv](https://pipenv.pypa.io/en/latest/), to create a consistent run-time environment.
+Follow the steps below to install a new Python library. 
 
-## Initial Deployment
+1. Run `docker compose up`.
+2. In a new terminal, run `docker compose exec prefect pipenv install pydantic`, replacing `pydantic` with the library you want to install.
+   1. Add `--dev` for development libraries that don't need to be installed on production, for example `docker compose exec prefect pipenv install --dev pytest`.
+3. The output should look something like this:
+```shell
+$ docker compose exec prefect pipenv install pydantic
+Installing pydantic...
+Adding pydantic to Pipfile's [packages]...
+✔ Installation Succeeded 
+Installing dependencies from Pipfile.lock (46b380)...
+  🐍   ▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉ 68/68 — 00:00:20
+```
+3. Run `docker compose cp prefect:/Pipfile ./ && docker compose cp prefect:/Pipfile.lock ./` to copy the Pipenv files from your Docker container to your host.
+   1. Note: if you get `No such command: cp`, try upgrading Docker, or use [docker cp](https://docs.docker.com/engine/reference/commandline/cp/) instead.
+4. `Pipfile` and `Pipfile.lock` should have been changed. Commit those changes to git.
+5. Run `docker compose build` to rebuild your Docker image. 
+
+### 2. Developing AWS Infrastructure
+
+#### Prerequisites:
+- node/npm and nvm (see [How to set up a Node.js development environment](https://getpocket.atlassian.net/wiki/spaces/PE/pages/2230321181/How+to+set+up+a+Node.js+development+environment))
+- tfenv
+
+#### Install Node packages:
+1. `cd .aws` to go to the .aws directory in the project root
+2. `nvm use` to use the right Node version
+3. `npm ci` to install packages from package-lock.json
+
+#### Manually applying infrastructure changes in Pocket-Dev
+Pushing to the `dev` branch (see 'Deployment' below) is an easy way to deploy infrastructure changes to Pocket-Dev.
+The steps below are useful if you want to iterate more quickly over changes in the `.aws/` directory.
+
+1. Run `$(maws)` and obtain write access to Pocket-Dev
+2. Run `tfenv use` to get the right version of Terraform
+3. Run `npm run build:dev`
+4. From the `.aws/` directory, run `cd cdktf.out/stacks/data-flows/`
+5. Run `terraform init` and choose 'Dev'
+6. Run `npm run build:dev && terraform apply`. Repeat this step when you want to apply changes.
+
+## Productionizing a New Flow
+
+Here are some things you'll want to do for using a flow in production:
+- Get the flow into on-call alerts (instructions [here](https://github.com/Pocket/data-flows/wiki/Getting-a-new-Flow-into-On-Call-Alerts))
+- Log important metrics (for example number of rows)
+- Throw exceptions for invalid input
+- Usually flows will run on a [schedule](https://docs.prefect.io/core/concepts/schedules.html#overview)
+
+## Deployment
+
+- Pocket-Dev: `git push -f origin my-local-branch:dev`
+- Production: get your PR approved, and merge it into the main branch
+
+Deployments take about 15 minutes. You can monitor their progress in
+[CircleCI](https://app.circleci.com/pipelines/github/Pocket/data-flows)
+and
+[CodePipeline](https://console.aws.amazon.com/codesuite/codepipeline/pipelines?region=us-east-1&pipelines-meta=eyJmIjp7InRleHQiOiJEYXRhRmxvd3MifSwicyI6eyJwcm9wZXJ0eSI6InVwZGF0ZWQiLCJkaXJlY3Rpb24iOi0xfSwibiI6MTAsImkiOjB9).
+
+### Initial Deployment
 This section lists the manual steps that have to be taken
 when this service is deployed to an AWS environment for the first time. 
 
-### Prefect
+### 1. Prefect
 Create a [Prefect project](https://docs.prefect.io/orchestration/concepts/projects.html)
 with the name equal to the git branch name which will trigger the deployment.
 
-### AWS SSM Parameter Store
+### 2. AWS SSM Parameter Store
 The following parameters need to be created in the SSM Parameter Store.
 Replace `{Env}` with the environment name as defined in
 [.aws/src/config](https://github.com/Pocket/data-flows/blob/main/.aws/src/config/index.ts).
@@ -52,31 +130,14 @@ Replace `{Env}` with the environment name as defined in
 | `/DataFlows/{Env}/DBT_CLOUD_TOKEN`       | SecureString | Dbt service account token                                                                  |
 | `/DataFlows/{Env}/DBT_CLOUD_ACCOUNT_ID`  | String       | Dbt account id that you can find in the Dbt cloud url                                      |
 
-## Productionizing a New Flow
+## Roadmap
 
-Here are some things you'll want to do for using a flow in production:
-- Get the flow into on-call alerts (instructions [here](https://github.com/Pocket/data-flows/wiki/Getting-a-new-Flow-into-On-Call-Alerts))
-
-## Road map
-
-### CI/CD
-As we're experimenting with Prefect we've deployed flows from our local machines. When we productionalize Prefect,
-we'll want to automate this. It might look something like this: 
-
-1. Set up Prefect projects for each environment (Prod, Dev).
-2. Set values in Parameter Store that tell CodeBuild which Prefect project to use, keyed on branch name.
-In [dl-metaflow-jobs's buildspec.yml](https://github.com/Pocket/dl-metaflow-jobs/blob/main/buildspec.yml)
-we have a similar pattern, but we assume there's only one deployment per AWS account.
-3. Collect all flows, and for each flow:
-   1. Set the storage and run configuration.
-   2. Register the flow with Prefect.
-
-There's [a Github discussion on Prefect CI/CD patterns](https://github.com/PrefectHQ/prefect/discussions/4042)
-with more details and more patterns.
-
-## Open questions
-- Should we expire S3 results?
-- Is it good practice to use flow results by reading from S3?
+- Data validation
+- Persist [Prefect results](https://docs.prefect.io/core/concepts/results.html) to S3
+- Automated integration tests
+- Python linter
+- Sentry integration
+- Switch to the [LocalDaskExecutor](https://docs.prefect.io/api/latest/executors.html#localdaskexecutor) to allow tasks to be executed in parallel
 
 ## References
 - Experimental cloud account: https://cloud.prefect.io/mathijs-getpocket-com-s-account
