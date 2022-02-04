@@ -27,14 +27,9 @@ We use two environments in this repo:
    1. Set `PREFECT__CLOUD__API_KEY` to a Prefect API key that you can create on the [API keys page](https://cloud.prefect.io/user/keys).
    2. Set `SNOWFLAKE_PRIVATE_KEY` to your decrypted private key, as follows:
       1. If you haven't already, [create Snowflake development credentials](https://getpocket.atlassian.net/wiki/spaces/PE/pages/2131099721/dbt+Development+Workflow#Set-up-your-development-credentials). These are usually stored in `~/.snowflake-keys`.
-      2. Run the following command to decrypt your private key `~/.snowflake-keys/rsa_key.p8`, and enter the passphrase for this file when prompted:
-          ```shell
-          openssl rsa -in ~/.snowflake-keys/rsa_key.p8 |\
-          tr -d '\n' |\
-          grep -Po "(?<=-----BEGIN RSA PRIVATE KEY-----).*?(?=-----END RSA PRIVATE KEY-----)"
-          ```
-         - Note: If this doesn't work, try running `openssl rsa -in ~/.snowflake-keys/rsa_key.p8`, and remove the newlines and comments in a text editor.
-      4. Set `SNOWFLAKE_PRIVATE_KEY` to the RSA key that was printed by the above command.
+      2. Run `openssl rsa -in ~/.snowflake/rsa_key.p8` and enter the passphrase for this file when prompted.
+      3. Copy the value, after (but not including) `-----BEGIN RSA PRIVATE KEY-----` and before (not including) `-----END RSA PRIVATE KEY-----`.
+      4. In a text editor, remove all newlines (`\n`). Set `SNOWFLAKE_PRIVATE_KEY` to the resulting string.
 2. Run `docker compose build && docker compose up` to check that you can start the Prefect agent. When the build is complete, you should see the agent start up and poll to Prefect Cloud:
     ```shell
     prefect_1  | DEBUG:agent:No ready flow runs found.
