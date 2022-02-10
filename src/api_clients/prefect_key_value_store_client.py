@@ -5,7 +5,6 @@ import pytz
 import prefect
 from prefect import task
 from prefect.triggers import all_successful
-import prefect
 
 from prefect.backend import set_key_value, get_key_value
 
@@ -42,11 +41,11 @@ def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:
 
     logger = prefect.context.get("logger")
     logger.info(f"Loading data from Snowflake since {last_executed}")
-    return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S")
+    return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S.%f")
 
 
 @task(trigger=all_successful)
-def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:00:00') -> None:
+def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:00:00', store_as_utc=False) -> None:
     """
      Does the following:
      - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days, hours, and seconds: Represents the next run data for the Flow
@@ -68,10 +67,14 @@ def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:0
         # If the KV store has bad data
         state_params_dict = {'last_executed': default_if_absent,}
 
-    now = datetime.now()
-    timezone = pytz.utc
-    now_pacific_time = timezone.localize(now)
-    state_params_dict['last_executed'] = now_pacific_time.strftime('%Y-%m-%d %H:%M:%S')
+    if store_as_utc:
+        utcnow = datetime.utcnow()
+        state_params_dict['last_executed'] = utcnow.strftime('%Y-%m-%d %H:%M:%S.%f')
+    else:
+        now = datetime.now()
+        timezone = pytz.utc
+        now_pacific_time = timezone.localize(now)
+        state_params_dict['last_executed'] = now_pacific_time.strftime('%Y-%m-%d %H:%M:%S')
 
     logger = prefect.context.get("logger")
     logger.info(f"Set last executed time to: {state_params_dict['last_executed']}")
