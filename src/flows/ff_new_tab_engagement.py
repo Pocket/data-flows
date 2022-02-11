@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import prefect
 from prefect import Flow, task
+from prefect.schedules import IntervalSchedule
 from prefect.tasks.gcp.bigquery import BigQueryTask
 from utils import config
 from api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
@@ -21,6 +22,16 @@ FLOW_NAME = "FF NewTab Engagement BQ to GCS Flow"
 
 @task
 def prepare_bq_export_statement(last_executed_timestamp: datetime) -> str:
+    """
+    Task to prepare the Export statement
+
+    Args:
+        - last_executed_timestamp: timestamp at which the export was previously executed
+
+    Returns:
+    'export_sql' the BigQuery to GCS export statement
+
+    """
     date_partition = last_executed_timestamp.strftime('%Y-%m-%d')
     gcs_date_partition_path = last_executed_timestamp.strftime('%Y%m%d')
 
@@ -50,9 +61,13 @@ def prepare_bq_export_statement(last_executed_timestamp: datetime) -> str:
     logger.info(f"Export SQL:\n{export_sql}")
     return export_sql
 
+# Schedule to run every 5 minutes
+schedule = IntervalSchedule(
+        start_date=datetime.utcnow() + timedelta(seconds=1),
+        interval=timedelta(minutes=5),
+    )
 
-
-with Flow(FLOW_NAME) as flow:
+with Flow(FLOW_NAME, schedule) as flow:
     last_executed_timestamp = get_last_executed_value(flow_name=FLOW_NAME,
                                                       default_if_absent=str(datetime.utcnow())
                                                       )
