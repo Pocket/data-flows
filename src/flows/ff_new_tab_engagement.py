@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import prefect
 from prefect import Flow, task
 from prefect.schedules import IntervalSchedule
+from prefect.tasks.gcp import bigquery
 from prefect.tasks.gcp.bigquery import BigQueryTask
 from utils import config
 from api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
@@ -17,21 +18,18 @@ from api_clients.prefect_key_value_store_client import get_last_executed_value, 
 # Setting flow variables
 FLOW_NAME = "FF NewTab Engagement BQ to GCS Flow"
 
-extract_sql = f"""
-        SELECT *
-        FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
-        where date(submission_timestamp) >= @date_partition
-        and submission_timestamp > @last_executed_timestamp
-    """
-
 # Export statement to export BQ data into GCS in compressed Parquet format
-export_sql = f"""
+export_sql = """
         EXPORT DATA OPTIONS(
           uri=@gcs_uri,
           format='PARQUET',
           compression='SNAPPY',
           overwrite=true) AS
-        {extract_sql}
+  
+          SELECT *
+          FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
+          where date(submission_timestamp) >= @date_partition
+          and submission_timestamp > @last_executed_timestamp
     """
 
 @task
@@ -46,8 +44,12 @@ def prepare_bq_export_statement(last_executed_timestamp: datetime):
     'export_sql' the BigQuery to GCS export statement
 
     """
-    date_partition = last_executed_timestamp.strftime('%Y-%m-%d')
-    gcs_date_partition_path = last_executed_timestamp.strftime('%Y%m%d')
+    # TODO: I left this in here because these are two different date formats and it seems likely
+    # That G knows something I don't about why we need these. According to the
+    # BQ client documentation (https://cloud.google.com/bigquery/docs/parameterized-queries#python_2)
+    # the ScalarQueryParameter object knows how to handle timestamps for BigQuery.
+    date_partition = last_executed_timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    gcs_date_partition_path = last_executed_timestamp.strftime('%Y-%m-%d %H:%M:%S')
 
     gcs_bucket = config.GCS_BUCKET
     table_name = 'impression_stats_v1'
@@ -60,9 +62,23 @@ def prepare_bq_export_statement(last_executed_timestamp: datetime):
     logger.info(f"gcs_uri: {gcs_uri}")
     logger.info(f"Export SQL:\n{export_sql}")
 
-    return [ ('date_partition', 'STRING', date_partition),
-             ('gcs_uri', 'STRING', gcs_uri),
-             ('last_executed_timestamp', 'STRING', str(last_executed_timestamp)), ]
+    return [
+        bigquery.ScalarQueryParameter(
+            "date_partition",
+            "TIMESTAMP",
+            date_partition,
+        ),
+        bigquery.ScalarQueryParameter(
+            "gcs_uri",
+            "STRING",
+            gcs_uri,
+        ),
+        bigquery.ScalarQueryParameter(
+            "last_executed_timestamp",
+            "TIMESTAMP",
+            last_executed_timestamp,
+        ),
+    ]
 
 # Schedule to run every 5 minutes
 schedule = IntervalSchedule(
