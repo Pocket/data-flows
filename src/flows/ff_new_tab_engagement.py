@@ -13,15 +13,29 @@ from api_clients.prefect_key_value_store_client import get_last_executed_value, 
 #   - The run schedule is expected to be 5 minutes (the table gets updated in batches ~8 mins. therefore some export
 #   cycles may not return data)
 #
-#   TODOs:
-#   - Handling edge conditions during the turn of the day when the data partition switches to the next day
-#
 
 # Setting flow variables
 FLOW_NAME = "FF NewTab Engagement BQ to GCS Flow"
 
+extract_sql = f"""
+        SELECT *
+        FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
+        where date(submission_timestamp) >= @date_partition
+        and submission_timestamp > @last_executed_timestamp
+    """
+
+# Export statement to export BQ data into GCS in compressed Parquet format
+export_sql = f"""
+        EXPORT DATA OPTIONS(
+          uri=@gcs_uri,
+          format='PARQUET',
+          compression='SNAPPY',
+          overwrite=true) AS
+        {extract_sql}
+    """
+
 @task
-def prepare_bq_export_statement(last_executed_timestamp: datetime) -> str:
+def prepare_bq_export_statement(last_executed_timestamp: datetime):
     """
     Task to prepare the Export statement
 
@@ -38,28 +52,17 @@ def prepare_bq_export_statement(last_executed_timestamp: datetime) -> str:
     gcs_bucket = config.GCS_BUCKET
     table_name = 'impression_stats_v1'
     gcs_path = f"{config.GCS_PATH}{table_name}"
-
-
-    extract_sql = f"""
-            SELECT *
-            FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
-            where date(submission_timestamp) = '{date_partition}'
-            and submission_timestamp > '{str(last_executed_timestamp)}'
-        """
-
     gcs_uri = f'gs://{gcs_bucket}/{gcs_path}/{gcs_date_partition_path}/*.parq'
-    # Export statement to export BQ data into GCS in compressed Parquet format
-    export_sql = f"""
-            EXPORT DATA OPTIONS(
-              uri='{gcs_uri}',
-              format='PARQUET',
-              compression='SNAPPY',
-              overwrite=true) AS
-            {extract_sql}
-        """
+
     logger = prefect.context.get("logger")
+    logger.info(f"last_executed_timestamp: {str(last_executed_timestamp)}")
+    logger.info(f"date_partition: {date_partition}")
+    logger.info(f"gcs_uri: {gcs_uri}")
     logger.info(f"Export SQL:\n{export_sql}")
-    return export_sql
+
+    return [ ('date_partition', 'STRING', date_partition),
+             ('gcs_uri', 'STRING', gcs_uri),
+             ('last_executed_timestamp', 'STRING', str(last_executed_timestamp)), ]
 
 # Schedule to run every 5 minutes
 schedule = IntervalSchedule(
@@ -69,15 +72,20 @@ schedule = IntervalSchedule(
 
 with Flow(FLOW_NAME, schedule) as flow:
     last_executed_timestamp = get_last_executed_value(flow_name=FLOW_NAME,
-                                                      default_if_absent=str(datetime.utcnow())
-                                                      )
-    export_sql = prepare_bq_export_statement(last_executed_timestamp=last_executed_timestamp)
+                                                  default_if_absent=str(datetime.utcnow())
+                                                  )
 
-    bq_result = BigQueryTask()(query=export_sql)
+    export_query_param_list = prepare_bq_export_statement(
+        last_executed_timestamp=last_executed_timestamp)
 
-    update_last_executed_value_task = update_last_executed_value(for_flow=FLOW_NAME, store_as_utc=True)
+    bq_result = BigQueryTask()(
+        query=export_sql,
+        query_params=export_query_param_list,
+    )
 
-    promised_update_last_executed_flow_result = update_last_executed_value_task.set_upstream(bq_result)
+    update_last_executed_value_task = update_last_executed_value(for_flow=FLOW_NAME)
+
+    update_last_executed_value_task.set_upstream(bq_result)
 
 if __name__ == "__main__":
     flow.run()
