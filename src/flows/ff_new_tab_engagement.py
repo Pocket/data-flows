@@ -59,7 +59,7 @@ def prepare_bq_export_statement(last_executed_timestamp: datetime):
 
     return [ ('date_partition', 'STRING', date_partition),
              ('gcs_uri', 'STRING', gcs_uri),
-             ('last_executed_timestamp', 'STRING', str(last_executed_timestamp)),
+             ('last_executed_timestamp', 'TIMESTAMP', last_executed_timestamp),
             ]
 
 # Schedule to run every 5 minutes
