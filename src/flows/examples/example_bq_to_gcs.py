@@ -3,6 +3,8 @@ from prefect.tasks.gcp.bigquery import BigQueryTask
 
 from utils import config
 
+FLOW_NAME = "example BQ to GCS Export"
+
 # GCS Bucket and Path to export BigQuery data
 gcs_bucket = config.GCS_BUCKET
 table_name = 'impression_stats_v1'
@@ -28,7 +30,7 @@ export_sql = f"""
         {extract_sql}
     """
 
-with Flow("example Snowflake query") as flow:
+with Flow(FLOW_NAME) as flow:
     # BigQueryTask: (https://docs.prefect.io/api/latest/tasks/gcp.html#bigquerytask)
     bq_result = BigQueryTask()(
         query=export_sql,
