@@ -16,6 +16,7 @@ services:
       - '8080:8080'
     volumes:
       - ./src:/src
+      - .docker/app/entrypoint.sh:/usr/local/bin/entrypoint.sh
       - ~/.aws:/root/.aws
     env_file:
       - .env
