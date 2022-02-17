@@ -22,7 +22,15 @@ RUN if [ "$GIT_SHA" = "local" ]; then pip install -r dev-requirements.txt; fi
 #Sentry GITSHA
 ENV GIT_SHA=$GIT_SHA
 
+# Google Cloud credentials are stored in a file at GOOGLE_APPLICATION_CREDENTIALS
+ENV GOOGLE_APPLICATION_CREDENTIALS=/etc/gce-key.json
+
 ENV DATA_FLOWS_SOURCE_DIR=/src
 COPY src $DATA_FLOWS_SOURCE_DIR
 # Adding the src directory to PYTHONPATH allows our modules to be imported in Python.
 ENV PYTHONPATH="$DATA_FLOWS_SOURCE_DIR:${PYTHONPATH}"
+
+# We use a custom entrypoint script. It's invoked using tini, just as in the official Docker image:
+# https://github.com/PrefectHQ/prefect/blob/master/Dockerfile
+COPY .docker/app/entrypoint.sh /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["tini", "-g", "--", "entrypoint.sh"]
