@@ -22,7 +22,8 @@ RUN if [ "$GIT_SHA" = "local" ]; then pip install -r dev-requirements.txt; fi
 #Sentry GITSHA
 ENV GIT_SHA=$GIT_SHA
 
-# Google Cloud credentials are stored in a file at GOOGLE_APPLICATION_CREDENTIALS
+# Google Cloud credentials are stored in a file at GOOGLE_APPLICATION_CREDENTIALS:
+# https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable
 ENV GOOGLE_APPLICATION_CREDENTIALS=/etc/gce-key.json
 
 ENV DATA_FLOWS_SOURCE_DIR=/src
