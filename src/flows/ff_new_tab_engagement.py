@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-import json
 import prefect
 from prefect import Flow, task
 from prefect.schedules import IntervalSchedule
@@ -68,7 +67,7 @@ import_sql = """
             )
         from (
             select
-                '%s', --'xx', --:2,
+                %(batch_id)s,
                 to_timestamp($1:submission_timestamp::integer/1000000) as submission_timestamp,
                 $1:additional_properties::string as additional_properties,
                 $1:addon_version::string as addon_version,
@@ -98,7 +97,7 @@ import_sql = """
                 $1:experiments as experiments,
                 split(metadata$filename,'/'),
                 metadata$file_row_number
-            from %s
+            from %(snowflake_stage_uri)s
         )
         file_format = (type = 'PARQUET')
         on_error=skip_file
@@ -124,15 +123,15 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
     gcs_bucket = config.GCS_BUCKET
     table_name = 'impression_stats_v1'
     gcs_path = f"{config.GCS_PATH}{table_name}"
-    gcs_uri = f'gs://{gcs_bucket}/{gcs_path}/{gcs_date_partition_path}/{batch_id}_*.parq'
+    gcs_uri = f'gs://{gcs_bucket}/{gcs_path}/{gcs_date_partition_path}/{batch_id}/*.parq'
     snowflake_stage = config.SNOWFLAKE_STAGE
-    snowflake_stage_uri = f'@{snowflake_stage}/{gcs_path}/{gcs_date_partition_path}/{batch_id}'
+    snowflake_stage_uri = f'@{snowflake_stage}/{gcs_path}/{gcs_date_partition_path}/{batch_id}/'
 
     logger = prefect.context.get("logger")
     logger.info(f"last_executed_timestamp: {str(last_executed_timestamp)}")
     logger.info(f"date_partition: {date_partition}")
     logger.info(f"gcs_uri: {gcs_uri}")
-    logger.info(f"Export SQL:\n{export_sql}")
+    logger.info(f"batch_id: {batch_id}")
     logger.info(f"snowflake_stage_uri: {snowflake_stage_uri}")
 
     bq_export_query_param_list = [
@@ -142,15 +141,10 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
     ]
 
     batch_id_str = f'{batch_id}'
-    # snowflake_import_param =  json.dumps({
-    #     'snowflake_stage_uri': snowflake_stage_uri,
-    #     'batch_id': f'{batch_id}',
-    # })
-
-    snowflake_import_param =  (str(batch_id_str), str(snowflake_stage_uri))
-
-    logger.info(f"bq_export_query_param_list: {bq_export_query_param_list}")
-    logger.info(f"snowflake_import_param: {snowflake_import_param}")
+    snowflake_import_param =  {
+        'snowflake_stage_uri': snowflake_stage_uri,
+        'batch_id': batch_id_str,
+    }
 
     return bq_export_query_param_list, snowflake_import_param
 
@@ -174,7 +168,7 @@ with Flow(FLOW_NAME, schedule) as flow:
     )
 
     snowflake_import_result = PocketSnowflakeQuery()(
-        data=(snowflake_import_param,),
+        data=snowflake_import_param,
         query=import_sql
     )
 
