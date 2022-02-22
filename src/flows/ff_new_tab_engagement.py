@@ -114,7 +114,8 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
         - last_executed_timestamp: timestamp at which the export was previously executed
 
     Returns:
-    'export_sql' the BigQuery to GCS export statement
+    bq_export_query_param_list:  Parameter list for BigQuery Export query
+    snowflake_import_param: Parameter dict for Snowflake Import query
 
     """
     date_partition = last_executed_timestamp.strftime('%Y-%m-%d')
