@@ -31,9 +31,7 @@ export_sql = """
           where date(submission_timestamp) >= @date_partition
           and submission_timestamp > @last_executed_timestamp
     """
-# development.gaurang_data_engineering.impression_stats_v1
-# %(snowflake_table)s
-# {snowflake_table}
+
 table_name = 'impression_stats_v1'
 import_sql = """
         copy into {snowflake_table} (
