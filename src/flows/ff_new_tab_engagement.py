@@ -31,9 +31,12 @@ export_sql = """
           where date(submission_timestamp) >= @date_partition
           and submission_timestamp > @last_executed_timestamp
     """
-
+# development.gaurang_data_engineering.impression_stats_v1
+# %(snowflake_table)s
+# {snowflake_table}
+table_name = 'impression_stats_v1'
 import_sql = """
-        copy into development.gaurang_data_engineering.impression_stats_v1(
+        copy into {snowflake_table} (
               batch_id,
               submission_timestamp,
               additional_properties,
@@ -121,11 +124,13 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
     batch_id = last_executed_timestamp.timestamp()
 
     gcs_bucket = config.GCS_BUCKET
-    table_name = 'impression_stats_v1'
     gcs_path = f"{config.GCS_PATH}{table_name}"
     gcs_uri = f'gs://{gcs_bucket}/{gcs_path}/{gcs_date_partition_path}/{batch_id}/*.parq'
     snowflake_stage = config.SNOWFLAKE_STAGE
     snowflake_stage_uri = f'@{snowflake_stage}/{gcs_path}/{gcs_date_partition_path}/{batch_id}/'
+    snowflake_table = f'{config.SNOWFLAKE_DB}.{config.SNOWFLAKE_MOZILLA_SCHEMA}.{table_name}'
+
+    # import_sql = import_sql.format(snowflake_table=snowflake_table)
 
     logger = prefect.context.get("logger")
     logger.info(f"last_executed_timestamp: {str(last_executed_timestamp)}")
@@ -169,7 +174,7 @@ with Flow(FLOW_NAME, schedule) as flow:
 
     snowflake_import_result = PocketSnowflakeQuery()(
         data=snowflake_import_param,
-        query=import_sql
+        query=import_sql.format(snowflake_table = f'{config.SNOWFLAKE_DB}.{config.SNOWFLAKE_MOZILLA_SCHEMA}.{table_name}')
     )
 
     update_last_executed_value_task = update_last_executed_value(for_flow=FLOW_NAME)
