@@ -4,7 +4,6 @@ from prefect import Flow, task
 from prefect.schedules import IntervalSchedule
 from prefect.tasks.gcp.bigquery import BigQueryTask
 from utils import config
-from api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 
 # This Flow does the following:
@@ -17,9 +16,10 @@ from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 
 # Setting flow variables
 FLOW_NAME = "FF NewTab Engagement BQ to Snowflake Flow"
+TABLE_NAME = 'impression_stats_v1'
 
 # Export statement to export BQ data into GCS in compressed Parquet format
-export_sql = """
+EXTRACT_SQL = """
         EXPORT DATA OPTIONS(
           uri=@gcs_uri,
           format='PARQUET',
@@ -28,12 +28,11 @@ export_sql = """
   
           SELECT *
           FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
-          where date(submission_timestamp) >= @date_partition
-          and submission_timestamp > @last_executed_timestamp
+          WHERE date(submission_timestamp) >= date(@last_executed_timestamp)
+          AND submission_timestamp > @last_executed_timestamp
     """
 
-table_name = 'impression_stats_v1'
-import_sql = """
+LOAD_SQL = """
         copy into {snowflake_table} (
               batch_id,
               submission_timestamp,
@@ -105,81 +104,52 @@ import_sql = """
     """
 
 
-@task(nout=2)
-def prepare_exp_imp_params(last_executed_timestamp: datetime):
-    """
-    Task to prepare parameters needed for BQ export and Snowflake import
+@task()
+def get_last_executed_timestamp(table) -> datetime:
+    # TODO: How to make this return datetime
+    query = "SELECT max(submission_timestamp) FROM {table}".format(table=table)
+    return PocketSnowflakeQuery()(query=query)[0][0]
 
-    Args:
-        - last_executed_timestamp: timestamp at which the export was previously executed
 
-    Returns:
-    bq_export_query_param_list:  Parameter list for BigQuery Export query
-    snowflake_import_param: Parameter dict for Snowflake Import query
+@task()
+def get_gcs_uri(timestamp: datetime) -> str:
+    ts = timestamp.strftime('%a')
+    return f'gs://{config.GCS_BUCKET}/{config.GCS_PATH}/{TABLE_NAME}/{ts}/*.parq'
 
-    """
-    date_partition = last_executed_timestamp.strftime('%Y-%m-%d')
-    gcs_date_partition_path = last_executed_timestamp.strftime('%Y%m%d')
-    batch_id = last_executed_timestamp.timestamp()
 
-    gcs_bucket = config.GCS_BUCKET
-    gcs_path = f"{config.GCS_PATH}{table_name}"
-    gcs_uri = f'gs://{gcs_bucket}/{gcs_path}/{gcs_date_partition_path}/{batch_id}/*.parq'
-    snowflake_stage = config.SNOWFLAKE_STAGE
-    snowflake_stage_uri = f'@{snowflake_stage}/{gcs_path}/{gcs_date_partition_path}/{batch_id}/'
-    snowflake_table = f'{config.SNOWFLAKE_DB}.{config.SNOWFLAKE_MOZILLA_SCHEMA}.{table_name}'
+@task()
+def get_snowflake_stage_uri(timestamp: datetime) -> str:
+    ts = timestamp.strftime('%a')
+    return f'@{config.SNOWFLAKE_STAGE}/{config.GCS_PATH}/{TABLE_NAME}/{ts}/'
 
-    # import_sql = import_sql.format(snowflake_table=snowflake_table)
-
-    logger = prefect.context.get("logger")
-    logger.info(f"last_executed_timestamp: {str(last_executed_timestamp)}")
-    logger.info(f"date_partition: {date_partition}")
-    logger.info(f"gcs_uri: {gcs_uri}")
-    logger.info(f"batch_id: {batch_id}")
-    logger.info(f"snowflake_stage_uri: {snowflake_stage_uri}")
-
-    bq_export_query_param_list = [
-        ('date_partition', 'STRING', date_partition),
-        ('gcs_uri', 'STRING', gcs_uri),
-        ('last_executed_timestamp', 'TIMESTAMP', last_executed_timestamp),
-    ]
-
-    batch_id_str = f'{batch_id}'
-    snowflake_import_param =  {
-        'snowflake_stage_uri': snowflake_stage_uri,
-        'batch_id': batch_id_str,
-    }
-
-    return bq_export_query_param_list, snowflake_import_param
 
 # Schedule to run every 5 minutes
 schedule = IntervalSchedule(
-        start_date=datetime.utcnow() + timedelta(seconds=1),
-        interval=timedelta(minutes=5),
-    )
+    start_date=datetime.utcnow() + timedelta(seconds=1),
+    interval=timedelta(minutes=5),
+)
 
 with Flow(FLOW_NAME, schedule) as flow:
-    last_executed_timestamp = get_last_executed_value(flow_name=FLOW_NAME,
-                                                  default_if_absent=str(datetime.utcnow())
-                                                  )
+    # TODO: What is best practices for constructing table names when they may vary based on environment?
+    snowflake_table = f'{config.SNOWFLAKE_DB}.{config.SNOWFLAKE_MOZILLA_SCHEMA}.{TABLE_NAME}'
+    last_executed_timestamp = get_last_executed_timestamp(snowflake_table)
+    batch_timestamp = datetime.now()
 
-    bq_export_query_param_list, snowflake_import_param = prepare_exp_imp_params(
-        last_executed_timestamp=last_executed_timestamp)
+    extract = BigQueryTask()(
+        query=EXTRACT_SQL,
+        query_params=[('gcs_uri', 'STRING', get_gcs_uri(batch_timestamp)),
+                      ('last_executed_timestamp', 'TIMESTAMP', last_executed_timestamp)]),
+    # Is it possible to return the list of files to import from extract? If so it may be interesting to pass these files
+    # to the load task and load specifically those files.
 
-    bq_export_result = BigQueryTask()(
-        query=export_sql,
-        query_params=bq_export_query_param_list,
-    )
+    load = PocketSnowflakeQuery()(
+        query=LOAD_SQL.format(snowflake_table=snowflake_table),
+        data={
+            'snowflake_stage_uri': get_snowflake_stage_uri(batch_timestamp),
+            'batch_id': batch_timestamp.strftime('%a'),
+        })
 
-    snowflake_import_result = PocketSnowflakeQuery()(
-        data=snowflake_import_param,
-        query=import_sql.format(snowflake_table = f'{config.SNOWFLAKE_DB}.{config.SNOWFLAKE_MOZILLA_SCHEMA}.{table_name}')
-    )
-
-    update_last_executed_value_task = update_last_executed_value(for_flow=FLOW_NAME)
-
-    snowflake_import_result.set_upstream(bq_export_result)
-    update_last_executed_value_task.set_upstream(snowflake_import_result)
+    load.set_upstream(extract)
 
 if __name__ == "__main__":
     flow.run()
