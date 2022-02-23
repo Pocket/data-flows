@@ -8,7 +8,7 @@ FLOW_NAME = "example BQ to GCS Export"
 # GCS Bucket and Path to export BigQuery data
 gcs_bucket = config.GCS_BUCKET
 table_name = 'impression_stats_v1'
-gcs_path = f"{config.GCS_PATH}{table_name}"
+gcs_path = f"{config.GCS_PATH}/{table_name}"
 
 # BigQuery SQL to extract data
 #   date_partition : BigQuery table partition to extract (Note: the BQ table is partitioned by the

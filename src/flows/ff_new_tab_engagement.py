@@ -17,9 +17,10 @@ from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 
 # Setting flow variables
 FLOW_NAME = "FF NewTab Engagement BQ to Snowflake Flow"
+TABLE_NAME = 'impression_stats_v1'
 
 # Export statement to export BQ data into GCS in compressed Parquet format
-export_sql = """
+EXPORT_SQL = """
         EXPORT DATA OPTIONS(
           uri=@gcs_uri,
           format='PARQUET',
@@ -28,12 +29,11 @@ export_sql = """
   
           SELECT *
           FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
-          where date(submission_timestamp) >= @date_partition
+          where date(submission_timestamp) >= date(@last_executed_timestamp)
           and submission_timestamp > @last_executed_timestamp
     """
 
-table_name = 'impression_stats_v1'
-import_sql = """
+IMPORT_SQL = """
         copy into {snowflake_table} (
               batch_id,
               submission_timestamp,
@@ -118,28 +118,25 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
     snowflake_import_param: Parameter dict for Snowflake Import query
 
     """
-    date_partition = last_executed_timestamp.strftime('%Y-%m-%d')
+    # date_partition = last_executed_timestamp.strftime('%Y-%m-%d')
     gcs_date_partition_path = last_executed_timestamp.strftime('%Y%m%d')
     batch_id = last_executed_timestamp.timestamp()
 
     gcs_bucket = config.GCS_BUCKET
-    gcs_path = f"{config.GCS_PATH}{table_name}"
+    gcs_path = f"{config.GCS_PATH}/{TABLE_NAME}"
     gcs_uri = f'gs://{gcs_bucket}/{gcs_path}/{gcs_date_partition_path}/{batch_id}/*.parq'
     snowflake_stage = config.SNOWFLAKE_STAGE
     snowflake_stage_uri = f'@{snowflake_stage}/{gcs_path}/{gcs_date_partition_path}/{batch_id}/'
-    snowflake_table = f'{config.SNOWFLAKE_DB}.{config.SNOWFLAKE_MOZILLA_SCHEMA}.{table_name}'
-
-    # import_sql = import_sql.format(snowflake_table=snowflake_table)
 
     logger = prefect.context.get("logger")
     logger.info(f"last_executed_timestamp: {str(last_executed_timestamp)}")
-    logger.info(f"date_partition: {date_partition}")
+    # logger.info(f"date_partition: {date_partition}")
     logger.info(f"gcs_uri: {gcs_uri}")
     logger.info(f"batch_id: {batch_id}")
     logger.info(f"snowflake_stage_uri: {snowflake_stage_uri}")
 
     bq_export_query_param_list = [
-        ('date_partition', 'STRING', date_partition),
+        # ('date_partition', 'STRING', date_partition),
         ('gcs_uri', 'STRING', gcs_uri),
         ('last_executed_timestamp', 'TIMESTAMP', last_executed_timestamp),
     ]
@@ -154,9 +151,9 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
 
 # Schedule to run every 5 minutes
 schedule = IntervalSchedule(
-        start_date=datetime.utcnow() + timedelta(seconds=1),
-        interval=timedelta(minutes=5),
-    )
+    start_date=datetime.utcnow() + timedelta(seconds=1),
+    interval=timedelta(minutes=5),
+)
 
 with Flow(FLOW_NAME, schedule) as flow:
     last_executed_timestamp = get_last_executed_value(flow_name=FLOW_NAME,
@@ -167,13 +164,13 @@ with Flow(FLOW_NAME, schedule) as flow:
         last_executed_timestamp=last_executed_timestamp)
 
     bq_export_result = BigQueryTask()(
-        query=export_sql,
+        query=EXPORT_SQL,
         query_params=bq_export_query_param_list,
     )
 
     snowflake_import_result = PocketSnowflakeQuery()(
         data=snowflake_import_param,
-        query=import_sql.format(snowflake_table = f'{config.SNOWFLAKE_DB}.{config.SNOWFLAKE_MOZILLA_SCHEMA}.{table_name}')
+        query=IMPORT_SQL.format(snowflake_table = f'{config.SNOWFLAKE_DB}.{config.SNOWFLAKE_MOZILLA_SCHEMA}.{TABLE_NAME}')
     )
 
     update_last_executed_value_task = update_last_executed_value(for_flow=FLOW_NAME)
