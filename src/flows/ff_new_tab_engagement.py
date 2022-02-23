@@ -118,7 +118,6 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
     snowflake_import_param: Parameter dict for Snowflake Import query
 
     """
-    # date_partition = last_executed_timestamp.strftime('%Y-%m-%d')
     gcs_date_partition_path = last_executed_timestamp.strftime('%Y%m%d')
     batch_id = last_executed_timestamp.timestamp()
 
@@ -130,13 +129,11 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
 
     logger = prefect.context.get("logger")
     logger.info(f"last_executed_timestamp: {str(last_executed_timestamp)}")
-    # logger.info(f"date_partition: {date_partition}")
     logger.info(f"gcs_uri: {gcs_uri}")
     logger.info(f"batch_id: {batch_id}")
     logger.info(f"snowflake_stage_uri: {snowflake_stage_uri}")
 
     bq_export_query_param_list = [
-        # ('date_partition', 'STRING', date_partition),
         ('gcs_uri', 'STRING', gcs_uri),
         ('last_executed_timestamp', 'TIMESTAMP', last_executed_timestamp),
     ]
