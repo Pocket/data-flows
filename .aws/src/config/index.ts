@@ -40,6 +40,8 @@ const prefect = {
       'DBT_CLOUD_TOKEN',
       'DBT_CLOUD_ACCOUNT_ID',
       'GCE_KEY',
+      'BRAZE_API_KEY',
+      'BRAZE_REST_ENDPOINT',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14

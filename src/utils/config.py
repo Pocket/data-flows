@@ -17,3 +17,6 @@ SNOWFLAKE_DEV_SCHEMA = os.getenv('SNOWFLAKE_DEV_SCHEMA', SNOWFLAKE_DEV_SCHEMA_DE
 SNOWFLAKE_STAGE = 'prefect.public.prefect_gcs_stage_parq_prod' if ENVIRONMENT == ENV_PROD else 'development.public.prefect_gcs_stage_parq_dev'
 SNOWFLAKE_DB = 'prefect' if ENVIRONMENT == ENV_PROD else 'development'
 SNOWFLAKE_MOZILLA_SCHEMA = 'mozilla' if ENVIRONMENT == ENV_PROD else SNOWFLAKE_DEV_SCHEMA
+
+BRAZE_API_KEY=os.getenv('BRAZE_API_KEY')
+BRAZE_REST_ENDPOINT=os.getenv('BRAZE_REST_ENDPOINT')
