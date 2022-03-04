@@ -12,7 +12,8 @@ from utils.dataclasses import Missing, DataClassJSONEncoder
 """
 Maximum number of attributes that can be updated in a single request.
 """
-REQUEST_ATTRIBUTE_LIMIT = 75
+USER_TRACK_LIMIT = 75
+USER_DELETE_LIMIT = 50
 
 BRAZE_APP_ID_TO_POCKET = {
     '5511': '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b',  # iOS
@@ -68,6 +69,7 @@ class UserAttributes(_UserIdentifier):
     #(date at which the user first used the app) String in ISO 8601 format or in yyyy-MM-dd'T'HH:mm:ss:SSSZ format.
     #Also the pocket signed up at
     date_of_first_session: Union[str, Missing] = Missing()
+    email_subscribe: Union[str, Missing] = Missing()
 
     #(string) We require that country codes be passed to Braze in the ISO-3166-1 alpha-2 standard .
     country: Union[str, Missing] = Missing()
@@ -155,10 +157,15 @@ class Purchase(_UserIdentifier, _PurchaseRequiredFields):
 
 
 @dataclass
-class UserTracking:
+class TrackUsersInput:
     attributes: Union[List[UserAttributes], Missing] = Missing()
     events: Union[List[UserEvent], Missing] = Missing()
     purchases: Union[List[Purchase], Missing] = Missing()
+
+
+@dataclass
+class UserDeleteInput:
+    external_ids: List[str]
 
 
 def format_date(dt: datetime.datetime) -> str:
@@ -193,13 +200,21 @@ class BrazeClient:
         """
         raise NotImplemented()
 
-    def track_users(self, user_tracking: UserTracking):
+    def track_users(self, user_tracking: TrackUsersInput):
         """
         Batch update attributes and events for one or more users.
         @see https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#4cf57ea9-9b37-4e99-a02e-4373c9a4ee59
         :return:
         """
         return self._post_request('/users/track?=', user_tracking)
+
+    def delete_users(self, users_to_delete: UserDeleteInput):
+        """
+        Batch delete users
+        @see https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#22e91d00-d178-4b4f-a3df-0073ecfcc992
+        :return:
+        """
+        return self._post_request('/users/delete', users_to_delete)
 
     def _post_request(self, path, braze_data):
         #TODO: Look at braze bulk header https://www.braze.com/docs/api/endpoints/user_data/post_user_track/#making-bulk-updates
@@ -211,4 +226,5 @@ class BrazeClient:
                 'Content-Type': 'application/json',
             },
         )
+        self._logger.info(f"Braze {path} responded with {response.status_code}: {response.text}")
         return response
