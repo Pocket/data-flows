@@ -149,31 +149,14 @@ def make_user_premium(account_signups: pd.DataFrame):
     :return:
     """
     for account_signup_chunk in _chunks(account_signups, braze.USER_TRACK_LIMIT):
-        attributes = [
-            braze.UserAttributes(
-                external_id=account_signup['HASHED_USER_ID'],
-                is_premium=True,
-            ) for account_signup in account_signup_chunk
-        ]
-
-        purchases = [
-            braze.Purchase(
-                # TODO: Map the snowplow event api id to a Braze App ID for targeting in braze based on platform.
-                app_id=premium_created['BRAZE_API_ID'],
-                external_id=premium_created['HASHED_USER_ID'],
-                product_id="pocket_premium", # TODO: This should be the Pocket Product ID and then we need to set up these maps in Braze
-                price=premium_created['AMOUNT'],
-                currency=premium_created['CURRENCY'],
-                time=braze.format_date(premium_created['CREATED_AT']),
-            ) for premium_created in account_signup_chunk
-        ]
-
-        response = BrazeClient().track_users(user_tracking=braze.TrackUsersInput(
-            attributes=attributes,
-            purchases=purchases,
+        BrazeClient(logger=context.get("logger")).track_users(user_tracking=braze.TrackUsersInput(
+            attributes=[
+                braze.UserAttributes(
+                    external_id=account_signup['HASHED_USER_ID'],
+                    is_premium=True,
+                ) for account_signup in account_signup_chunk
+            ],
         ))
-
-        print(response)
 
 
 def _chunks(index, n):
