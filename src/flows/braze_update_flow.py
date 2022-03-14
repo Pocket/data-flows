@@ -55,7 +55,16 @@ EXTRACT_PREMIUM_SUBSCRIPTION_QUERY = """
         e.CONTEXTS_COM_POCKET_PAYMENT_SUBSCRIPTION_1[0]['amount']::FLOAT / 100 as AMOUNT,
         TO_TIMESTAMP(e.CONTEXTS_COM_POCKET_PAYMENT_SUBSCRIPTION_1[0]['created_at']) as CREATED_AT,
         e.CONTEXTS_COM_POCKET_USER_1[0]['hashed_user_id']::STRING as HASHED_USER_ID,
+        e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['is_premium']::BOOLEAN as IS_PREMIUM,
         e.CONTEXTS_COM_POCKET_API_USER_1[0]['api_id']::STRING as POCKET_API_ID,
+    UNSTRUCT_EVENT_COM_POCKET_OBJECT_UPDATE_1['trigger'] as EVENT_TRIGGER,
+        IFNULL(
+        e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['is_premium']::BOOLEAN,
+        CASE
+            WHEN EVENT_TRIGGER = 'payment_subscription_ended' THEN FALSE
+            WHEN EVENT_TRIGGER = 'payment_subscription_created' THEN TRUE
+        END
+    ) as IS_PREMIUM,
      CASE 
         WHEN POCKET_API_ID=5511 THEN '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b'
                 WHEN POCKET_API_ID=5512 THEN '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b'
@@ -65,13 +74,13 @@ EXTRACT_PREMIUM_SUBSCRIPTION_QUERY = """
      END AS BRAZE_API_ID
     FROM SNOWPLOW.ATOMIC.EVENTS e
     WHERE event_name = 'object_update'
-    AND UNSTRUCT_EVENT_COM_POCKET_OBJECT_UPDATE_1['trigger'] = %(trigger)s
+    AND UNSTRUCT_EVENT_COM_POCKET_OBJECT_UPDATE_1['trigger'] IN (%(triggers)s)
     AND collector_tstamp BETWEEN %(tstamp_start)s AND %(tstamp_end)s
     """
 
 
 @task
-def get_extract_query_parameters(trigger):
+def get_extract_query_parameters(triggers: List[str]):
     """
     Return query parameters for _EXTRACT_QUERY
 
@@ -79,9 +88,9 @@ def get_extract_query_parameters(trigger):
     :return:
     """
     return {
-        'trigger': trigger,
+        'triggers': triggers,
         'tstamp_start': '2022-02-27 00:00:00',
-        'tstamp_end': '2022-02-27 00:05:00',
+        'tstamp_end': '2022-02-27 01:00:00',
     }
 
 
@@ -138,15 +147,12 @@ def create_user_profiles(account_signups: List[Dict]):
 
 
 @task
-def make_user_premium(account_signups: pd.DataFrame):
+def update_is_premium(account_signups: pd.DataFrame):
     """
-    Creates Braze user profiles
+    Updates whether a user is a premium user or not.
 
     Use cases:
-    - If a user signs up for Pocket, they should get a Braze user profile, such that they can receive Pocket Hits if
-    they’re eligible.
-
-    :return:
+    - Premium users should receive Pocket Hits without ads.
     """
     for account_signup_chunk in _chunks(account_signups, braze.USER_TRACK_LIMIT):
         BrazeClient(logger=context.get("logger")).track_users(user_tracking=braze.TrackUsersInput(
@@ -180,23 +186,23 @@ def _mask_email_domain(rows: List[Dict], email_column='EMAIL'):
 execute_snowflake_query = PocketSnowflakeQuery(output_type=OutputType.DICT)
 
 with Flow(FLOW_NAME) as flow:
-    account_signup_snowplow_events = execute_snowflake_query(
-        query=EXTRACT_ACCOUNT_SIGNUP_QUERY,
-        data=get_extract_query_parameters(trigger='account_signup'),
-    )
-    create_user_profiles(account_signup_snowplow_events)
-
-    users_to_delete = execute_snowflake_query(
-        query=EXTRACT_USERS_TO_DELETE_QUERY,
-        data=get_extract_query_parameters(trigger='account_delete'),
-    )
-    delete_user_profiles(users_to_delete)
-
-    premium_subscription_created_events = execute_snowflake_query(
+    # account_signup_snowplow_events = execute_snowflake_query(
+    #     query=EXTRACT_ACCOUNT_SIGNUP_QUERY,
+    #     data=get_extract_query_parameters(triggers=['account_signup']),
+    # )
+    # create_user_profiles(account_signup_snowplow_events)
+    #
+    # users_to_delete = execute_snowflake_query(
+    #     query=EXTRACT_USERS_TO_DELETE_QUERY,
+    #     data=get_extract_query_parameters(triggers=['account_delete']),
+    # )
+    # delete_user_profiles(users_to_delete)
+    #
+    premium_subscription_events = execute_snowflake_query(
         query=EXTRACT_PREMIUM_SUBSCRIPTION_QUERY,
-        data=get_extract_query_parameters(trigger='payment_subscription_created'),
+        data=get_extract_query_parameters(triggers=['payment_subscription_created', 'payment_subscription_ended']),
     )
-    make_user_premium(premium_subscription_created_events)
+    update_is_premium(premium_subscription_events)
 
 
 if __name__ == "__main__":
