@@ -7,6 +7,7 @@ from prefect import Flow, task, context
 from api_clients import braze
 from api_clients.braze import BrazeClient
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
+from utils.iteration import chunks
 
 FLOW_NAME = Path(__file__).stem
 
@@ -102,7 +103,7 @@ def delete_user_profiles(users_to_delete: List[Dict]):
     Use cases:
     - If someone deletes their Pocket profile, their Braze user profile should also be deleted.
     """
-    for account_signup_chunk in _chunks(users_to_delete, braze.USER_DELETE_LIMIT):
+    for account_signup_chunk in chunks(users_to_delete, braze.USER_DELETE_LIMIT):
         BrazeClient(logger=context.get("logger")).delete_users(braze.UserDeleteInput(
             external_ids=[u['EXTERNAL_ID'] for u in account_signup_chunk]
         ))
@@ -122,7 +123,7 @@ def create_user_profiles(account_signups: List[Dict]):
     """
     _mask_email_domain(account_signups)
 
-    for account_signup_chunk in _chunks(account_signups, braze.USER_TRACK_LIMIT):
+    for account_signup_chunk in chunks(account_signups, braze.USER_TRACK_LIMIT):
         BrazeClient(logger=context.get("logger")).track_users(braze.TrackUsersInput(
             attributes=[
                 braze.UserAttributes(
@@ -154,7 +155,7 @@ def update_is_premium(account_signups: pd.DataFrame):
     Use cases:
     - Premium users should receive Pocket Hits without ads.
     """
-    for account_signup_chunk in _chunks(account_signups, braze.USER_TRACK_LIMIT):
+    for account_signup_chunk in chunks(account_signups, braze.USER_TRACK_LIMIT):
         BrazeClient(logger=context.get("logger")).track_users(user_tracking=braze.TrackUsersInput(
             attributes=[
                 braze.UserAttributes(
@@ -163,12 +164,6 @@ def update_is_premium(account_signups: pd.DataFrame):
                 ) for account_signup in account_signup_chunk
             ],
         ))
-
-
-def _chunks(index, n):
-    """Yield successive n-sized chunks from index."""
-    for i in range(0, len(index), n):
-        yield index[i: i + n]
 
 
 def _replace_email_domain(email: str, new_domain) -> str:
