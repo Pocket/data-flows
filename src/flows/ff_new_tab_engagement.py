@@ -31,6 +31,7 @@ EXPORT_SQL = """
           FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
           where date(submission_timestamp) >= date(@last_executed_timestamp)
           and submission_timestamp > @last_executed_timestamp
+          qualify row_number() over (partition by document_id order by submission_timestamp desc) = 1
     """
 
 IMPORT_SQL = """
