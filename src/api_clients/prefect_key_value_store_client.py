@@ -28,8 +28,7 @@ def get_kv(key: str, default_value: str):
     try:
         return get_key_value(key)
     except ValueError as err:
-        set_key_value(key, default_value)
-        return get_key_value(key)
+        return default_value
 
 @task
 def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:00') -> datetime:
