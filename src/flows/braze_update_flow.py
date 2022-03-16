@@ -1,101 +1,95 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from prefect import Flow, task, context
 
 from api_clients import braze
 from api_clients.braze import BrazeClient
+from api_clients.prefect_key_value_store_client import get_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from utils.iteration import chunks
 
 FLOW_NAME = Path(__file__).stem
 
-# This query does some modeling that we'll eventually do in Dbt.
-EXTRACT_ACCOUNT_SIGNUP_QUERY = """
-    SELECT   
-        e.GEO_COUNTRY as COUNTRY,
-        e.GEO_CITY as CITY,
-        e.GEO_TIMEZONE as TIMEZONE,
-        e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['hashed_user_id']::STRING as HASHED_USER_ID,
-        TO_TIMESTAMP(e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['created_at']) as CREATED_AT,
-        e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['emails'][0]::STRING as EMAIL,
-        e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['is_premium']::BOOLEAN as IS_PREMIUM,
-        e.CONTEXTS_COM_POCKET_API_USER_1[0]['api_id']::STRING as POCKET_API_ID,
-     CASE 
-        WHEN POCKET_API_ID=5511 THEN '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b'
-        WHEN POCKET_API_ID=5512 THEN '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b'
-        WHEN POCKET_API_ID=5513 THEN '9660451f-20af-4330-b97f-da5159fb1d78'
-        WHEN POCKET_API_ID=5514 THEN '9660451f-20af-4330-b97f-da5159fb1d78'
-        ELSE '76e48d24-506c-4e7e-bec2-c0f262ebbcd5'
-     END AS BRAZE_API_ID
-    FROM SNOWPLOW.ATOMIC.EVENTS e
-    WHERE event_name = 'object_update'
-    AND UNSTRUCT_EVENT_COM_POCKET_OBJECT_UPDATE_1['trigger'] = %(trigger)s
-    AND collector_tstamp BETWEEN %(tstamp_start)s AND %(tstamp_end)s
-    """
-
-# This query does some modeling that we'll eventually do in Dbt.
-EXTRACT_USERS_TO_DELETE_QUERY = """
-    SELECT   
-        e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['hashed_user_id']::STRING as EXTERNAL_ID,
-        TO_TIMESTAMP(e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['created_at']) as CREATED_AT
-    FROM SNOWPLOW.ATOMIC.EVENTS e
-    WHERE event_name = 'object_update'
-    AND UNSTRUCT_EVENT_COM_POCKET_OBJECT_UPDATE_1['trigger'] = %(trigger)s
-    AND collector_tstamp BETWEEN %(tstamp_start)s AND %(tstamp_end)s
-    """
-
-# This query does some modeling that we'll eventually do in Dbt.
-EXTRACT_PREMIUM_SUBSCRIPTION_QUERY = """
-    SELECT
-        e.GEO_COUNTRY as COUNTRY,
-        e.GEO_CITY as CITY,
-        e.GEO_TIMEZONE as TIMEZONE,
-        e.CONTEXTS_COM_POCKET_PAYMENT_SUBSCRIPTION_1[0]['currency']::STRING as CURRENCY,
-        e.CONTEXTS_COM_POCKET_PAYMENT_SUBSCRIPTION_1[0]['amount']::FLOAT / 100 as AMOUNT,
-        TO_TIMESTAMP(e.CONTEXTS_COM_POCKET_PAYMENT_SUBSCRIPTION_1[0]['created_at']) as CREATED_AT,
-        e.CONTEXTS_COM_POCKET_USER_1[0]['hashed_user_id']::STRING as HASHED_USER_ID,
-        e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['is_premium']::BOOLEAN as IS_PREMIUM,
-        e.CONTEXTS_COM_POCKET_API_USER_1[0]['api_id']::STRING as POCKET_API_ID,
-    UNSTRUCT_EVENT_COM_POCKET_OBJECT_UPDATE_1['trigger'] as EVENT_TRIGGER,
-        IFNULL(
-        e.CONTEXTS_COM_POCKET_ACCOUNT_1[0]['is_premium']::BOOLEAN,
-        CASE
-            WHEN EVENT_TRIGGER = 'payment_subscription_ended' THEN FALSE
-            WHEN EVENT_TRIGGER = 'payment_subscription_created' THEN TRUE
-        END
-    ) as IS_PREMIUM,
-     CASE 
-        WHEN POCKET_API_ID=5511 THEN '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b'
-                WHEN POCKET_API_ID=5512 THEN '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b'
-        WHEN POCKET_API_ID=5513 THEN '9660451f-20af-4330-b97f-da5159fb1d78'
-        WHEN POCKET_API_ID=5514 THEN '9660451f-20af-4330-b97f-da5159fb1d78'
-        ELSE '76e48d24-506c-4e7e-bec2-c0f262ebbcd5'
-     END AS BRAZE_API_ID
-    FROM SNOWPLOW.ATOMIC.EVENTS e
-    WHERE event_name = 'object_update'
-    AND UNSTRUCT_EVENT_COM_POCKET_OBJECT_UPDATE_1['trigger'] IN (%(triggers)s)
-    AND collector_tstamp BETWEEN %(tstamp_start)s AND %(tstamp_end)s
-    """
+EXTRACT_QUERY = """
+SELECT
+    EVENT_ID,
+    ETL_TSTAMP,
+    HAPPENED_AT,
+    USER_EVENT_TRIGGER,
+    EXTERNAL_ID,
+    EMAIL,
+    COUNTRY,
+    TIME_ZONE,
+    IS_PREMIUM,
+    POCKET_LOCALE,
+    SUBSCRIBE_TO_NEWSLETTER_SUBSCRIPTION_GROUP_ID,
+    BRAZE_EVENT_NAME,
+    NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
+    NEWSLETTER_SIGNUP_EVENT_FREQUENCY
+FROM "ANALYTICS"."DBT_MMIERMANS"."BRAZE_USER_DELTAS"
+WHERE ETL_TSTAMP > %(tstamp_start)s
+ORDER BY ETL_TSTAMP ASC
+LIMIT 100 -- For debugging, limit to 100.
+"""
 
 
-@task
-def get_extract_query_parameters(triggers: List[str]):
-    """
-    Return query parameters for _EXTRACT_QUERY
+DEFAULT_TSTAMP_START = '2022-03-10'
 
-    Currently the values are constant. Eventually we'll pull these from the Prefect Key-Value store.
-    :return:
+
+@dataclass
+class UserDelta:
+    event_id: str
+    etl_tstamp: str
+    happened_at: str
+    user_event_trigger: str
+    external_id: Optional[str]
+    email: Optional[str]
+    country: Optional[str]
+    time_zone: Optional[str]
+    is_premium: Optional[str]
+    pocket_locale: Optional[str]
+    subscribe_to_newsletter_subscription_group_id: Optional[str]
+    braze_event_name: Optional[str]
+    newsletter_signup_event_newsletter: Optional[str]
+    newsletter_signup_event_frequency: Optional[str]
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]):
+        return UserDelta(**{k.lower(): v for k, v in d.items()})
+
+
+@task()
+def get_extract_query_parameters():
     """
-    return {
-        'triggers': triggers,
-        'tstamp_start': '2022-02-27 00:00:00',
-        'tstamp_end': '2022-02-27 01:00:00',
+    :return: query parameters for EXTRACT_QUERY
+    """
+    query_params = {
+        'tstamp_start': get_kv(key=format_key(FLOW_NAME, "last_etl"), default_value=DEFAULT_TSTAMP_START),
     }
 
+    logger = context.get("logger")
+    logger.info(f"extract query_params: {query_params}")
 
-@task
+    return query_params
+
+
+@task()
+def get_user_deltas_from_dicts(dicts: List[Dict]) -> List[UserDelta]:
+    return [UserDelta.from_dict(d) for d in dicts]
+
+
+@task()
+def filter_user_deltas(user_deltas: List[UserDelta], trigger: str) -> List[UserDelta]:
+    filtered_user_deltas = [u for u in user_deltas if u.user_event_trigger == trigger]
+    logger = context.get("logger")
+    logger.info(f"{len(filtered_user_deltas)}/{len(user_deltas)} user deltas remain after '{trigger}' trigger filter")
+    return filtered_user_deltas
+
+
+@task()
 def delete_user_profiles(users_to_delete: List[Dict]):
     """
     Deletes Braze user profiles
@@ -109,10 +103,27 @@ def delete_user_profiles(users_to_delete: List[Dict]):
         ))
 
 
-@task
-def create_user_profiles(account_signups: List[Dict]):
+@task()
+def create_email_aliases(user_deltas: List[UserDelta]):
     """
-    Creates Braze user profiles
+    Creates aliases for users
+    """
+    for user_deltas_chunk in chunks(user_deltas, braze.NEW_USER_ALIAS_LIMIT):
+        BrazeClient(logger=context.get("logger")).create_new_user_aliases(braze.CreateUserAliasInput(
+            user_aliases=[
+                braze.UserAliasExternalIdAssociation(
+                    external_id=user.external_id,
+                    alias_label=braze.EMAIL_ALIAS_LABEL,
+                    alias_name=user.email,
+                ) for user in user_deltas_chunk
+            ]
+        ))
+
+
+@task()
+def track_users(user_deltas: List[Dict]):
+    """
+    Updates
 
     If a user signs up for Pocket:
     - They should get a Braze user profile, such that they can receive emails for which they're eligible.
@@ -121,9 +132,7 @@ def create_user_profiles(account_signups: List[Dict]):
 
     :return:
     """
-    _mask_email_domain(account_signups)
-
-    for account_signup_chunk in chunks(account_signups, braze.USER_TRACK_LIMIT):
+    for user_deltas_chunk in chunks(user_deltas, braze.USER_TRACK_LIMIT):
         BrazeClient(logger=context.get("logger")).track_users(braze.TrackUsersInput(
             attributes=[
                 braze.UserAttributes(
@@ -134,7 +143,7 @@ def create_user_profiles(account_signups: List[Dict]):
                     country=account_signup['COUNTRY'],
                     home_city=account_signup['CITY'],
                     email_subscribe='subscribed'
-                ) for account_signup in account_signup_chunk
+                ) for account_signup in user_deltas_chunk
             ],
             events=[
                 braze.UserEvent(
@@ -142,12 +151,12 @@ def create_user_profiles(account_signups: List[Dict]):
                     external_id=account_signup['HASHED_USER_ID'],
                     name="account_signup",
                     time=braze.format_date(account_signup['CREATED_AT']),
-                ) for account_signup in account_signup_chunk
+                ) for account_signup in user_deltas_chunk
             ]
         ))
 
 
-@task
+@task()
 def update_is_premium(account_signups: pd.DataFrame):
     """
     Updates whether a user is a premium user or not.
@@ -170,34 +179,45 @@ def _replace_email_domain(email: str, new_domain) -> str:
     return email.split('@')[0] + new_domain
 
 
-def _mask_email_domain(rows: List[Dict], email_column='EMAIL'):
+@task()
+def mask_email_domain(rows: List[Dict], email_column='EMAIL'):
     """
     For debugging purposes, change the domain of all email addresses to '@example.com'
     """
     for row in rows:
-        row[email_column] = _replace_email_domain(row[email_column], new_domain='@example.com')
+        if row[email_column] is not None:
+            row[email_column] = _replace_email_domain(row[email_column], new_domain='@example.com')
 
+    return rows
 
-execute_snowflake_query = PocketSnowflakeQuery(output_type=OutputType.DICT)
 
 with Flow(FLOW_NAME) as flow:
-    # account_signup_snowplow_events = execute_snowflake_query(
-    #     query=EXTRACT_ACCOUNT_SIGNUP_QUERY,
-    #     data=get_extract_query_parameters(triggers=['account_signup']),
-    # )
-    # create_user_profiles(account_signup_snowplow_events)
-    #
-    # users_to_delete = execute_snowflake_query(
-    #     query=EXTRACT_USERS_TO_DELETE_QUERY,
-    #     data=get_extract_query_parameters(triggers=['account_delete']),
-    # )
-    # delete_user_profiles(users_to_delete)
-    #
-    premium_subscription_events = execute_snowflake_query(
-        query=EXTRACT_PREMIUM_SUBSCRIPTION_QUERY,
-        data=get_extract_query_parameters(triggers=['payment_subscription_created', 'payment_subscription_ended']),
+    user_deltas_dicts = PocketSnowflakeQuery()(
+        query=EXTRACT_QUERY,
+        data=get_extract_query_parameters(),
+        output_type=OutputType.DICT,
     )
-    update_is_premium(premium_subscription_events)
+
+    # Prevent real users from getting emails by masking the email domains in the development environment.
+    user_deltas_dicts = mask_email_domain(user_deltas_dicts)
+
+    # Convert Snowflake dicts to @dataclass objects.
+    all_user_deltas = get_user_deltas_from_dicts(user_deltas_dicts)
+
+    # Filter some subsets of users.
+    anonymous_signup_user_deltas = filter_user_deltas(all_user_deltas, trigger='newsletter_signup')
+    account_signup_user_deltas = filter_user_deltas(all_user_deltas, trigger='account_signup')
+
+    # Create user aliases for anonymous ('alias-only') signups needs to happen before track_users(),
+    # because attributes can't be applies to an alias-only user that doesn't exist yet.
+    create_email_aliases(anonymous_signup_user_deltas)
+
+    # Apply attributes, events, and payments. This creates users with an external_id if they don't exist already.
+    track_users(all_user_deltas)
+
+    # Create user aliases for Pocket account signups, which have an external_id.
+    # Contrary to alias-only users, this needs to happen after track_users, because that step creates the user profile.
+    create_email_aliases(account_signup_user_deltas)
 
 
 if __name__ == "__main__":

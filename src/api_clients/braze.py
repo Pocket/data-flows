@@ -14,6 +14,12 @@ Maximum number of attributes that can be updated in a single request.
 """
 USER_TRACK_LIMIT = 75
 USER_DELETE_LIMIT = 50
+NEW_USER_ALIAS_LIMIT = 50
+
+"""
+Email alias name
+"""
+EMAIL_ALIAS_LABEL = 'email'
 
 BRAZE_APP_ID_TO_POCKET = {
     '5511': '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b',  # iOS
@@ -26,9 +32,6 @@ BRAZE_APP_ID_TO_POCKET = {
 
 @dataclass
 class UserAlias:
-    """Masked Pocket user id"""
-    #TODO: External ID is not actually required for UserAlias
-    external_id: str  # Masked Pocket user id,
     """
     Key of the alias. For example 'amplitude_id'.
     https://www.braze.com/docs/user_guide/data_and_analytics/user_data_collection/user_profile_lifecycle/#user-aliases
@@ -37,6 +40,11 @@ class UserAlias:
     """Value of the alias. This in combination with the alias_label must be unique for the user."""
     """If the value is the same as another user, Braze will merge the 2 profiles."""
     alias_name: str
+
+
+@dataclass
+class UserAliasExternalIdAssociation(UserAlias):
+    external_id: Union[str, Missing] = Missing()  # Masked Pocket user id,
 
 
 @dataclass
@@ -168,6 +176,11 @@ class UserDeleteInput:
     external_ids: List[str]
 
 
+@dataclass
+class CreateUserAliasInput:
+    user_aliases: List[UserAliasExternalIdAssociation]
+
+
 def format_date(dt: datetime.datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -192,13 +205,13 @@ class BrazeClient:
         self._rest_endpoint = rest_endpoint
         self._logger = logger
 
-    def create_new_user_aliases(self, user_aliases: List[UserAlias]):
+    def create_new_user_aliases(self, user_aliases: CreateUserAliasInput):
         """
         Batch create aliases for one or more users.
         @see https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#22e91d00-d178-4b4f-a3df-0073ecfcc992
         :return:
         """
-        raise NotImplemented()
+        return self._post_request('/users/alias/new', user_aliases)
 
     def track_users(self, user_tracking: TrackUsersInput):
         """

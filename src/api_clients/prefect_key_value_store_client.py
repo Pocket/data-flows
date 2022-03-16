@@ -8,6 +8,19 @@ from prefect.triggers import all_successful
 
 from prefect.backend import set_key_value, get_key_value
 
+from utils.config import ENVIRONMENT
+
+
+def format_key(flow_name: str, key_name: str) -> str:
+    """
+    Format a KV store key as ENVIRONMENT/flow_name/key_name
+    :param flow_name: Name of the Prefect flow
+    :param key_name: Last part of the key. Can be used to differentiate this key from other keys used in this flow.
+    :return: KV store key
+    """
+    return '/'.join([ENVIRONMENT, flow_name, key_name])
+
+
 def set_kv(key: str, value: str):
     return set_key_value(key, value)
 
