@@ -212,6 +212,9 @@ class BrazeClient:
         """
         Batch update attributes and events for one or more users.
         @see https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#4cf57ea9-9b37-4e99-a02e-4373c9a4ee59
+
+        Internally, Braze applies attribute updates before it fires events, such that triggers based on these events can
+        safely reference user attributes.
         :return:
         """
         return self._post_request('/users/track?=', user_tracking)
