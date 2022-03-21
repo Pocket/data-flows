@@ -3,10 +3,10 @@ import json
 import logging
 import requests
 from dataclasses import dataclass, field
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from utils import config
-from utils.dataclasses import Missing, DataClassJSONEncoder
+from utils.dataclasses import DataClassJSONEncoderWithoutNoneValues
 
 
 """
@@ -41,23 +41,26 @@ class UserAlias:
     """If the value is the same as another user, Braze will merge the 2 profiles."""
     alias_name: str
 
+    def __post_init__(self):
+        assert self.alias_label and self.alias_name
+
 
 @dataclass
 class UserAliasExternalIdAssociation(UserAlias):
-    external_id: Union[str, Missing] = Missing()  # Masked Pocket user id,
+    external_id: Optional[str] = None  # Masked Pocket user id,
 
 
 @dataclass
 class _UserIdentifier:
     # One of `external_id` or `user_alias` or `braze_id` is required
-    external_id: Union[str, Missing] = Missing()  # Masked Pocket user id,
-    user_alias: Union[str, UserAlias] = Missing()
-    braze_id: Union[str, Missing] = Missing()  # Braze User Identifier,
+    external_id: Optional[str] = None  # Masked Pocket user id,
+    user_alias: Union[str, UserAlias] = None
+    braze_id: Optional[str] = None  # Braze User Identifier,
 
     def __post_init__(self):
         ids = [self.external_id, self.user_alias, self.braze_id]
         # Validate that exactly one id field is provided.
-        assert list(type(i) is not Missing for i in ids).count(True) == 1, f'One user ID required in {ids}'
+        assert list(v is not None for v in ids).count(True) == 1, f'Exactly one user ID required in {ids}'
 
 
 @dataclass
@@ -68,36 +71,28 @@ class UserAttributes(_UserIdentifier):
 
     # Setting this flag to true will put the API in "Update Only" mode.
     # When using a "user_alias", "Update Only" defaults to true.
-    _update_existing_only: Union[bool, Missing] = Missing()
+    _update_existing_only: Optional[bool] = None
 
     # Braze User Profile Fields
-    email: Union[str, Missing] = Missing()
-    first_name: Union[str, Missing] = Missing()
-    last_name: Union[str, Missing] = Missing()
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     #(date at which the user first used the app) String in ISO 8601 format or in yyyy-MM-dd'T'HH:mm:ss:SSSZ format.
     #Also the pocket signed up at
-    date_of_first_session: Union[str, Missing] = Missing()
-    email_subscribe: Union[str, Missing] = Missing()
+    date_of_first_session: Optional[str] = None
+    email_subscribe: Optional[str] = None
 
-    #(string) We require that country codes be passed to Braze in the ISO-3166-1 alpha-2 standard .
-    country: Union[str, Missing] = Missing()
+    # Braze requires that country codes be passed to Braze in the ISO-3166-1 alpha-2 standard.
+    country: Optional[str] = None
 
-    #(string) we require that language be passed to Braze in the ISO-639-1 standard .
-    language: Union[str, Missing] = Missing()
+    # Braze requires that language be passed to Braze in the ISO-639-1 standard.
+    language: Optional[str] = None
 
-    # (string) Of time zone name from IANA Time Zone Database (e.g., “America/New_York” or “Eastern Time (US & Canada)”). Only valid time zone values will be set.
-    time_zone: Union[str, Missing] = Missing()
+    # Time zone name from IANA Time Zone Database (e.g., “America/New_York”). Only valid time zone values will be set.
+    time_zone: Optional[str] = None
 
-    # City of the user
-    home_city: Union[str, Missing] = Missing()
-
-    # Custom Attributes
-    is_premium: Union[bool, Missing] = Missing()
-
-    # # Adding a new value to an array custom attribute
-    # my_array_custom_attribute: { "add": ["Value3"] }
-    # # Removing a value from an array custom attribute
-    # my_array_custom_attribute: { "remove": [ "Value1" ]}
+    # Pocket's custom Attributes
+    is_premium: Optional[bool] = None
 
 
 """
@@ -124,7 +119,7 @@ class UserEvent(_UserIdentifier, _UserEventRequiredFields):
     @see https://www.braze.com/docs/api/objects_filters/event_object/
     """
 
-    app_id: Union[str, Missing] = Missing()  # See https://www.braze.com/docs/api/api_key/#the-app-identifier-api-key
+    app_id: Optional[str] = None  # See https://www.braze.com/docs/api/api_key/#the-app-identifier-api-key
 
     """
     Event properties key-value. Key string length <= 255 characters, with no leading $ sign.
@@ -133,7 +128,7 @@ class UserEvent(_UserIdentifier, _UserEventRequiredFields):
 
     # Setting this flag to true will put the API in "Update Only" mode.
     # When using a "user_alias", "Update Only" defaults to true.
-    _update_existing_only: Union[bool, Missing] = Missing()
+    _update_existing_only: Optional[bool] = None
 
 
 @dataclass
@@ -155,20 +150,20 @@ class Purchase(_UserIdentifier, _PurchaseRequiredFields):
 
     # the quantity purchased (defaults to 1, must be <= 100 -- currently, Braze treats a quantity _X_ as _X_ separate
     # purchases with quantity 1),
-    quantity: Union[int, Missing] = Missing()
+    quantity: Optional[int] = None
 
     properties: Dict[str, EventPropertyValueType] = field(default_factory=dict)  # Key string length <= 255 characters, with no leading $ sign.
 
     # Setting this flag to true will put the API in "Update Only" mode.
     # When using a "user_alias", "Update Only" defaults to true.
-    _update_existing_only: Union[bool, Missing] = Missing()
+    _update_existing_only: Optional[bool] = None
 
 
 @dataclass
 class TrackUsersInput:
-    attributes: Union[List[UserAttributes], Missing] = Missing()
-    events: Union[List[UserEvent], Missing] = Missing()
-    purchases: Union[List[Purchase], Missing] = Missing()
+    attributes: Optional[List[UserAttributes]] = None
+    events: Optional[List[UserEvent]] = None
+    purchases: Optional[List[Purchase]] = None
 
 
 @dataclass
@@ -233,7 +228,7 @@ class BrazeClient:
         #TODO: Look at braze bulk header https://www.braze.com/docs/api/endpoints/user_data/post_user_track/#making-bulk-updates
         response = self._session.post(
             self._rest_endpoint + path,
-            data=json.dumps(braze_data, cls=DataClassJSONEncoder),
+            data=json.dumps(braze_data, cls=DataClassJSONEncoderWithoutNoneValues),
             headers={
                 'Authorization': f'Bearer {self._api_key}',
                 'Content-Type': 'application/json',

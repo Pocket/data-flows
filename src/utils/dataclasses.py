@@ -1,21 +1,9 @@
 import dataclasses
 import json
+from typing import Any
 
 
-class Missing:
-    """
-    Type that can be used to signify that the field is missing (not set to any value).
-    Note, Optional is not the same as Missing:
-    - Optional[str] can be str or None
-    - Union[str, Missing] = Missing() can be str or Missing.
-
-    There's some discussion at Pydantic about supporting missing fields with Python 3.10, but as of 3.9 I could not
-    find an existing solution for either dataclasses or Pydantic.
-    """
-    pass
-
-
-class DataClassJSONEncoder(json.JSONEncoder):
+class DataClassJSONEncoderWithoutNoneValues(json.JSONEncoder):
     """
     Allows a dataclass to be encoded as json using json.dumps(foo, cls=DataClassJSONEncoder)
     Fields set to `Missing()` will not be present in the output.
@@ -23,25 +11,23 @@ class DataClassJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if dataclasses.is_dataclass(o):
             d = dataclasses.asdict(o)
-            return DataClassJSONEncoder._without_missing(d)
+            return _without_none_values(d)
         return super().default(o)
 
-    @staticmethod
-    def _without_missing(value):
-        """
-        Recursively removes all `Missing` values from a dict or list.
-        :param value: Dict or list input.
-        :return: value without missing values (if value is not a dict or list, it's returned as-is)
-        """
-        if type(value) is dict:
-            return {
-                k: DataClassJSONEncoder._without_missing(v)
-                for k, v in value.items() if not isinstance(v, Missing)
-            }
-        elif type(value) is list:
-            return [
-                DataClassJSONEncoder._without_missing(v)
-                for v in value if not isinstance(v, Missing)
-            ]
-        else:
-            return value
+
+def _without_none_values(obj: Any):
+    """
+    Returns copy of input with all None values removed, even recursively in sequences.
+
+    Code is based on a Stackoverflow answer: https://stackoverflow.com/a/20558778/331030, but unlike this answer,
+    keys that are None are not removed from dictionaries, only None values are.
+
+    :param obj: list, tuple, set, dict, or primitive types (str, int, float, etc.)
+    :return: A copy of obj without any None values, including recursively into list, tuple, set, dict.
+    """
+    if isinstance(obj, (list, tuple, set)):
+        return type(obj)(_without_none_values(x) for x in obj if x is not None)
+    elif isinstance(obj, dict):
+        return {k: _without_none_values(v) for k, v in obj.items() if v is not None}
+    else:
+        return obj

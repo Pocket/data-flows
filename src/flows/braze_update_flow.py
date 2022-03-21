@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 from prefect import Flow, task, context
@@ -10,48 +10,61 @@ from api_clients.braze import BrazeClient
 from api_clients.prefect_key_value_store_client import get_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from utils.iteration import chunks
+from utils.config import ENVIRONMENT, ENV_PROD
 
 FLOW_NAME = Path(__file__).stem
 
 EXTRACT_QUERY = """
 SELECT
     EVENT_ID,
-    ETL_TSTAMP,
+    LOADED_AT,
     HAPPENED_AT,
     USER_EVENT_TRIGGER,
     EXTERNAL_ID,
     EMAIL,
-    COUNTRY,
-    TIME_ZONE,
+    NEW_USER_IDENTIFIER,
+    IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER,
     IS_PREMIUM,
+    TIME_ZONE,
+    COUNTRY,
     POCKET_LOCALE,
-    SUBSCRIBE_TO_NEWSLETTER_SUBSCRIPTION_GROUP_ID,
+    SUBSCRIBE_TO_NEWSLETTER_SUBSCRIPTION_GROUP_NAME,
     BRAZE_EVENT_NAME,
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
-FROM "ANALYTICS"."DBT_MMIERMANS"."BRAZE_USER_DELTAS"
-WHERE ETL_TSTAMP > %(tstamp_start)s
-ORDER BY ETL_TSTAMP ASC
-LIMIT 100 -- For debugging, limit to 100.
+FROM "ANALYTICS"."DBT_MMIERMANS_STAGING"."STG_BRAZE_USER_DELTAS" -- TODO: Change database to production or make it configurable?
+WHERE LOADED_AT > %(tstamp_start)s
+AND USER_EVENT_TRIGGER = 'newsletter_signup' -- TODO: Remove debug code
+ORDER BY LOADED_AT ASC
+LIMIT 10 -- For debugging, limit to 100.
 """
 
 
-DEFAULT_TSTAMP_START = '2022-03-10'
+DEFAULT_TSTAMP_START = '2022-03-15'
 
 
 @dataclass
 class UserDelta:
     event_id: str
-    etl_tstamp: str
+    loaded_at: str
     happened_at: str
     user_event_trigger: str
+    """Unique Braze user identifier (based on the Pocket hashed user id)"""
     external_id: Optional[str]
     email: Optional[str]
+    """
+    - If set to 'email', create an alias-only Braze user based on the email address.
+    - If set to 'external_id', create an identified Braze user based on external_id.
+    - Otherwise, no new user profile needs to be created in Braze.
+    """
+    new_user_identifier: Optional[str]
+    """If true, an email alias will be created for the external_id"""
+    is_new_email_alias_for_pocket_user: Optional[bool]
+    is_premium: Optional[bool]
     country: Optional[str]
     time_zone: Optional[str]
-    is_premium: Optional[str]
     pocket_locale: Optional[str]
-    subscribe_to_newsletter_subscription_group_id: Optional[str]
+    subscribe_to_newsletter_subscription_group_name: Optional[str]
     braze_event_name: Optional[str]
     newsletter_signup_event_newsletter: Optional[str]
     newsletter_signup_event_frequency: Optional[str]
@@ -82,10 +95,18 @@ def get_user_deltas_from_dicts(dicts: List[Dict]) -> List[UserDelta]:
 
 
 @task()
-def filter_user_deltas(user_deltas: List[UserDelta], trigger: str) -> List[UserDelta]:
-    filtered_user_deltas = [u for u in user_deltas if u.user_event_trigger == trigger]
+def get_alias_only_signup_deltas(user_deltas: List[UserDelta]) -> List[UserDelta]:
+    filtered_user_deltas = [u for u in user_deltas if u.new_user_identifier == 'email']
     logger = context.get("logger")
-    logger.info(f"{len(filtered_user_deltas)}/{len(user_deltas)} user deltas remain after '{trigger}' trigger filter")
+    logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} alias-only signups")
+    return filtered_user_deltas
+
+
+@task()
+def get_new_email_aliases_for_pocket_users(user_deltas: List[UserDelta]) -> List[UserDelta]:
+    filtered_user_deltas = [u for u in user_deltas if u.is_new_email_alias_for_pocket_user]
+    logger = context.get("logger")
+    logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} new aliases for Pocket users")
     return filtered_user_deltas
 
 
@@ -121,7 +142,17 @@ def create_email_aliases(user_deltas: List[UserDelta]):
 
 
 @task()
-def track_users(user_deltas: List[Dict]):
+def create_alias_only_email_users(user_deltas: List[UserDelta]):
+    create_email_aliases(get_alias_only_signup_deltas(user_deltas))
+
+
+@task()
+def create_email_aliases_for_pocket_users(user_deltas: List[UserDelta]):
+    create_email_aliases(get_new_email_aliases_for_pocket_users(user_deltas))
+
+
+@task()
+def track_users(user_deltas: List[UserDelta]):
     """
     Updates
 
@@ -136,23 +167,22 @@ def track_users(user_deltas: List[Dict]):
         BrazeClient(logger=context.get("logger")).track_users(braze.TrackUsersInput(
             attributes=[
                 braze.UserAttributes(
-                    external_id=account_signup['HASHED_USER_ID'],
-                    is_premium=True,
-                    date_of_first_session=braze.format_date(account_signup['CREATED_AT']),
-                    time_zone=account_signup['TIMEZONE'],
-                    country=account_signup['COUNTRY'],
-                    home_city=account_signup['CITY'],
-                    email_subscribe='subscribed'
-                ) for account_signup in user_deltas_chunk
+                    external_id=user_delta.external_id,
+                    user_alias=braze.UserAlias('email', user_delta.email) if not user_delta.external_id else None,
+                    is_premium=user_delta.is_premium,
+                    date_of_first_session=braze.format_date(user_delta.happened_at),
+                    time_zone=user_delta.time_zone,
+                    country=user_delta.country,
+                ) for user_delta in user_deltas_chunk
             ],
-            events=[
-                braze.UserEvent(
-                    app_id=account_signup['BRAZE_API_ID'],
-                    external_id=account_signup['HASHED_USER_ID'],
-                    name="account_signup",
-                    time=braze.format_date(account_signup['CREATED_AT']),
-                ) for account_signup in user_deltas_chunk
-            ]
+            # events=[
+            #     braze.UserEvent(
+            #         app_id=account_signup['BRAZE_API_ID'],
+            #         external_id=account_signup['HASHED_USER_ID'],
+            #         name="account_signup",
+            #         time=braze.format_date(account_signup['CREATED_AT']),
+            #     ) for account_signup in user_deltas_chunk
+            # ]
         ))
 
 
@@ -180,13 +210,14 @@ def _replace_email_domain(email: str, new_domain) -> str:
 
 
 @task()
-def mask_email_domain(rows: List[Dict], email_column='EMAIL'):
+def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL'):
     """
-    For debugging purposes, change the domain of all email addresses to '@example.com'
+    For debugging purposes, change the domain of all email addresses to '@example.com' unless we're in production.
     """
-    for row in rows:
-        if row[email_column] is not None:
-            row[email_column] = _replace_email_domain(row[email_column], new_domain='@example.com')
+    if ENVIRONMENT != ENV_PROD:
+        for row in rows:
+            if row[email_column] is not None:
+                row[email_column] = _replace_email_domain(row[email_column], new_domain='@example.com')
 
     return rows
 
@@ -198,26 +229,25 @@ with Flow(FLOW_NAME) as flow:
         output_type=OutputType.DICT,
     )
 
-    # Prevent real users from getting emails by masking the email domains in the development environment.
-    user_deltas_dicts = mask_email_domain(user_deltas_dicts)
+    # Prevent users from getting emails by changing email domains outside the production environment to @example.com
+    user_deltas_dicts = mask_email_domain_outside_production(user_deltas_dicts)
 
     # Convert Snowflake dicts to @dataclass objects.
     all_user_deltas = get_user_deltas_from_dicts(user_deltas_dicts)
 
-    # Filter some subsets of users.
-    anonymous_signup_user_deltas = filter_user_deltas(all_user_deltas, trigger='newsletter_signup')
-    account_signup_user_deltas = filter_user_deltas(all_user_deltas, trigger='account_signup')
-
-    # Create user aliases for anonymous ('alias-only') signups needs to happen before track_users(),
-    # because attributes can't be applies to an alias-only user that doesn't exist yet.
-    create_email_aliases(anonymous_signup_user_deltas)
+    alias_only_email_results = create_alias_only_email_users(all_user_deltas)
 
     # Apply attributes, events, and payments. This creates users with an external_id if they don't exist already.
     track_users(all_user_deltas)
+    # The creation of user aliases for anonymous ('alias-only') signups needs to happen before track_users(),
+    # because attributes can't be applies to alias-only users that don't exist yet.
+    alias_only_email_results.set_upstream(track_users, upstream_tasks=[alias_only_email_results])
 
-    # Create user aliases for Pocket account signups, which have an external_id.
-    # Contrary to alias-only users, this needs to happen after track_users, because that step creates the user profile.
-    create_email_aliases(account_signup_user_deltas)
+    create_email_aliases_for_pocket_users(all_user_deltas)
+    # The creation of user aliases for Pocket account signups needs to happen after track_users(), because these users
+    # have an external_id and are created through the track_users() call.
+    flow.set_dependencies(create_email_aliases_for_pocket_users, upstream_tasks=[track_users])
+
 
 
 if __name__ == "__main__":
