@@ -8,7 +8,7 @@ from prefect import Flow, task, context
 
 from api_clients import braze
 from api_clients.braze import BrazeClient
-from api_clients.prefect_key_value_store_client import get_kv, format_key
+from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from utils.iteration import chunks
 from utils.config import ENVIRONMENT, ENV_PROD
@@ -34,7 +34,7 @@ SELECT
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
 FROM "ANALYTICS"."DBT_MMIERMANS_STAGING"."STG_BRAZE_USER_DELTAS" -- TODO: Change database to production or make it configurable?
-WHERE LOADED_AT > %(tstamp_start)s
+WHERE LOADED_AT > %(loaded_at_start)s
 AND USER_EVENT_TRIGGER = 'newsletter_signup' AND email != '' -- TODO: Remove debug code
 ORDER BY LOADED_AT ASC
 LIMIT 10 -- For debugging, limit to 100.
@@ -42,6 +42,7 @@ LIMIT 10 -- For debugging, limit to 100.
 
 
 DEFAULT_TSTAMP_START = '2022-03-15'
+LAST_LOADED_AT_KV_STORE_KEY = format_key(FLOW_NAME, "last_loaded_at")
 
 
 @dataclass
@@ -82,7 +83,7 @@ def get_extract_query_parameters():
     :return: query parameters for EXTRACT_QUERY
     """
     query_params = {
-        'tstamp_start': get_kv(key=format_key(FLOW_NAME, "last_etl"), default_value=DEFAULT_TSTAMP_START),
+        'loaded_at_start': get_kv(key=LAST_LOADED_AT_KV_STORE_KEY, default_value=DEFAULT_TSTAMP_START),
     }
 
     logger = context.get("logger")
@@ -91,13 +92,23 @@ def get_extract_query_parameters():
     return query_params
 
 
+@task
+def set_last_loaded_at(user_deltas: List[UserDelta]):
+    max_loaded_at = str(max(u.loaded_at for u in user_deltas))
+
+    logger = context.get("logger")
+    logger.info(f"Setting {LAST_LOADED_AT_KV_STORE_KEY} to {max_loaded_at}")
+
+    set_kv(key=LAST_LOADED_AT_KV_STORE_KEY, value=max_loaded_at)
+
+
 @task()
 def get_user_deltas_from_dicts(dicts: List[Dict]) -> List[UserDelta]:
     return [UserDelta.from_dict(d) for d in dicts]
 
 
 @task()
-def get_alias_only_signup_deltas(user_deltas: List[UserDelta]) -> List[UserDelta]:
+def filter_alias_only_signup_user_deltas(user_deltas: List[UserDelta]) -> List[UserDelta]:
     filtered_user_deltas = [u for u in user_deltas if u.new_user_identifier == 'email']
     logger = context.get("logger")
     logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} alias-only signups")
@@ -105,7 +116,7 @@ def get_alias_only_signup_deltas(user_deltas: List[UserDelta]) -> List[UserDelta
 
 
 @task()
-def get_new_email_aliases_for_pocket_users(user_deltas: List[UserDelta]) -> List[UserDelta]:
+def filter_user_deltas_with_new_pocket_user_emails(user_deltas: List[UserDelta]) -> List[UserDelta]:
     filtered_user_deltas = [u for u in user_deltas if u.is_new_email_alias_for_pocket_user]
     logger = context.get("logger")
     logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} new aliases for Pocket users")
@@ -113,7 +124,15 @@ def get_new_email_aliases_for_pocket_users(user_deltas: List[UserDelta]) -> List
 
 
 @task()
-def delete_user_profiles(users_to_delete: List[Dict]):
+def filter_user_deltas_by_trigger(user_deltas: List[UserDelta], trigger: str) -> List[UserDelta]:
+    filtered_user_deltas = [u for u in user_deltas if u.user_event_trigger == trigger]
+    logger = context.get("logger")
+    logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} user deltas with trigger {trigger}")
+    return filtered_user_deltas
+
+
+@task()
+def delete_user_profiles(users_to_delete: List[UserDelta]):
     """
     Deletes Braze user profiles
 
@@ -122,7 +141,27 @@ def delete_user_profiles(users_to_delete: List[Dict]):
     """
     for account_signup_chunk in chunks(users_to_delete, braze.USER_DELETE_LIMIT):
         BrazeClient(logger=context.get("logger")).delete_users(braze.UserDeleteInput(
-            external_ids=[u['EXTERNAL_ID'] for u in account_signup_chunk]
+            external_ids=[u.external_id for u in account_signup_chunk]
+        ))
+
+
+@task()
+def identify_users(user_deltas: List[UserDelta]):
+    """
+    Identifies a previously created alias-only user with an external id.
+
+    Use cases:
+    - If signs up on the Pocket Hits signup page, and then creates a Pocket account, these profiles should be linked.
+    """
+    for user_deltas_chunk in chunks(user_deltas, braze.IDENTIFY_USER_ALIAS_LIMIT):
+        BrazeClient(logger=context.get("logger")).identify_users(braze.IdentifyUsersInput(
+            aliases_to_identify=[
+                braze.UserAliasExternalIdAssociation(
+                    external_id=user.external_id,
+                    alias_label=braze.EMAIL_ALIAS_LABEL,
+                    alias_name=user.email,
+                ) for user in user_deltas_chunk
+            ]
         ))
 
 
@@ -229,7 +268,7 @@ with Flow(FLOW_NAME) as flow:
     all_user_deltas = get_user_deltas_from_dicts(user_deltas_dicts)
 
     alias_only_email_results = create_email_aliases(
-        get_alias_only_signup_deltas(all_user_deltas)
+        filter_alias_only_signup_user_deltas(all_user_deltas)
     )
 
     # Apply attributes, events, and payments. This creates users with an external_id if they don't exist already.
@@ -237,12 +276,32 @@ with Flow(FLOW_NAME) as flow:
     # because attributes can't be applies to alias-only users that don't exist yet.
     track_users_results = track_users(all_user_deltas, upstream_tasks=[alias_only_email_results])
 
-    # The creation of user aliases for Pocket account signups needs to happen after track_users(), because these users
-    # have an external_id and are created through the track_users() call.
-    create_email_aliases(
-        get_new_email_aliases_for_pocket_users(all_user_deltas),
+    # The creation of user aliases for Pocket accounts needs to happen after track_users, because track_users will
+    # create profiles for new Pocket user signups.
+    create_email_aliases_results = create_email_aliases(
+        filter_user_deltas_with_new_pocket_user_emails(all_user_deltas),
         upstream_tasks=[track_users_results]
     )
+
+    # Identifying user profiles needs to happen after track_users, because the latter will create non-existing profiles.
+    identify_users_results = identify_users(
+        filter_user_deltas_by_trigger(all_user_deltas, trigger='account_signup'),
+        upstream_tasks=[track_users_results]
+    )
+
+    # Deleting user profiles needs to happen after track_users, because the latter will create non-existing profiles.
+    delete_users_results = delete_user_profiles(
+        filter_user_deltas_by_trigger(all_user_deltas, trigger='account_delete'),
+        upstream_tasks=[track_users_results]
+    )
+
+    # Set KV-store 'last_loaded_at' key to the maximum loaded_at seen so far if all tasks finished successfully.
+    set_last_loaded_at(all_user_deltas, upstream_tasks=[
+        alias_only_email_results,
+        track_users_results,
+        create_email_aliases_results,
+        delete_users_results,
+    ])
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ Maximum number of attributes that can be updated in a single request.
 USER_TRACK_LIMIT = 75
 USER_DELETE_LIMIT = 50
 NEW_USER_ALIAS_LIMIT = 50
+IDENTIFY_USER_ALIAS_LIMIT = 50
 
 """
 Email alias name
@@ -176,6 +177,11 @@ class CreateUserAliasInput:
     user_aliases: List[UserAliasExternalIdAssociation]
 
 
+@dataclass
+class IdentifyUsersInput:
+    aliases_to_identify: List[UserAliasExternalIdAssociation]
+
+
 def format_date(dt: datetime.datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -208,6 +214,14 @@ class BrazeClient:
         """
         return self._post_request('/users/alias/new', user_aliases)
 
+    def identify_users(self, user_aliases: IdentifyUsersInput):
+        """
+        Batch create aliases for one or more users.
+        @see https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#22e91d00-d178-4b4f-a3df-0073ecfcc992
+        :return:
+        """
+        return self._post_request('/users/identify', user_aliases)
+
     def track_users(self, user_tracking: TrackUsersInput):
         """
         Batch update attributes and events for one or more users.
@@ -228,7 +242,8 @@ class BrazeClient:
         return self._post_request('/users/delete', users_to_delete)
 
     def _post_request(self, path, braze_data):
-        #TODO: Look at braze bulk header https://www.braze.com/docs/api/endpoints/user_data/post_user_track/#making-bulk-updates
+        # TODO: Look at braze bulk header when backfilling data:
+        # https://www.braze.com/docs/api/endpoints/user_data/post_user_track/#making-bulk-updates
         response = self._session.post(
             self._rest_endpoint + path,
             data=json.dumps(braze_data, cls=DataClassJSONEncoderWithoutNoneValues),
