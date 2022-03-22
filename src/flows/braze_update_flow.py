@@ -1,3 +1,4 @@
+from collections import defaultdict
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,9 +36,8 @@ SELECT
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
 FROM "ANALYTICS"."DBT_MMIERMANS_STAGING"."STG_BRAZE_USER_DELTAS" -- TODO: Change database to production or make it configurable?
 WHERE LOADED_AT > %(loaded_at_start)s
-AND USER_EVENT_TRIGGER = 'newsletter_signup' AND email != '' -- TODO: Remove debug code
 ORDER BY LOADED_AT ASC
-LIMIT 10 -- For debugging, limit to 100.
+LIMIT 1000 -- For debugging, limit to 100.
 """
 
 
@@ -92,7 +92,7 @@ def get_extract_query_parameters():
     return query_params
 
 
-@task
+@task()
 def set_last_loaded_at(user_deltas: List[UserDelta]):
     max_loaded_at = str(max(u.loaded_at for u in user_deltas))
 
@@ -139,9 +139,13 @@ def delete_user_profiles(users_to_delete: List[UserDelta]):
     Use cases:
     - If someone deletes their Pocket profile, their Braze user profile should also be deleted.
     """
-    for account_signup_chunk in chunks(users_to_delete, braze.USER_DELETE_LIMIT):
-        BrazeClient(logger=context.get("logger")).delete_users(braze.UserDeleteInput(
-            external_ids=[u.external_id for u in account_signup_chunk]
+    logger = context.get("logger")
+
+    for chunk in chunks(users_to_delete, braze.USER_DELETE_LIMIT):
+        logger.info(f"Deleting {len(chunk)} user profiles with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
+
+        BrazeClient(logger=logger).delete_users(braze.UserDeleteInput(
+            external_ids=[u.external_id for u in chunk]
         ))
 
 
@@ -153,14 +157,18 @@ def identify_users(user_deltas: List[UserDelta]):
     Use cases:
     - If signs up on the Pocket Hits signup page, and then creates a Pocket account, these profiles should be linked.
     """
-    for user_deltas_chunk in chunks(user_deltas, braze.IDENTIFY_USER_ALIAS_LIMIT):
-        BrazeClient(logger=context.get("logger")).identify_users(braze.IdentifyUsersInput(
+    logger = context.get("logger")
+
+    for chunk in chunks(user_deltas, braze.IDENTIFY_USER_ALIAS_LIMIT):
+        logger.info(f"Identifying {len(chunk)} user profiles with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
+
+        BrazeClient(logger=logger).identify_users(braze.IdentifyUsersInput(
             aliases_to_identify=[
                 braze.UserAliasExternalIdAssociation(
                     external_id=user.external_id,
                     alias_label=braze.EMAIL_ALIAS_LABEL,
                     alias_name=user.email,
-                ) for user in user_deltas_chunk
+                ) for user in chunk
             ]
         ))
 
@@ -170,16 +178,60 @@ def create_email_aliases(user_deltas: List[UserDelta]):
     """
     Creates aliases for users
     """
-    for user_deltas_chunk in chunks(user_deltas, braze.NEW_USER_ALIAS_LIMIT):
-        BrazeClient(logger=context.get("logger")).create_new_user_aliases(braze.CreateUserAliasInput(
+    logger = context.get("logger")
+
+    for chunk in chunks(user_deltas, braze.NEW_USER_ALIAS_LIMIT):
+        logger.info(f"Aliasing {len(chunk)} emails with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
+
+        BrazeClient(logger=logger).create_new_user_aliases(braze.CreateUserAliasInput(
             user_aliases=[
                 braze.UserAliasExternalIdAssociation(
                     external_id=user.external_id,
                     alias_label=braze.EMAIL_ALIAS_LABEL,
                     alias_name=user.email,
-                ) for user in user_deltas_chunk
+                ) for user in chunk
             ]
         ))
+
+
+def map_newsletter_subscription_to_user_deltas(user_deltas: List[UserDelta]):
+    """
+    Creates aliases for users
+    """
+    user_deltas_by_subscription_group_name = defaultdict(list)
+    for user_delta in user_deltas:
+        name = user_delta.subscribe_to_newsletter_subscription_group_name
+        if name:
+            user_deltas_by_subscription_group_name[name].append(user_delta)
+
+    return user_deltas_by_subscription_group_name
+
+
+@task()
+def subscribe_users(user_deltas: List[UserDelta]):
+    """
+    Subscribe users to a particular subscription group
+    :param subscription_group_name: Key in the braze.SUBSCRIPTION_GROUP_NAME_TO_ID dict
+    :param user_deltas: List of users to subscribe to the subscription group, either by external_id or email.
+    """
+    logger = context.get("logger")
+
+    user_deltas_by_subscription_group_name = map_newsletter_subscription_to_user_deltas(user_deltas)
+    logger.info(f"Newsletter subscription group signups for {','.join(user_deltas_by_subscription_group_name.keys())}")
+
+    for subscription_group_name, subscription_group_user_deltas in user_deltas_by_subscription_group_name.items():
+        for chunk in chunks(subscription_group_user_deltas, braze.SUBSCRIPTION_SET_LIMIT):
+            logger.info(f"Subscribing {len(chunk)} users to {subscription_group_name}"
+                        f" with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
+
+            BrazeClient(logger=logger).subscribe_users(
+                braze.SubscribeUsersInput(
+                    subscription_group_id=braze.SUBSCRIPTION_GROUP_NAME_TO_ID[subscription_group_name],
+                    subscription_state="subscribed",
+                    external_id=[u.external_id for u in chunk if u.external_id is not None],  # Identified users
+                    email=[u.email for u in chunk if u.external_id is None],  # Alias-only users
+                )
+            )
 
 
 @task()
@@ -193,11 +245,15 @@ def track_users(user_deltas: List[UserDelta]):
 
     :return:
     """
-    for user_deltas_chunk in chunks(user_deltas, braze.USER_TRACK_LIMIT):
+    logger = context.get("logger")
+
+    for chunk in chunks(user_deltas, braze.USER_TRACK_LIMIT):
+        logger.info(f"Tracking {len(chunk)} users with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
+
         # Note: The attributes and events below are bulk updates. They're not necessarily of equal length or in order.
-        BrazeClient(logger=context.get("logger")).track_users(braze.TrackUsersInput(
-            attributes=get_attributes_for_user_deltas(user_deltas_chunk),
-            events=get_events_for_user_deltas(user_deltas_chunk)
+        BrazeClient(logger=logger).track_users(braze.TrackUsersInput(
+            attributes=get_attributes_for_user_deltas(chunk),
+            events=get_events_for_user_deltas(chunk)
         ))
 
 
@@ -289,6 +345,12 @@ with Flow(FLOW_NAME) as flow:
         upstream_tasks=[track_users_results]
     )
 
+    # Subscribing users needs to happen after track_users and alias_only_email_results, because those tasks create users
+    subscribe_users_results = subscribe_users(
+        all_user_deltas,
+        upstream_tasks=[track_users_results, alias_only_email_results]
+    )
+
     # Deleting user profiles needs to happen after track_users, because the latter will create non-existing profiles.
     delete_users_results = delete_user_profiles(
         filter_user_deltas_by_trigger(all_user_deltas, trigger='account_delete'),
@@ -301,6 +363,7 @@ with Flow(FLOW_NAME) as flow:
         track_users_results,
         create_email_aliases_results,
         delete_users_results,
+        subscribe_users_results,
     ])
 
 

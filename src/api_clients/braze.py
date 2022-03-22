@@ -1,3 +1,4 @@
+import copy
 import datetime
 import json
 import logging
@@ -7,6 +8,7 @@ from typing import Dict, List, Optional, Union
 
 from utils import config
 from utils.dataclasses import DataClassJSONEncoderWithoutNoneValues
+from utils.config import ENVIRONMENT, ENV_PROD
 
 
 """
@@ -16,6 +18,7 @@ USER_TRACK_LIMIT = 75
 USER_DELETE_LIMIT = 50
 NEW_USER_ALIAS_LIMIT = 50
 IDENTIFY_USER_ALIAS_LIMIT = 50
+SUBSCRIPTION_SET_LIMIT = 50
 
 """
 Email alias name
@@ -30,6 +33,25 @@ BRAZE_APP_ID_TO_POCKET = {
     '': '949dbb2a-e619-42dc-8d5c-d6d4c9d2380b',  # Web
 }
 
+"""
+The dictionary below maps subscription group names (internally defined at Pocket) to Braze subscription ids.
+This is defined here because we don't have a separate dev/prod Dbt environment, so the Dbt model abstracts away from
+this by using the same name (e.g. POCKET_HITS_US_DAILY) for the daily US Pocket Hits newsletter. 
+
+Definition of names: https://github.com/Pocket/dbt-snowflake/blob/master/models/staging/braze/stg_braze_user_deltas.sql
+List of subscription group ids: https://dashboard-05.braze.com/users/subscription_groups/subscription_groups
+"""
+SUBSCRIPTION_GROUP_NAME_TO_ID = {
+    # Production subscription groups
+    'POCKET_HITS_US_DAILY': 'fbc3506c-26a5-4f35-b8f0-ed382da4f2db',
+    'POCKET_HITS_US_WEEKLY': '0b88d11c-a856-4478-8f99-54e0178bcd70',
+    'POCKET_HITS_DE_DAILY': 'e74c6d80-9cf7-4377-91c0-6bcce384ba77',
+} if ENVIRONMENT == ENV_PROD else {
+    # Development subscription groups
+    'POCKET_HITS_US_DAILY': '0e63c4fa-30fb-445f-bf4f-583e5dd10efb',
+    'POCKET_HITS_US_WEEKLY': '99fbeac9-2fa3-496d-ab94-4e869d42e52c',
+    'POCKET_HITS_DE_DAILY': '69de5416-2bc1-44e4-8b5e-1e03bb86dcf5',
+}
 
 @dataclass
 class UserAlias:
@@ -173,6 +195,13 @@ class UserDeleteInput:
 
 
 @dataclass
+class SubscribeUsersInput:
+    subscription_group_id: str
+    subscription_state: str
+    external_id: Optional[List[str]] = None
+    email: Optional[List[str]] = None
+
+@dataclass
 class CreateUserAliasInput:
     user_aliases: List[UserAliasExternalIdAssociation]
 
@@ -241,6 +270,21 @@ class BrazeClient:
         """
         return self._post_request('/users/delete', users_to_delete)
 
+    def subscribe_users(self, subscribe_users_input: SubscribeUsersInput):
+        """
+        Batch subscribe users
+        @see https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#22e91d00-d178-4b4f-a3df-0073ecfcc992
+        :return:
+        """
+        # Remove empty lists for external_id and email because Braze will raise a 400 Bad Request they are empty.
+        input_without_empty_lists = copy.copy(subscribe_users_input)
+        if not input_without_empty_lists.external_id:
+            input_without_empty_lists.external_id = None
+        if not input_without_empty_lists.email:
+            input_without_empty_lists.email = None
+
+        return self._post_request('/subscription/status/set', input_without_empty_lists)
+
     def _post_request(self, path, braze_data):
         # TODO: Look at braze bulk header when backfilling data:
         # https://www.braze.com/docs/api/endpoints/user_data/post_user_track/#making-bulk-updates
@@ -252,5 +296,8 @@ class BrazeClient:
                 'Content-Type': 'application/json',
             },
         )
+
         self._logger.info(f"Braze {path} responded with {response.status_code}: {response.text}")
+
+        response.raise_for_status()
         return response
