@@ -12,7 +12,7 @@ from api_clients.braze import BrazeClient
 from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from utils.iteration import chunks
-from utils.config import ENVIRONMENT, ENV_PROD
+from utils import config
 
 FLOW_NAME = Path(__file__).stem
 
@@ -34,7 +34,7 @@ SELECT
     BRAZE_EVENT_NAME,
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
-FROM "ANALYTICS"."DBT_MMIERMANS_STAGING"."STG_BRAZE_USER_DELTAS" -- TODO: Change database to production or make it configurable?
+FROM "STG_BRAZE_USER_DELTAS" -- TODO: Change database to production or make it configurable?
 WHERE LOADED_AT > %(loaded_at_start)s
 ORDER BY LOADED_AT ASC
 LIMIT 1000 -- For debugging, limit to 1000.
@@ -302,7 +302,7 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
     """
     For debugging purposes, change the domain of all email addresses to '@example.com' unless we're in production.
     """
-    if ENVIRONMENT != ENV_PROD:
+    if config.ENVIRONMENT != config.ENV_PROD:
         for row in rows:
             if row[email_column] is not None:
                 row[email_column] = _replace_email_domain(row[email_column], new_domain='@example.com')
@@ -314,6 +314,8 @@ with Flow(FLOW_NAME) as flow:
     user_deltas_dicts = PocketSnowflakeQuery()(
         query=EXTRACT_QUERY,
         data=get_extract_query_parameters(),
+        database=config.SNOWFLAKE_ANALYTICS_DATABASE,
+        schema=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA,
         output_type=OutputType.DICT,
     )
 
