@@ -1,5 +1,4 @@
 import copy
-import datetime
 import json
 import logging
 import requests
@@ -216,10 +215,6 @@ class CreateUserAliasInput:
 @dataclass
 class IdentifyUsersInput:
     aliases_to_identify: List[UserAliasIdentifier]
-
-
-def format_date(dt: datetime.datetime) -> str:
-    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class BrazeClient:

@@ -7,8 +7,10 @@ from typing import Any, Dict, List, Optional
 from prefect import Flow, task, context
 from prefect.executors import LocalDaskExecutor
 
-from api_clients import braze
-from api_clients.braze import BrazeClient
+import api_clients.braze.utils
+from api_clients.braze import braze
+from api_clients.braze.braze import BrazeClient
+from api_clients.braze.utils import is_valid_email
 from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from utils.iteration import chunks
@@ -231,7 +233,7 @@ def subscribe_users(user_deltas_by_subscription_group_name: Dict[str, List[UserD
                     subscription_group_id=braze.SUBSCRIPTION_GROUP_NAME_TO_ID[subscription_group_name],
                     subscription_state="subscribed",
                     external_id=[u.external_id for u in chunk if u.external_id is not None],  # Identified users
-                    email=[u.email for u in chunk if u.external_id is None],  # Alias-only users
+                    email=[u.email for u in chunk if u.external_id is None and is_valid_email(u.email)],  # Alias-only
                 )
             )
 
@@ -279,7 +281,7 @@ def get_events_for_user_deltas(user_deltas_chunk):
             user_alias=braze.UserAlias('email', user_delta.email) if not user_delta.external_id else None,
             name=user_delta.braze_event_name,
             properties=get_event_properties_for_user_delta(user_delta),
-            time=braze.format_date(user_delta.happened_at),
+            time=api_clients.braze.utils.format_date(user_delta.happened_at),
         ) for user_delta in user_deltas_chunk
         if user_delta.braze_event_name
     ]
