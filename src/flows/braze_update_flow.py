@@ -37,7 +37,7 @@ SELECT
 FROM "ANALYTICS"."DBT_MMIERMANS_STAGING"."STG_BRAZE_USER_DELTAS" -- TODO: Change database to production or make it configurable?
 WHERE LOADED_AT > %(loaded_at_start)s
 ORDER BY LOADED_AT ASC
-LIMIT 1000 -- For debugging, limit to 100.
+LIMIT 1000 -- For debugging, limit to 1000.
 """
 
 
@@ -332,16 +332,19 @@ with Flow(FLOW_NAME) as flow:
     # because attributes can't be applies to alias-only users that don't exist yet.
     track_users_results = track_users(all_user_deltas, upstream_tasks=[alias_only_email_results])
 
+    # Get the user deltas with a new email alias for a Pocket user (i.e. a user with an external_id)
+    user_deltas_with_new_pocket_user_emails = filter_user_deltas_with_new_pocket_user_emails(all_user_deltas)
+
     # The creation of user aliases for Pocket accounts needs to happen after track_users, because track_users will
     # create profiles for new Pocket user signups.
     create_email_aliases_results = create_email_aliases(
-        filter_user_deltas_with_new_pocket_user_emails(all_user_deltas),
+        user_deltas_with_new_pocket_user_emails,
         upstream_tasks=[track_users_results]
     )
 
     # Identifying user profiles needs to happen after track_users, because the latter will create non-existing profiles.
     identify_users_results = identify_users(
-        filter_user_deltas_by_trigger(all_user_deltas, trigger='account_signup'),
+        user_deltas_with_new_pocket_user_emails,
         upstream_tasks=[track_users_results]
     )
 
