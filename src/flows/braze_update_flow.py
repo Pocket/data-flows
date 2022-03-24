@@ -2,10 +2,10 @@ from collections import defaultdict
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-import pandas as pd
 from prefect import Flow, task, context
+from prefect.executors import LocalDaskExecutor
 
 from api_clients import braze
 from api_clients.braze import BrazeClient
@@ -34,7 +34,7 @@ SELECT
     BRAZE_EVENT_NAME,
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
-FROM "STG_BRAZE_USER_DELTAS" -- TODO: Change database to production or make it configurable?
+FROM "STG_BRAZE_USER_DELTAS"
 WHERE LOADED_AT > %(loaded_at_start)s
 ORDER BY LOADED_AT ASC
 LIMIT 1000 -- For debugging, limit to 1000.
@@ -164,10 +164,12 @@ def identify_users(user_deltas: List[UserDelta]):
 
         BrazeClient(logger=logger).identify_users(braze.IdentifyUsersInput(
             aliases_to_identify=[
-                braze.UserAliasExternalIdAssociation(
+                braze.UserAliasIdentifier(
                     external_id=user.external_id,
-                    alias_label=braze.EMAIL_ALIAS_LABEL,
-                    alias_name=user.email,
+                    user_alias=braze.UserAlias(
+                        alias_label=braze.EMAIL_ALIAS_LABEL,
+                        alias_name=user.email,
+                    ),
                 ) for user in chunk
             ]
         ))
@@ -194,9 +196,11 @@ def create_email_aliases(user_deltas: List[UserDelta]):
         ))
 
 
-def map_newsletter_subscription_to_user_deltas(user_deltas: List[UserDelta]):
+@task()
+def map_newsletter_subscription_to_user_deltas(user_deltas: List[UserDelta]) -> Dict[str, List[UserDelta]]:
     """
-    Creates aliases for users
+    Maps subscription group names to user deltas
+    :returns a dictionary where keys are subscription group names and values are a list user deltas for that name.
     """
     user_deltas_by_subscription_group_name = defaultdict(list)
     for user_delta in user_deltas:
@@ -208,15 +212,13 @@ def map_newsletter_subscription_to_user_deltas(user_deltas: List[UserDelta]):
 
 
 @task()
-def subscribe_users(user_deltas: List[UserDelta]):
+def subscribe_users(user_deltas_by_subscription_group_name: Dict[str, List[UserDelta]]):
     """
     Subscribe users to a particular subscription group
-    :param subscription_group_name: Key in the braze.SUBSCRIPTION_GROUP_NAME_TO_ID dict
-    :param user_deltas: List of users to subscribe to the subscription group, either by external_id or email.
+    :param user_deltas_by_subscription_group_name: Maps subscription group names (POCKET_HITS_US_DAILY,
+    POCKET_HITS_US_WEEKLY, POCKET_HITS_DE_DAILY) to UserDelta objects with users that should be subscribed to that group
     """
     logger = context.get("logger")
-
-    user_deltas_by_subscription_group_name = map_newsletter_subscription_to_user_deltas(user_deltas)
     logger.info(f"Newsletter subscription group signups for {','.join(user_deltas_by_subscription_group_name.keys())}")
 
     for subscription_group_name, subscription_group_user_deltas in user_deltas_by_subscription_group_name.items():
@@ -350,9 +352,9 @@ with Flow(FLOW_NAME) as flow:
         upstream_tasks=[track_users_results]
     )
 
-    # Subscribing users needs to happen after track_users and alias_only_email_results, because those tasks create users
+    # Subscribing users needs to happen after Pocket users and alias-only users have been created.
     subscribe_users_results = subscribe_users(
-        all_user_deltas,
+        map_newsletter_subscription_to_user_deltas(all_user_deltas),
         upstream_tasks=[track_users_results, alias_only_email_results]
     )
 

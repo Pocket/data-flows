@@ -74,6 +74,12 @@ class UserAliasExternalIdAssociation(UserAlias):
 
 
 @dataclass
+class UserAliasIdentifier:
+    external_id: str
+    user_alias: UserAlias
+
+
+@dataclass
 class _UserIdentifier:
     # One of `external_id` or `user_alias` or `braze_id` is required
     external_id: Optional[str] = None  # Masked Pocket user id,
@@ -201,6 +207,7 @@ class SubscribeUsersInput:
     external_id: Optional[List[str]] = None
     email: Optional[List[str]] = None
 
+
 @dataclass
 class CreateUserAliasInput:
     user_aliases: List[UserAliasExternalIdAssociation]
@@ -208,7 +215,7 @@ class CreateUserAliasInput:
 
 @dataclass
 class IdentifyUsersInput:
-    aliases_to_identify: List[UserAliasExternalIdAssociation]
+    aliases_to_identify: List[UserAliasIdentifier]
 
 
 def format_date(dt: datetime.datetime) -> str:
