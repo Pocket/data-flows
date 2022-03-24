@@ -2,9 +2,9 @@ from collections import defaultdict
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from prefect import Flow, task, context
+from prefect import Flow, task, context, flatten
 from prefect.executors import LocalDaskExecutor
 
 from api_clients.braze import models
@@ -22,6 +22,7 @@ from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_ke
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from utils.iteration import chunks
 from utils import config
+from common_tasks.mapping import split_in_chunks, split_dict_of_lists_in_chunks
 
 FLOW_NAME = Path(__file__).stem
 
@@ -46,12 +47,12 @@ SELECT
 FROM "STG_BRAZE_USER_DELTAS"
 WHERE LOADED_AT > %(loaded_at_start)s
 ORDER BY LOADED_AT ASC
-LIMIT 1000 -- For debugging, limit to 1000.
 """
 
 
 DEFAULT_TSTAMP_START = '2022-03-15'
 LAST_LOADED_AT_KV_STORE_KEY = format_key(FLOW_NAME, "last_loaded_at")
+MAX_ROWS_PER_TASK = 1000
 
 
 @dataclass
@@ -206,7 +207,7 @@ def create_email_aliases(user_deltas: List[UserDelta]):
 
 
 @task()
-def map_newsletter_subscription_to_user_deltas(user_deltas: List[UserDelta]) -> Dict[str, List[UserDelta]]:
+def group_user_deltas_by_newsletter_subscription_name(user_deltas: List[UserDelta]) -> Dict[str, List[UserDelta]]:
     """
     Maps subscription group names to user deltas
     :returns a dictionary where keys are subscription group names and values are a list user deltas for that name.
@@ -221,28 +222,27 @@ def map_newsletter_subscription_to_user_deltas(user_deltas: List[UserDelta]) -> 
 
 
 @task()
-def subscribe_users(user_deltas_by_subscription_group_name: Dict[str, List[UserDelta]]):
+def subscribe_users(subscription_group_user_deltas: Tuple[str, List[UserDelta]]):
     """
     Subscribe users to a particular subscription group
-    :param user_deltas_by_subscription_group_name: Maps subscription group names (POCKET_HITS_US_DAILY,
+    :param subscription_group_user_deltas: Maps subscription group names (POCKET_HITS_US_DAILY,
     POCKET_HITS_US_WEEKLY, POCKET_HITS_DE_DAILY) to UserDelta objects with users that should be subscribed to that group
     """
     logger = context.get("logger")
-    logger.info(f"Newsletter subscription group signups for {','.join(user_deltas_by_subscription_group_name.keys())}")
 
-    for subscription_group_name, subscription_group_user_deltas in user_deltas_by_subscription_group_name.items():
-        for chunk in chunks(subscription_group_user_deltas, SUBSCRIPTION_SET_LIMIT):
-            logger.info(f"Subscribing {len(chunk)} users to {subscription_group_name}"
-                        f" with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
+    subscription_group_name, user_deltas = subscription_group_user_deltas
+    for chunk in chunks(user_deltas, SUBSCRIPTION_SET_LIMIT):
+        logger.info(f"Subscribing {len(chunk)} users to {subscription_group_name}"
+                    f" with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
 
-            BrazeClient(logger=logger).subscribe_users(
-                models.SubscribeUsersInput(
-                    subscription_group_id=SUBSCRIPTION_GROUP_NAME_TO_ID[subscription_group_name],
-                    subscription_state="subscribed",
-                    external_id=[u.external_id for u in chunk if u.external_id is not None],  # Identified users
-                    email=[u.email for u in chunk if u.external_id is None and is_valid_email(u.email)],  # Alias-only
-                )
+        BrazeClient(logger=logger).subscribe_users(
+            models.SubscribeUsersInput(
+                subscription_group_id=SUBSCRIPTION_GROUP_NAME_TO_ID[subscription_group_name],
+                subscription_state="subscribed",
+                external_id=[u.external_id for u in chunk if u.external_id is not None],  # Identified users
+                email=[u.email for u in chunk if u.external_id is None and is_valid_email(u.email)],  # Alias-only
             )
+        )
 
 
 @task()
@@ -321,7 +321,7 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
     return rows
 
 
-with Flow(FLOW_NAME) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     user_deltas_dicts = PocketSnowflakeQuery()(
         query=EXTRACT_QUERY,
         data=get_extract_query_parameters(),
@@ -336,50 +336,83 @@ with Flow(FLOW_NAME) as flow:
     # Convert Snowflake dicts to @dataclass objects.
     all_user_deltas = get_user_deltas_from_dicts(user_deltas_dicts)
 
-    alias_only_email_results = create_email_aliases(
-        filter_alias_only_signup_user_deltas(all_user_deltas)
+    # Create email aliases for users WITHOUT an external_id.
+    # Note: email aliases for users WITH an external_id are created in the second create_email_aliases task below.
+    #       There are two create_email_aliases() tasks because the first needs to happen BEFORE track_users(), and the
+    #       second one AFTER track_users().
+    alias_only_email_task = create_email_aliases.map(
+        split_in_chunks(
+            filter_alias_only_signup_user_deltas(all_user_deltas),
+            chunk_size=MAX_ROWS_PER_TASK,
+        )
     )
 
     # Apply attributes, events, and payments. This creates users with an external_id if they don't exist already.
     # The creation of user aliases for anonymous ('alias-only') signups needs to happen before track_users(),
     # because attributes can't be applies to alias-only users that don't exist yet.
-    track_users_results = track_users(all_user_deltas, upstream_tasks=[alias_only_email_results])
+    track_users_task = track_users.map(
+        split_in_chunks(all_user_deltas, chunk_size=MAX_ROWS_PER_TASK)
+    ).set_upstream(
+        alias_only_email_task  # This task needs to happen upstream, because it creates alias-only users.
+    )
 
     # Get the user deltas with a new email alias for a Pocket user (i.e. a user with an external_id)
     user_deltas_with_new_pocket_user_emails = filter_user_deltas_with_new_pocket_user_emails(all_user_deltas)
 
-    # The creation of user aliases for Pocket accounts needs to happen after track_users, because track_users will
-    # create profiles for new Pocket user signups.
-    create_email_aliases_results = create_email_aliases(
-        user_deltas_with_new_pocket_user_emails,
-        upstream_tasks=[track_users_results]
+    # Create email aliases for users WITH an external_id.
+    # Note: anonymous email aliases were created in the create_email_aliases task above.
+    create_email_aliases_task = create_email_aliases.map(
+        split_in_chunks(
+            user_deltas_with_new_pocket_user_emails,
+            chunk_size=MAX_ROWS_PER_TASK,
+        ),
+        upstream_tasks=[track_users_task]
+    ).set_upstream(
+        track_users_task  # Track users needs to happen upstream, because it creates new user profiles with external_id.
     )
 
-    # Identifying user profiles needs to happen after track_users, because the latter will create non-existing profiles.
-    identify_users_results = identify_users(
-        user_deltas_with_new_pocket_user_emails,
-        upstream_tasks=[track_users_results]
-    )
+    # Merge Pocket users with the email alias any time they have a new
+    identify_users_task = identify_users.map(
+        split_in_chunks(
+            user_deltas_with_new_pocket_user_emails,
+            chunk_size=MAX_ROWS_PER_TASK,
+        ),
+    ).set_dependencies(upstream_tasks=[
+        # identify_users needs to happen after alias-only and users with an external_id have been created.
+        alias_only_email_task,
+        track_users_task,
+    ])
 
     # Subscribing users needs to happen after Pocket users and alias-only users have been created.
-    subscribe_users_results = subscribe_users(
-        map_newsletter_subscription_to_user_deltas(all_user_deltas),
-        upstream_tasks=[track_users_results, alias_only_email_results]
-    )
+    subscribe_users_task = subscribe_users.map(
+        split_dict_of_lists_in_chunks(
+           group_user_deltas_by_newsletter_subscription_name(all_user_deltas),
+           chunk_size=MAX_ROWS_PER_TASK,
+        )
+    ).set_dependencies(upstream_tasks=[
+        # subscribe_users needs to happen after alias-only and users with an external_id have been created.
+        alias_only_email_task,
+        track_users_task,
+    ])
 
     # Deleting user profiles needs to happen after track_users, because the latter will create non-existing profiles.
-    delete_users_results = delete_user_profiles(
-        filter_user_deltas_by_trigger(all_user_deltas, trigger='account_delete'),
-        upstream_tasks=[track_users_results]
+    delete_users_results = delete_user_profiles.map(
+        split_in_chunks(
+            filter_user_deltas_by_trigger(all_user_deltas, trigger='account_delete'),
+            chunk_size=MAX_ROWS_PER_TASK,
+        ),
+    ).set_upstream(
+        track_users_task,
     )
 
     # Set KV-store 'last_loaded_at' key to the maximum loaded_at seen so far if all tasks finished successfully.
-    set_last_loaded_at(all_user_deltas, upstream_tasks=[
-        alias_only_email_results,
-        track_users_results,
-        create_email_aliases_results,
+    set_last_loaded_at(all_user_deltas).set_dependencies(upstream_tasks=[
+        alias_only_email_task,
+        create_email_aliases_task,
         delete_users_results,
-        subscribe_users_results,
+        identify_users_task,
+        subscribe_users_task,
+        track_users_task,
     ])
 
 
