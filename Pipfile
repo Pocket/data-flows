@@ -10,6 +10,9 @@ fastparquet = "*"
 pyarrow = "*"
 s3fs = {version = "~=0.4.0", extras = ["boto3"]}
 sagemaker = "*"
+elasticsearch = "==7.*"
+elasticsearch-dsl = "==7.*"
+requests-aws4auth = "*"
 
 [dev-packages]
 graphviz = ">=0.8.3"
