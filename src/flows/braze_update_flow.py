@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from prefect import Flow, task, context, flatten
+from prefect import Flow, task, context
 from prefect.executors import LocalDaskExecutor
+from prefect.schedules import IntervalSchedule
 
 from api_clients.braze import models
 from api_clients.braze.client import (
@@ -363,7 +364,11 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
     return rows
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
+# Schedule to run every 5 minutes
+schedule = IntervalSchedule(interval=datetime.timedelta(minutes=5))
+
+
+with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor()) as flow:
     user_deltas_dicts = PocketSnowflakeQuery()(
         query=EXTRACT_QUERY,
         data=get_extract_query_parameters(),
