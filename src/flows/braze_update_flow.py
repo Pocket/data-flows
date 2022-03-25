@@ -2,7 +2,7 @@ from collections import defaultdict
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from prefect import Flow, task, context, flatten
 from prefect.executors import LocalDaskExecutor
@@ -50,13 +50,17 @@ ORDER BY LOADED_AT ASC
 """
 
 
-DEFAULT_TSTAMP_START = '2022-03-15'
-LAST_LOADED_AT_KV_STORE_KEY = format_key(FLOW_NAME, "last_loaded_at")
-MAX_ROWS_PER_TASK = 1000
+DEFAULT_LOADED_AT_START = '2022-03-15'  # Value to use for the loaded_at_start query param if KV-store key is missing.
+LAST_LOADED_AT_KV_STORE_KEY = format_key(FLOW_NAME, "last_loaded_at")  # KV-store key name
+MAX_OPERATIONS_PER_TASK_RUN = 1000  # The workload is split up in chunks of this size, and each chunk is run separately.
 
 
 @dataclass
 class UserDelta:
+    """
+    This class corresponds to the query result from EXTRACT_QUERY.
+    """
+
     event_id: str
     loaded_at: datetime.datetime
     happened_at: datetime.datetime
@@ -83,7 +87,7 @@ class UserDelta:
 
     @staticmethod
     def from_dict(d: Dict[str, Any]):
-        # Snowflake returns uppercase column names, and by convention we use lowercase variables in Python.
+        # Snowflake returns uppercase column names, and we use lowercase variables in Python.
         return UserDelta(**{k.lower(): v for k, v in d.items()})
 
 
@@ -93,7 +97,7 @@ def get_extract_query_parameters():
     :return: query parameters for EXTRACT_QUERY
     """
     query_params = {
-        'loaded_at_start': get_kv(key=LAST_LOADED_AT_KV_STORE_KEY, default_value=DEFAULT_TSTAMP_START),
+        'loaded_at_start': get_kv(key=LAST_LOADED_AT_KV_STORE_KEY, default_value=DEFAULT_LOADED_AT_START),
     }
 
     logger = context.get("logger")
@@ -104,6 +108,10 @@ def get_extract_query_parameters():
 
 @task()
 def set_last_loaded_at(user_deltas: List[UserDelta]):
+    """
+    Update the KV-store value for the loaded_at_start query parameter to the maximum loaded_at value in user_deltas.
+    :param user_deltas:
+    """
     max_loaded_at = str(max(u.loaded_at for u in user_deltas))
 
     logger = context.get("logger")
@@ -114,11 +122,20 @@ def set_last_loaded_at(user_deltas: List[UserDelta]):
 
 @task()
 def get_user_deltas_from_dicts(dicts: List[Dict]) -> List[UserDelta]:
+    """
+    Converts a dicts to UserDelta objects
+    :param dicts: Dictionary where keys match attributes in UserDelta (case-insensitive)
+    :return: List of UserDelta objects
+    """
     return [UserDelta.from_dict(d) for d in dicts]
 
 
 @task()
 def filter_alias_only_signup_user_deltas(user_deltas: List[UserDelta]) -> List[UserDelta]:
+    """
+    :param user_deltas:
+    :return: The subset of user_deltas where a user signed up with only an email (no external_id)
+    """
     filtered_user_deltas = [u for u in user_deltas if u.new_user_identifier == 'email']
     logger = context.get("logger")
     logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} alias-only signups")
@@ -127,6 +144,10 @@ def filter_alias_only_signup_user_deltas(user_deltas: List[UserDelta]) -> List[U
 
 @task()
 def filter_user_deltas_with_new_pocket_user_emails(user_deltas: List[UserDelta]) -> List[UserDelta]:
+    """
+    :param user_deltas:
+    :return: The subset of user_deltas where a user signed up with or changed their email address.
+    """
     filtered_user_deltas = [u for u in user_deltas if u.is_new_email_alias_for_pocket_user]
     logger = context.get("logger")
     logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} new aliases for Pocket users")
@@ -135,6 +156,11 @@ def filter_user_deltas_with_new_pocket_user_emails(user_deltas: List[UserDelta])
 
 @task()
 def filter_user_deltas_by_trigger(user_deltas: List[UserDelta], trigger: str) -> List[UserDelta]:
+    """
+    :param user_deltas:
+    :param trigger:
+    :return: The subset of user_deltas where the user_event_trigger attribute matches `trigger`.
+    """
     filtered_user_deltas = [u for u in user_deltas if u.user_event_trigger == trigger]
     logger = context.get("logger")
     logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} user deltas with trigger {trigger}")
@@ -155,7 +181,8 @@ def delete_user_profiles(users_to_delete: List[UserDelta]):
         logger.info(f"Deleting {len(chunk)} user profiles with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
 
         BrazeClient(logger=logger).delete_users(models.UserDeleteInput(
-            external_ids=[u.external_id for u in chunk]
+            external_ids=[u.external_id for u in chunk if u.external_id is not None],
+            user_aliases=[models.UserAlias(EMAIL_ALIAS_LABEL, u.email) for u in chunk if u.external_id is None],
         ))
 
 
@@ -248,13 +275,8 @@ def subscribe_users(subscription_group_user_deltas: Tuple[str, List[UserDelta]])
 @task()
 def track_users(user_deltas: List[UserDelta]):
     """
-    Updates
-
-    If a user signs up for Pocket:
-    - They should get a Braze user profile, such that they can receive emails for which they're eligible.
-    - An event should be sent to Braze such that a double opt-in email can be sent to German users.
-
-    :return:
+    Sends attributes and events to Braze based on UserDelta objects. Also creates new users who have an external_id.
+    :param user_deltas List of user_deltas
     """
     logger = context.get("logger")
 
@@ -268,7 +290,11 @@ def track_users(user_deltas: List[UserDelta]):
         ))
 
 
-def get_attributes_for_user_deltas(user_deltas_chunk):
+def get_attributes_for_user_deltas(user_deltas: Sequence[UserDelta]) -> List[models.UserAttributes]:
+    """
+    :param user_deltas:
+    :return: Braze user attributes based the given user_deltas. len(returned list) <= len(user_deltas).
+    """
     return [
         models.UserAttributes(
             external_id=user_delta.external_id,
@@ -277,11 +303,15 @@ def get_attributes_for_user_deltas(user_deltas_chunk):
             is_premium=user_delta.is_premium,
             time_zone=user_delta.time_zone,
             country=user_delta.country,
-        ) for user_delta in user_deltas_chunk
+        ) for user_delta in user_deltas
     ]
 
 
-def get_events_for_user_deltas(user_deltas_chunk):
+def get_events_for_user_deltas(user_deltas: Sequence[UserDelta]) -> List[models.UserEvent]:
+    """
+    :param user_deltas:
+    :return: Braze custom events based the given user_deltas. len(returned list) <= len(user_deltas).
+    """
     return [
         models.UserEvent(
             external_id=user_delta.external_id,
@@ -289,12 +319,19 @@ def get_events_for_user_deltas(user_deltas_chunk):
             name=user_delta.braze_event_name,
             properties=get_event_properties_for_user_delta(user_delta),
             time=format_date(user_delta.happened_at),
-        ) for user_delta in user_deltas_chunk
+        ) for user_delta in user_deltas
         if user_delta.braze_event_name
     ]
 
 
-def get_event_properties_for_user_delta(user_delta):
+def get_event_properties_for_user_delta(user_delta: UserDelta) -> models.EventPropertiesType:
+    """
+    Format the Braze event properties for a custom event.
+    Brace doc with accepted types: https://www.braze.com/docs/api/objects_filters/event_object/#event-properties-object
+    Pocket events: https://docs.google.com/spreadsheets/d/1HIR33seaMDh55vQnNxDJsKXI6I7Afku9gxHMuY7CbrM/edit#gid=41936054
+    :param user_delta:
+    :return:
+    """
     if user_delta.braze_event_name == 'newsletter_signup':
         return {
             'newsletter': user_delta.newsletter_signup_event_newsletter,
@@ -305,13 +342,18 @@ def get_event_properties_for_user_delta(user_delta):
 
 
 def _replace_email_domain(email: str, new_domain) -> str:
+    """
+    :param email: Email address
+    :param new_domain:
+    :return: Email address with the domain/host part replaced by new_domain
+    """
     return email.split('@')[0] + new_domain
 
 
 @task()
 def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL'):
     """
-    For debugging purposes, change the domain of all email addresses to '@example.com' unless we're in production.
+    For debugging purposes, change the domain of all email addresses to '@example.com' in the local/dev environment.
     """
     if config.ENVIRONMENT != config.ENV_PROD:
         for row in rows:
@@ -343,7 +385,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     alias_only_email_task = create_email_aliases.map(
         split_in_chunks(
             filter_alias_only_signup_user_deltas(all_user_deltas),
-            chunk_size=MAX_ROWS_PER_TASK,
+            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
         )
     )
 
@@ -351,7 +393,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     # The creation of user aliases for anonymous ('alias-only') signups needs to happen before track_users(),
     # because attributes can't be applies to alias-only users that don't exist yet.
     track_users_task = track_users.map(
-        split_in_chunks(all_user_deltas, chunk_size=MAX_ROWS_PER_TASK)
+        split_in_chunks(all_user_deltas, chunk_size=MAX_OPERATIONS_PER_TASK_RUN)
     ).set_upstream(
         alias_only_email_task  # This task needs to happen upstream, because it creates alias-only users.
     )
@@ -364,18 +406,19 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     create_email_aliases_task = create_email_aliases.map(
         split_in_chunks(
             user_deltas_with_new_pocket_user_emails,
-            chunk_size=MAX_ROWS_PER_TASK,
+            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
         ),
         upstream_tasks=[track_users_task]
     ).set_upstream(
         track_users_task  # Track users needs to happen upstream, because it creates new user profiles with external_id.
     )
 
-    # Merge Pocket users with the email alias any time they have a new
+    # Identify ('merge') Pocket users with their email alias any time we have a new email for them.
+    # This deletes their old email alias.
     identify_users_task = identify_users.map(
         split_in_chunks(
             user_deltas_with_new_pocket_user_emails,
-            chunk_size=MAX_ROWS_PER_TASK,
+            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
         ),
     ).set_dependencies(upstream_tasks=[
         # identify_users needs to happen after alias-only and users with an external_id have been created.
@@ -387,7 +430,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     subscribe_users_task = subscribe_users.map(
         split_dict_of_lists_in_chunks(
            group_user_deltas_by_newsletter_subscription_name(all_user_deltas),
-           chunk_size=MAX_ROWS_PER_TASK,
+           chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
         )
     ).set_dependencies(upstream_tasks=[
         # subscribe_users needs to happen after alias-only and users with an external_id have been created.
@@ -399,7 +442,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     delete_users_results = delete_user_profiles.map(
         split_in_chunks(
             filter_user_deltas_by_trigger(all_user_deltas, trigger='account_delete'),
-            chunk_size=MAX_ROWS_PER_TASK,
+            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
         ),
     ).set_upstream(
         track_users_task,

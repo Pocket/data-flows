@@ -18,6 +18,10 @@ SUBSCRIPTION_SET_LIMIT = 50
 
 
 class BrazeClient:
+    """
+    Client for Braze Rest API
+    Docs: https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#903f23b8-dd85-4c82-bff8-9f651d916888
+    """
 
     def __init__(
             self,
@@ -47,7 +51,7 @@ class BrazeClient:
 
     def identify_users(self, user_aliases: IdentifyUsersInput):
         """
-        Batch create aliases for one or more users.
+        Batch identify ('merge') a user alias to an external_id.
         @see https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#22e91d00-d178-4b4f-a3df-0073ecfcc992
         :return:
         """

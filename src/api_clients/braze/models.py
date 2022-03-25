@@ -85,6 +85,9 @@ EventPropertyValueType = Union[
 ]
 
 
+EventPropertiesType = Dict[str, EventPropertyValueType]
+
+
 @dataclass
 class _UserEventRequiredFields:
     name: str  # required, the name of the event
@@ -102,7 +105,7 @@ class UserEvent(_UserIdentifier, _UserEventRequiredFields):
     """
     Event properties key-value. Key string length <= 255 characters, with no leading $ sign.
     """
-    properties: Dict[str, EventPropertyValueType] = field(default_factory=dict)
+    properties: EventPropertiesType = field(default_factory=dict)
 
     # Setting this flag to true will put the API in "Update Only" mode.
     # When using a "user_alias", "Update Only" defaults to true.
@@ -146,7 +149,8 @@ class TrackUsersInput:
 
 @dataclass
 class UserDeleteInput:
-    external_ids: List[str]
+    external_ids: Optional[List[str]] = None
+    user_aliases: Optional[List[UserAlias]] = None
 
 
 @dataclass
