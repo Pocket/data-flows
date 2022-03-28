@@ -358,8 +358,6 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
 
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
-    x = Parameter('x', default=2)
-
     # To backfill data we can manually run this flow and override the Snowflake table (default="STG_BRAZE_USER_DELTAS")
     extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
 
