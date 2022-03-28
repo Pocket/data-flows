@@ -398,7 +398,6 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
             user_deltas_with_new_pocket_user_emails,
             chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
         ),
-        upstream_tasks=[track_users_task]
     ).set_upstream(
         track_users_task,  # Users creation needs to happen first
     )
