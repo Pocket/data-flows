@@ -9,8 +9,7 @@ class UserAlias:
     https://www.braze.com/docs/user_guide/data_and_analytics/user_data_collection/user_profile_lifecycle/#user-aliases
     """
     alias_label: str
-    """Value of the alias. This in combination with the alias_label must be unique for the user."""
-    """If the value is the same as another user, Braze will merge the 2 profiles."""
+    # Value of the alias. This in combination with the alias_label must be unique for the user.
     alias_name: str
 
     def __post_init__(self):
