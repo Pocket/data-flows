@@ -149,8 +149,7 @@ class TrackUsersInput:
 
 @dataclass
 class UserDeleteInput:
-    external_ids: Optional[List[str]] = None
-    user_aliases: Optional[List[UserAlias]] = None
+    external_ids: List[str]
 
 
 @dataclass

@@ -2,11 +2,11 @@ from collections import defaultdict
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from prefect import Flow, task, context
+from prefect import Flow, task, context, Parameter
 from prefect.executors import LocalDaskExecutor
-from prefect.schedules import IntervalSchedule
 
 from api_clients.braze import models
 from api_clients.braze.client import (
@@ -45,15 +45,16 @@ SELECT
     BRAZE_EVENT_NAME,
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
-FROM "STG_BRAZE_USER_DELTAS"
+FROM "{table_name}"
 WHERE LOADED_AT > %(loaded_at_start)s
 ORDER BY LOADED_AT ASC
 """
 
 
-DEFAULT_LOADED_AT_START = '2022-03-15'  # Value to use for the loaded_at_start query param if KV-store key is missing.
+DEFAULT_LOADED_AT_START = '2022-03-22'  # Value to use for the loaded_at_start query param if KV-store key is missing.
 LAST_LOADED_AT_KV_STORE_KEY = format_key(FLOW_NAME, "last_loaded_at")  # KV-store key name
 MAX_OPERATIONS_PER_TASK_RUN = 1000  # The workload is split up in chunks of this size, and each chunk is run separately.
+DEFAULT_TABLE_NAME = 'STG_BRAZE_USER_DELTAS'
 
 
 @dataclass
@@ -93,10 +94,14 @@ class UserDelta:
 
 
 @task()
-def get_extract_query_parameters():
+def prepare_extract_query_and_parameters(table_name: str) -> Tuple[str, Dict]:
     """
-    :return: query parameters for EXTRACT_QUERY
+    :return: Tuple where the first element is the query string, and the second the query parameters
     """
+    # Table name can only contain alpha-numeric characters and underscores to prevent SQL-injection.
+    assert re.fullmatch(r'[a-zA-Z0-9_]+', table_name), "Invalid table name"
+    query = EXTRACT_QUERY.format(table_name=table_name)
+
     query_params = {
         'loaded_at_start': get_kv(key=LAST_LOADED_AT_KV_STORE_KEY, default_value=DEFAULT_LOADED_AT_START),
     }
@@ -104,7 +109,7 @@ def get_extract_query_parameters():
     logger = context.get("logger")
     logger.info(f"extract query_params: {query_params}")
 
-    return query_params
+    return query, query_params
 
 
 @task()
@@ -182,8 +187,7 @@ def delete_user_profiles(users_to_delete: List[UserDelta]):
         logger.info(f"Deleting {len(chunk)} user profiles with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
 
         BrazeClient(logger=logger).delete_users(models.UserDeleteInput(
-            external_ids=[u.external_id for u in chunk if u.external_id is not None],
-            user_aliases=[models.UserAlias(EMAIL_ALIAS_LABEL, u.email) for u in chunk if u.external_id is None],
+            external_ids=[u.external_id for u in chunk],
         ))
 
 
@@ -364,20 +368,25 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
     return rows
 
 
-# Schedule to run every 5 minutes
-schedule = IntervalSchedule(interval=datetime.timedelta(minutes=5))
+with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
+    x = Parameter('x', default=2)
 
+    # To backfill data we can manually run this flow and override the Snowflake table (default="STG_BRAZE_USER_DELTAS")
+    extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
 
-with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor()) as flow:
+    extract_query, extract_query_params = prepare_extract_query_and_parameters(table_name=extract_query_table_name)
+
     user_deltas_dicts = PocketSnowflakeQuery()(
-        query=EXTRACT_QUERY,
-        data=get_extract_query_parameters(),
+        query=extract_query,
+        data=extract_query_params,
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA,
         output_type=OutputType.DICT,
     )
 
-    # Prevent users from getting emails by changing email domains outside the production environment to @example.com
+    # Prevent us from accidentally emailing users from our dev environment by changing all domains to @example.com,
+    # unless we are in the production environment.
+    # Be aware: Sending a large number of emails to fake (@example.com) accounts can harm our email reputation score.
     user_deltas_dicts = mask_email_domain_outside_production(user_deltas_dicts)
 
     # Convert Snowflake dicts to @dataclass objects.
