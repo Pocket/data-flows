@@ -11,6 +11,8 @@ from prefect.executors import LocalDaskExecutor
 from api_clients.braze import models
 from api_clients.braze.client import (
     BrazeClient,
+    IDENTIFY_USER_ALIAS_LIMIT,
+    NEW_USER_ALIAS_LIMIT,
     SUBSCRIPTION_SET_LIMIT,
     USER_TRACK_LIMIT,
     USER_DELETE_LIMIT,
@@ -135,6 +137,18 @@ def get_user_deltas_from_dicts(dicts: List[Dict]) -> List[UserDelta]:
 
 
 @task()
+def filter_user_deltas_with_new_pocket_user_emails(user_deltas: List[UserDelta]) -> List[UserDelta]:
+    """
+    :param user_deltas:
+    :return: The subset of user_deltas where a user signed up with or changed their email address.
+    """
+    filtered_user_deltas = [u for u in user_deltas if u.is_new_email_alias_for_pocket_user]
+    logger = context.get("logger")
+    logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} new aliases for Pocket users")
+    return filtered_user_deltas
+
+
+@task()
 def filter_user_deltas_by_trigger(user_deltas: List[UserDelta], trigger: str) -> List[UserDelta]:
     """
     :param user_deltas:
@@ -162,6 +176,53 @@ def delete_user_profiles(users_to_delete: List[UserDelta]):
 
         BrazeClient(logger=logger).delete_users(models.UserDeleteInput(
             external_ids=[u.external_id for u in chunk],
+        ))
+
+
+@task()
+def identify_users(user_deltas: List[UserDelta]):
+    """
+    Identifies a previously created alias-only user with an external id.
+
+    Use cases:
+    - If signs up on the Pocket Hits signup page, and then creates a Pocket account, these profiles should be linked.
+    """
+    logger = context.get("logger")
+
+    for chunk in chunks(user_deltas, IDENTIFY_USER_ALIAS_LIMIT):
+        logger.info(f"Identifying {len(chunk)} user profiles with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
+
+        BrazeClient(logger=logger).identify_users(models.IdentifyUsersInput(
+            aliases_to_identify=[
+                models.UserAliasIdentifier(
+                    external_id=user.external_id,
+                    user_alias=models.UserAlias(
+                        alias_label=EMAIL_ALIAS_LABEL,
+                        alias_name=user.email,
+                    ),
+                ) for user in chunk
+            ]
+        ))
+
+
+@task()
+def create_email_aliases(user_deltas: List[UserDelta]):
+    """
+    Creates aliases for users
+    """
+    logger = context.get("logger")
+
+    for chunk in chunks(user_deltas, NEW_USER_ALIAS_LIMIT):
+        logger.info(f"Aliasing {len(chunk)} emails with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
+
+        BrazeClient(logger=logger).create_new_user_aliases(models.CreateUserAliasInput(
+            user_aliases=[
+                models.UserAliasExternalIdAssociation(
+                    external_id=user.external_id,
+                    alias_label=EMAIL_ALIAS_LABEL,
+                    alias_name=user.email,
+                ) for user in chunk
+            ]
         ))
 
 
@@ -327,15 +388,41 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
         split_in_chunks(all_user_deltas, chunk_size=MAX_OPERATIONS_PER_TASK_RUN)
     )
 
+    # Get the user deltas with a new email alias for a Pocket user (i.e. a user with an external_id)
+    user_deltas_with_new_pocket_user_emails = filter_user_deltas_with_new_pocket_user_emails(all_user_deltas)
+
+    # Create email aliases for users WITH an external_id.
+    # Note: anonymous email aliases were created in the track_users task above.
+    create_email_aliases_task = create_email_aliases.map(
+        split_in_chunks(
+            user_deltas_with_new_pocket_user_emails,
+            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
+        ),
+        upstream_tasks=[track_users_task]
+    ).set_upstream(
+        track_users_task,  # Users creation needs to happen first
+    )
+
+    # Identify ('merge') Pocket users with their email alias any time we have a new email for them.
+    # This deletes their old email alias.
+    identify_users_task = identify_users.map(
+        split_in_chunks(
+            user_deltas_with_new_pocket_user_emails,
+            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
+        ),
+    ).set_upstream(
+        track_users_task,  # Users creation needs to happen first
+    )
+
     # Subscribing users needs to happen after Pocket users and alias-only users have been created.
     subscribe_users_task = subscribe_users.map(
         split_dict_of_lists_in_chunks(
            group_user_deltas_by_newsletter_subscription_name(all_user_deltas),
            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
         )
-    ).set_dependencies(upstream_tasks=[
-        track_users_task,  # subscribe_users needs to happen after users have been created in track_users_task.
-    ])
+    ).set_upstream(
+        track_users_task,  # Users creation needs to happen first
+    )
 
     # Deleting user profiles needs to happen after track_users, because the latter will create non-existing profiles.
     delete_users_results = delete_user_profiles.map(
@@ -344,12 +431,14 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
             chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
         ),
     ).set_upstream(
-        track_users_task,
+        track_users_task,  # Users creation needs to happen first, because otherwise deleted users might be recreated.
     )
 
     # Set KV-store 'last_loaded_at' key to the maximum loaded_at seen so far if all tasks finished successfully.
     set_last_loaded_at(all_user_deltas).set_dependencies(upstream_tasks=[
+        create_email_aliases_task,
         delete_users_results,
+        identify_users_task,
         subscribe_users_task,
         track_users_task,
     ])
