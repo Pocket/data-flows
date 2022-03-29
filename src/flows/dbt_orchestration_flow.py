@@ -19,7 +19,7 @@ FLOW_NAME = "DBT Orchestration Flow"
 
 # Schedule to run every 5 minutes
 if config.ENVIRONMENT == config.ENV_PROD:
-    schedule = IntervalSchedule(interval=datetime.timedelta(minutes=5))
+    schedule = IntervalSchedule(interval=datetime.timedelta(minutes=10))
 else:
     schedule = None
 
@@ -30,14 +30,14 @@ with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor()) as flow:
 
     braze_flow_id = create_flow_run(flow_name=braze_update_flow.FLOW_NAME, project_name=config.PREFECT_PROJECT_NAME)
     braze_wait_task = wait_for_flow_run(braze_flow_id, raise_final_state=True)
+    braze_flow_id.set_upstream(dbt_job_wait_task)
 
     prereview_flow_id = create_flow_run(flow_name=prereview_engagement_feature_store_flow.FLOW_NAME, project_name=config.PREFECT_PROJECT_NAME)
     prereview_wait_task = wait_for_flow_run(prereview_flow_id, raise_final_state=True)
+    prereview_flow_id.set_upstream(dbt_job_wait_task)
 
     postreview_flow_id = create_flow_run(flow_name=postreview_engagement_feature_store_flow.FLOW_NAME, project_name=config.PREFECT_PROJECT_NAME)
     postreview_wait_task = wait_for_flow_run(postreview_flow_id, raise_final_state=True)
-
-    prereview_flow_id.set_upstream(dbt_job_wait_task)
     postreview_flow_id.set_upstream(dbt_job_wait_task)
 
 # for execution in development only
