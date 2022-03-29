@@ -118,12 +118,14 @@ def set_last_loaded_at(user_deltas: List[UserDelta]):
     Update the KV-store value for the loaded_at_start query parameter to the maximum loaded_at value in user_deltas.
     :param user_deltas:
     """
-    max_loaded_at = str(max(u.loaded_at for u in user_deltas))
-
     logger = context.get("logger")
-    logger.info(f"Setting {LAST_LOADED_AT_KV_STORE_KEY} to {max_loaded_at}")
+    if user_deltas:
+        max_loaded_at = str(max(u.loaded_at for u in user_deltas))
+        logger.info(f"Setting {LAST_LOADED_AT_KV_STORE_KEY} to {max_loaded_at}")
+        set_kv(key=LAST_LOADED_AT_KV_STORE_KEY, value=max_loaded_at)
+    else:
+        logger.info(f"{LAST_LOADED_AT_KV_STORE_KEY} is not updated because we did not query any rows from Snowflake.")
 
-    set_kv(key=LAST_LOADED_AT_KV_STORE_KEY, value=max_loaded_at)
 
 
 @task()
