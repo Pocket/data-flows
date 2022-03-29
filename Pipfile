@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-prefect = {extras = ["aws", "snowflake", "gcp"], version = "*"}
+prefect = {extras = ["aws", "snowflake", "gcp"], version = "==1.*"}
 pandas = "*"
 fastparquet = "*"
 pyarrow = "*"
