@@ -13,6 +13,7 @@ sagemaker = "*"
 
 [dev-packages]
 graphviz = ">=0.8.3"
+pytest = "*"
 
 [requires]
 python_version = "3.9"

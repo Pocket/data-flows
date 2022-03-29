@@ -121,14 +121,18 @@ The following parameters need to be created in the SSM Parameter Store.
 Replace `{Env}` with the environment name as defined in
 [.aws/src/config](https://github.com/Pocket/data-flows/blob/main/.aws/src/config/index.ts).
 
-| Name                                             | Type         | Description                                                                                |
-|--------------------------------------------------|--------------|--------------------------------------------------------------------------------------------|
-| `/DataFlows/{Env}/PREFECT_API_KEY`       | SecureString | Prefect service account API key with 'user' permissions to the  previously created project |
-| `/DataFlows/{Env}/SNOWFLAKE_PRIVATE_KEY` | SecureString | Decrypted base64 Snowflake private key                                                     |
-| `/DataFlows/{Env}/SNOWFLAKE_ACCOUNT`     | String       | Snowflake account id                                                                       |
-| `/DataFlows/{Env}/SNOWFLAKE_USER`        | String       | Snowflake username                                                                         |
-| `/DataFlows/{Env}/DBT_CLOUD_TOKEN`       | SecureString | Dbt service account token                                                                  |
-| `/DataFlows/{Env}/DBT_CLOUD_ACCOUNT_ID`  | String       | Dbt account id that you can find in the Dbt cloud url                                      |
+| Name                                                       | Type          | Description                                                                                |
+|------------------------------------------------------------|---------------|--------------------------------------------------------------------------------------------|
+| `/DataFlows/{Env}/PREFECT_API_KEY`                         | SecureString  | Prefect service account API key with 'user' permissions to the  previously created project |
+| `/DataFlows/{Env}/SNOWFLAKE_PRIVATE_KEY`                   | SecureString  | Decrypted base64 Snowflake private key                                                     |
+| `/DataFlows/{Env}/SNOWFLAKE_ACCOUNT`                       | String        | Snowflake account id                                                                       |
+| `/DataFlows/{Env}/SNOWFLAKE_USER`                          | String        | Snowflake username                                                                         |
+| `/DataFlows/{Env}/SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA`  | String        | The Snowflake analytics Dbt staging schema name                                            |
+| `/DataFlows/{Env}/DBT_CLOUD_TOKEN`                         | SecureString  | Dbt service account token                                                                  |
+| `/DataFlows/{Env}/DBT_CLOUD_ACCOUNT_ID`                    | String        | Dbt account id that you can find in the Dbt cloud url                                      |
+| `/DataFlows/{Env}/GCE_KEY`                                 | SecureString  | GCP key                                                                                    |
+| `/DataFlows/{Env}/BRAZE_API_KEY`                           | SecureString  | Braze API key with write access to 'User Data' and 'Subscription'.                         |
+| `/DataFlows/{Env}/BRAZE_REST_ENDPOINT`                     | String        | [Braze REST endpoint](https://www.braze.com/docs/api/basics/)                              |
 
 ## Roadmap
 
