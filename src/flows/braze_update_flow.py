@@ -35,7 +35,6 @@ SELECT
     USER_EVENT_TRIGGER,
     EXTERNAL_ID,
     EMAIL,
-    NEW_USER_IDENTIFIER,
     IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER,
     IS_PREMIUM,
     TIME_ZONE,
@@ -71,12 +70,6 @@ class UserDelta:
     """Unique Braze user identifier (based on the Pocket hashed user id)"""
     external_id: Optional[str]
     email: Optional[str]
-    """
-    - If set to 'email', create an alias-only Braze user based on the email address.
-    - If set to 'external_id', create an identified Braze user based on external_id.
-    - Otherwise, no new user profile needs to be created in Braze.
-    """
-    new_user_identifier: Optional[str]
     """If true, an email alias will be created for the external_id"""
     is_new_email_alias_for_pocket_user: Optional[bool]
     is_premium: Optional[bool]
