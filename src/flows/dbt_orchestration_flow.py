@@ -28,9 +28,13 @@ with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor()) as flow:
     dbt_job_flow_id = create_flow_run(flow_name=dbt_job_flow.FLOW_NAME, project_name=config.PREFECT_PROJECT_NAME)
     dbt_job_wait_task = wait_for_flow_run(dbt_job_flow_id, raise_final_state=True)
 
-    braze_flow_id = create_flow_run(flow_name=braze_update_flow.FLOW_NAME, project_name=config.PREFECT_PROJECT_NAME)
-    braze_wait_task = wait_for_flow_run(braze_flow_id, raise_final_state=True)
-    braze_flow_id.set_upstream(dbt_job_wait_task)
+    # TODO: To start updating Braze based on Snowplow:
+    # 1. In the KV-store set production/braze_update_flow/last_loaded_at to the etl_tstamp of the first Snowplow event
+    #    we should process.
+    # 2. Enable the code below and merge it into main.
+    # braze_flow_id = create_flow_run(flow_name=braze_update_flow.FLOW_NAME, project_name=config.PREFECT_PROJECT_NAME)
+    # braze_wait_task = wait_for_flow_run(braze_flow_id, raise_final_state=True)
+    # braze_flow_id.set_upstream(dbt_job_wait_task)
 
     prereview_flow_id = create_flow_run(flow_name=prereview_engagement_feature_store_flow.FLOW_NAME, project_name=config.PREFECT_PROJECT_NAME)
     prereview_wait_task = wait_for_flow_run(prereview_flow_id, raise_final_state=True)
