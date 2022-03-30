@@ -4,16 +4,16 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-prefect = {extras = ["aws", "snowflake", "gcp"], version = "*"}
-pandas = "*"
-fastparquet = "*"
-pyarrow = "*"
-s3fs = {version = "~=0.4.0", extras = ["boto3"]}
-sagemaker = "*"
+prefect = {extras = ["aws", "snowflake", "gcp"], version = "==1.1.0"}
+pandas = "==1.4.1"
+fastparquet = "==0.8.0"
+pyarrow = "==7.0.0"
+s3fs = {version = "==0.4.2", extras = ["boto3"]}
+sagemaker = "==2.80.0"
 
 [dev-packages]
-graphviz = ">=0.8.3"
-pytest = "*"
+graphviz = "==0.19.1"
+pytest = "==7.1.1"
 
 [requires]
 python_version = "3.9"
