@@ -42,6 +42,7 @@ SELECT
     COUNTRY,
     POCKET_LOCALE,
     SUBSCRIBE_TO_NEWSLETTER_SUBSCRIPTION_GROUP_NAME,
+    EMAIL_SUBSCRIBE,
     BRAZE_EVENT_NAME,
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
@@ -83,6 +84,7 @@ class UserDelta:
     time_zone: Optional[str]
     pocket_locale: Optional[str]
     subscribe_to_newsletter_subscription_group_name: Optional[str]
+    email_subscribe: Optional[str]
     braze_event_name: Optional[str]
     newsletter_signup_event_newsletter: Optional[str]
     newsletter_signup_event_frequency: Optional[str]
@@ -299,6 +301,7 @@ def get_attributes_for_user_deltas(user_deltas: Sequence[UserDelta]) -> List[mod
             is_premium=user_delta.is_premium,
             time_zone=user_delta.time_zone,
             country=user_delta.country,
+            email_subscribe=user_delta.email_subscribe,
         ) for user_delta in user_deltas
     ]
 
