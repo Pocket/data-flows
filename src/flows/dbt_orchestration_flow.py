@@ -44,7 +44,7 @@ with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor()) as flow:
         wait_for_flow_run(
             flow_id,
             raise_final_state=True,
-            task_args=dict(name=f"create_flow_run({downstream_flow_name})"),
+            task_args=dict(name=f"wait_for_flow_run({downstream_flow_name})"),
         )
 
 # for execution in development only
