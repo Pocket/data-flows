@@ -21,11 +21,12 @@ from api_clients.braze.pocket_config import EMAIL_ALIAS_LABEL, SUBSCRIPTION_GROU
 from api_clients.braze.utils import is_valid_email, format_date
 from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
+from utils.flow import get_flow_name
 from utils.iteration import chunks
 from utils import config
 from common_tasks.mapping import split_in_chunks, split_dict_of_lists_in_chunks
 
-FLOW_NAME = Path(__file__).stem
+FLOW_NAME = get_flow_name(__file__)
 
 EXTRACT_QUERY = """
 SELECT
