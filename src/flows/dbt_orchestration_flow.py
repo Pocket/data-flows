@@ -13,8 +13,9 @@ from flows import dbt_job_flow
 from flows import braze_update_flow
 from flows import prereview_engagement_feature_store_flow
 from flows import postreview_engagement_feature_store_flow
+from utils.flow import get_flow_name
 
-FLOW_NAME = "DBT Orchestration Flow"
+FLOW_NAME = get_flow_name(__file__)
 
 
 # Schedule to run every 5 minutes

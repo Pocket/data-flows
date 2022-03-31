@@ -6,9 +6,10 @@ from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 from common_tasks.transform_data import df_field_strip
 from common_tasks.load_data import dataframe_to_feature_group
 from utils import config
+from utils.flow import get_flow_name
 
 # Setting variables used for the flow
-FLOW_NAME = "PostReview Engagement to Feature Group Flow"
+FLOW_NAME = get_flow_name(__file__)
 FEATURE_GROUP_NAME = f"{config.ENVIRONMENT}-postreview-enagement-aggregate-metrics-v1"
 
 extract_sql = f"""

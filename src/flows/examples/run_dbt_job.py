@@ -3,6 +3,10 @@ from prefect import task, Flow
 from prefect.triggers import all_successful
 import prefect
 
+from utils.flow import get_flow_name
+
+FLOW_NAME = get_flow_name(__file__)
+
 DBT_CLOUD_JOB_ID = 52822
 
 @task
@@ -15,7 +19,7 @@ def run_after_dbt_job():
     logger = prefect.context.get("logger")
     logger.info(f'Ending Test DBT job')
 
-with Flow("dbt_job_run") as flow:
+with Flow(FLOW_NAME) as flow:
     before_dbt_job_task = run_before_dbt_job()
     dbt_run_result = dbt.DbtCloudRunJob()(cause='Test DBT Run', job_id=DBT_CLOUD_JOB_ID, wait_for_job_run_completion=True)
     after_dbt_job_task = run_after_dbt_job()

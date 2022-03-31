@@ -5,6 +5,9 @@ import boto3
 from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.session import Session
 
+from utils.flow import get_flow_name
+
+FLOW_NAME = get_flow_name(__file__)
 
 
 @task
@@ -32,7 +35,7 @@ def load_featue_group(df: pd.DataFrame, feature_group_name):
     feature_group.ingest(df, max_workers=4, max_processes=4, wait=True)
 
 
-with Flow("User Impression Feature Group Flow") as flow:
+with Flow(FLOW_NAME) as flow:
     feature_group = Parameter("feature group", default="user-impressions")
     snowflake_bucket = "pocket-data-learning"
     snowflake_prefix = "analytics-modeled-data/parquet/user_impressions"

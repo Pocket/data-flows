@@ -4,6 +4,7 @@ from prefect import Flow, task
 from prefect.schedules import IntervalSchedule
 from prefect.tasks.gcp.bigquery import BigQueryTask
 from utils import config
+from utils.flow import get_flow_name
 from api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 
@@ -16,7 +17,7 @@ from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 #
 
 # Setting flow variables
-FLOW_NAME = "FF NewTab Engagement BQ to Snowflake Flow"
+FLOW_NAME = get_flow_name(__file__)
 TABLE_NAME = 'impression_stats_v1'
 
 # Export statement to export BQ data into GCS in compressed Parquet format
