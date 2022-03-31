@@ -5,9 +5,11 @@ from api_clients.prefect_key_value_store_client import get_last_executed_value, 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 from common_tasks.load_data import dataframe_to_feature_group
 from utils import config
+from utils.flow import get_flow_name
 
 # Setting variables used for the flow
-FLOW_NAME = "PreReview Engagement to Feature Group Flow"
+
+FLOW_NAME = get_flow_name(__file__)
 FEATURE_GROUP_NAME = f"{config.ENVIRONMENT}-prereview-engagement-metrics-v1"
 
 extract_sql = f"""

@@ -15,7 +15,8 @@ elasticsearch-dsl = "==7.*"
 requests-aws4auth = "*"
 
 [dev-packages]
-graphviz = ">=0.8.3"
+graphviz = "==0.19.1"
+pytest = "==7.1.1"
 
 [requires]
 python_version = "3.9"

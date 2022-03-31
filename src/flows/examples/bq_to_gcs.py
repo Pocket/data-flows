@@ -2,8 +2,9 @@ from prefect import Flow
 from prefect.tasks.gcp.bigquery import BigQueryTask
 
 from utils import config
+from utils.flow import get_flow_name
 
-FLOW_NAME = "example BQ to GCS Export"
+FLOW_NAME = get_flow_name(__file__)
 
 # GCS Bucket and Path to export BigQuery data
 gcs_bucket = config.GCS_BUCKET
