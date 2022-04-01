@@ -14,7 +14,7 @@ class UserAlias:
     alias_name: str
 
     def __post_init__(self):
-        assert self.alias_label and self.alias_name
+        assert self.alias_label and self.alias_name is not None
 
 
 @dataclass

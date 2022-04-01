@@ -340,7 +340,11 @@ def _replace_email_domain(email: str, new_domain) -> str:
     :param new_domain:
     :return: Email address with the domain/host part replaced by new_domain
     """
-    return email.split('@')[0] + new_domain
+    if '@' in email:
+        return email.split('@')[0] + new_domain
+    else:
+        # Don't replace domain if there is none. If email = '', then we should keep it that way, to catch errors in dev.
+        return email
 
 
 @task()
