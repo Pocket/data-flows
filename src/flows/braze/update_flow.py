@@ -54,7 +54,7 @@ ORDER BY LOADED_AT ASC
 
 DEFAULT_LOADED_AT_START = '2022-03-22'  # Value to use for the loaded_at_start query param if KV-store key is missing.
 LAST_LOADED_AT_KV_STORE_KEY = format_key(FLOW_NAME, "last_loaded_at")  # KV-store key name
-DEFAULT_MAX_OPERATIONS_PER_TASK_RUN = 10000  # The workload is run in parallel in chunks of this many rows.
+DEFAULT_MAX_OPERATIONS_PER_TASK_RUN = 100000  # The workload is run in parallel in chunks of this many rows.
 DEFAULT_TABLE_NAME = 'STG_BRAZE_USER_DELTAS'
 
 
