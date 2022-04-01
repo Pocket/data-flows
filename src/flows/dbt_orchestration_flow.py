@@ -17,7 +17,7 @@ DBT_CLOUD_JOB_ID = 52822
 
 # List of flow names that will be run after the Dbt job run has finished successfully.
 DBT_DOWNSTREAM_FLOW_NAMES = [
-    # braze_update_flow.FLOW_NAME,  # Enable this and set production/braze_update_flow/last_loaded_at on April 13th.
+    braze_update_flow.FLOW_NAME,  # Enable this and set production/braze_update_flow/last_loaded_at on April 13th.
     prereview_engagement_feature_store_flow.FLOW_NAME,
     postreview_engagement_feature_store_flow.FLOW_NAME,
 ]
