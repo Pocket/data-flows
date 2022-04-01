@@ -47,7 +47,7 @@ SELECT
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
 FROM "{table_name}"
-WHERE LOADED_AT > %(loaded_at_start)s
+WHERE LOADED_AT >= '2022-03-22 01:46:22.974' and loaded_at <= '2022-03-22 02:04:09.042'
 ORDER BY LOADED_AT ASC
 """
 
@@ -340,7 +340,11 @@ def _replace_email_domain(email: str, new_domain) -> str:
     :param new_domain:
     :return: Email address with the domain/host part replaced by new_domain
     """
-    return email.split('@')[0] + new_domain
+    if '@' in email:
+        return email.split('@')[0] + new_domain
+    else:
+        # Don't replace domain if there is none. If email = '', then we should keep it that way, to catch errors in dev.
+        return email
 
 
 @task()
