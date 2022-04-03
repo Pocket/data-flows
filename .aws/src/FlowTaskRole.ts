@@ -6,11 +6,7 @@ import { config } from './config';
 export class FlowTaskRole extends Resource {
   public readonly iamRole: iam.IamRole;
 
-  constructor(
-    scope: Construct,
-    name: string,
-    prefectStorageBucket: s3.S3Bucket
-  ) {
+  constructor(scope: Construct, name: string, resultsBucket: s3.S3Bucket) {
     super(scope, name);
 
     const existingPolicies = this.getExistingPolicies(
@@ -21,7 +17,7 @@ export class FlowTaskRole extends Resource {
     const flowPolicy = this.createPolicy([
       this.getDataLearningS3BucketReadAccess(),
       this.getStepFunctionExecuteAccess(),
-      this.getPrefectStorageS3BucketWriteAccess(prefectStorageBucket),
+      this.getResultsS3BucketWriteAccess(resultsBucket),
       this.putFeatureGroupRecordsAccess(),
     ]);
 
@@ -110,11 +106,11 @@ export class FlowTaskRole extends Resource {
   }
 
   /**
-   * Give write access to the storageBucket, such that Prefect can load the Flow definition and save results.
-   * @see https://docs.prefect.io/orchestration/flow_config/storage.html#pickle-vs-script-based-storage
+   * Give write access to the Results Bucket, such that Prefect can write the task output data to it.
+   * @see https://docs.prefect.io/core/concepts/results.html#result-objects
    * @private
    */
-  private getPrefectStorageS3BucketWriteAccess(
+  private getResultsS3BucketWriteAccess(
     s3Bucket: s3.S3Bucket
   ): iam.DataAwsIamPolicyDocumentStatement {
     return {
