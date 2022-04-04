@@ -5,7 +5,6 @@ import {
   datasources,
   ecr,
   iam,
-  s3,
 } from '@cdktf/provider-aws';
 import { Construct } from 'constructs';
 import { PocketECSCodePipeline } from '@pocket-tools/terraform-modules';
@@ -24,7 +23,6 @@ export class DataFlowsCodePipeline extends Resource {
     private dependencies: {
       region: datasources.DataAwsRegion;
       caller: datasources.DataAwsCallerIdentity;
-      storageBucket: s3.S3Bucket;
       flowTaskDefinitionArn: string;
     }
   ) {
@@ -200,12 +198,6 @@ export class DataFlowsCodePipeline extends Resource {
             // Allow CodeBuild to get the SourceOutput artifact from S3.
             actions: ['s3:GetObject'],
             resources: [sourceArtifactObjectArn],
-            effect: 'Allow',
-          },
-          {
-            // Allow CodeBuild to write to the Prefect Storage bucket.
-            actions: ['s3:PutObject'],
-            resources: [`${this.dependencies.storageBucket.arn}/*`],
             effect: 'Allow',
           },
         ],
