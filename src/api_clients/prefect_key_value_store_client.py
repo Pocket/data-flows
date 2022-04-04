@@ -43,16 +43,11 @@ def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:
     'last_executed_date' from the json metadata that represents the most recent execution date before right now
 
     """
-    default_state_params_json = json.dumps({'last_executed': default_if_absent})
-    state_params_json = get_kv(flow_name, default_state_params_json)
-    try:
-        last_executed = json.loads(state_params_json).get('last_executed')
-    except json.decoder.JSONDecodeError:
-        # If the KV store has bad data
-        last_executed = {'last_executed': default_if_absent,}
+    key = format_key(flow_name, 'last_executed')
+    last_executed = get_kv(key, default_if_absent)
 
     logger = prefect.context.get("logger")
-    logger.info(f"Loading data from Snowflake since {last_executed}")
+    logger.info(f"Got {key} = {last_executed} from KV-store")
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S.%f")
 
 
