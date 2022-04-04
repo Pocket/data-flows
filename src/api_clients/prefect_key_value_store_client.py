@@ -31,7 +31,7 @@ def get_kv(key: str, default_value: str):
         return default_value
 
 @task
-def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:00') -> datetime:
+def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:00.000') -> datetime:
     """
     Query Prefect KV Store to get the execution date from previous Flow state
 
