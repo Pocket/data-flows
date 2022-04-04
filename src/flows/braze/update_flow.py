@@ -361,7 +361,10 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
 
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
-    # To backfill data we can manually run this flow and override the Snowflake table (default="STG_BRAZE_USER_DELTAS")
+    # To backfill data we can manually run this flow and override the Snowflake database, schema, and table.
+    # The default is ANALYTICS.DBT_STAGING.STG_BRAZE_USER_DELTAS.
+    snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_ANALYTICS_DATABASE)
+    snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA)
     extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
 
     extract_query, extract_query_params = prepare_extract_query_and_parameters(table_name=extract_query_table_name)
@@ -369,8 +372,8 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     user_deltas_dicts = PocketSnowflakeQuery()(
         query=extract_query,
         data=extract_query_params,
-        database=config.SNOWFLAKE_ANALYTICS_DATABASE,
-        schema=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA,
+        database=snowflake_database,
+        schema=snowflake_schema,
         output_type=OutputType.DICT,
     )
 
