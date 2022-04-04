@@ -20,7 +20,7 @@ SNOWFLAKE_MOZILLA_SCHEMA = 'mozilla' if ENVIRONMENT == ENV_PROD else SNOWFLAKE_D
 SNOWFLAKE_ANALYTICS_DATABASE = 'ANALYTICS'
 SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA = os.getenv(
     'SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA',
-    '<no dbt staging schema>'  # For local development, set the Dbt staging schema in .env
+    'DBT_STAGING'  # For local development, set the Dbt staging schema in .env
 )
 
 BRAZE_API_KEY=os.getenv('BRAZE_API_KEY')
