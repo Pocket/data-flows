@@ -1,5 +1,5 @@
 import { Resource } from 'cdktf';
-import { cloudwatch, datasources, ecs, iam } from '@cdktf/provider-aws';
+import { cloudwatch, datasources, ecs, iam, s3 } from '@cdktf/provider-aws';
 import { Construct } from 'constructs';
 import { buildDefinitionJSON } from '@pocket-tools/terraform-modules';
 import { config } from './config';
@@ -23,12 +23,16 @@ export class FlowTaskDefinition extends Resource {
       caller: datasources.DataAwsCallerIdentity;
       imageUri: string;
       taskRole: iam.IamRole;
+      resultsBucket: s3.S3Bucket;
     }
   ) {
     super(scope, name);
 
     const logGroup = this.createFlowLogGroup();
-    const flowContainerDefinitions = this.getFlowContainerDefinitions(logGroup);
+    const flowContainerDefinitions = this.getFlowContainerDefinitions(
+      logGroup,
+      dependencies.resultsBucket
+    );
     this.taskDefinition = this.createTaskDefinition(flowContainerDefinitions);
   }
 
@@ -56,7 +60,8 @@ export class FlowTaskDefinition extends Resource {
    * @return ECS container definition object (should be formatted as JSON when assigning it to the task definition)
    */
   private getFlowContainerDefinitions(
-    flowLogGroup: cloudwatch.CloudwatchLogGroup
+    flowLogGroup: cloudwatch.CloudwatchLogGroup,
+    resultsBucket: s3.S3Bucket
   ): string {
     const region = this.dependencies.region;
     const caller = this.dependencies.caller;
@@ -80,6 +85,10 @@ export class FlowTaskDefinition extends Resource {
         {
           name: 'PREFECT__CONTEXT__IMAGE',
           value: this.dependencies.imageUri,
+        },
+        {
+          name: 'PREFECT_S3_RESULT_BUCKET',
+          value: resultsBucket.bucket,
         },
       ],
       secretEnvVars: secretEnvVars,
