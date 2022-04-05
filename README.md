@@ -127,7 +127,6 @@ Replace `{Env}` with the environment name as defined in
 | `/DataFlows/{Env}/SNOWFLAKE_PRIVATE_KEY`                   | SecureString  | Decrypted base64 Snowflake private key                                                     |
 | `/DataFlows/{Env}/SNOWFLAKE_ACCOUNT`                       | String        | Snowflake account id                                                                       |
 | `/DataFlows/{Env}/SNOWFLAKE_USER`                          | String        | Snowflake username                                                                         |
-| `/DataFlows/{Env}/SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA`  | String        | The Snowflake analytics Dbt staging schema name                                            |
 | `/DataFlows/{Env}/DBT_CLOUD_TOKEN`                         | SecureString  | Dbt service account token                                                                  |
 | `/DataFlows/{Env}/DBT_CLOUD_ACCOUNT_ID`                    | String        | Dbt account id that you can find in the Dbt cloud url                                      |
 | `/DataFlows/{Env}/GCE_KEY`                                 | SecureString  | GCP key                                                                                    |
