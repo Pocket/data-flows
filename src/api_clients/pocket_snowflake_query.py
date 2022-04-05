@@ -99,6 +99,10 @@ class PocketSnowflakeQuery(SnowflakeQuery):
         if warehouse is None and warehouse_env_var_name in os.environ:
             warehouse = os.environ.get(warehouse_env_var_name)
 
+        self.logger.info(f"Connecting using database={kwargs.get('database')} and schema={kwargs.get('schema')}."
+                         f" (If 'None' then the default database/schema is used.)")
+        self.logger.info(query)
+
         query_result = super().run(
             query=query,
             data=data,
