@@ -43,16 +43,22 @@ def get_last_executed_value(flow_name: str, default_if_absent='2000-01-01 00:00:
     'last_executed_date' from the json metadata that represents the most recent execution date before right now
 
     """
-    key = format_key(flow_name, 'last_executed')
-    last_executed = get_kv(key, default_if_absent)
+    default_state_params_json = json.dumps({'last_executed': default_if_absent})
+    key = format_key(flow_name, 'json')
+    state_params_json = get_kv(key, default_state_params_json)
+    try:
+        last_executed = json.loads(state_params_json).get('last_executed')
+    except json.decoder.JSONDecodeError:
+        # If the KV store has bad data
+        last_executed = {'last_executed': default_if_absent, }
 
     logger = prefect.context.get("logger")
-    logger.info(f"Got {key} = {last_executed} from KV-store")
+    logger.info(f"Loading data from Snowflake since {last_executed}")
     return datetime.strptime(last_executed, "%Y-%m-%d %H:%M:%S.%f")
 
 
 @task(trigger=all_successful)
-def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:00:00') -> None:
+def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:00:00.000') -> None:
     """
      Does the following:
      - Increments the execution date by a variable amount, passed in via the named parameters to timedelta like days, hours, and seconds: Represents the next run data for the Flow
@@ -66,7 +72,8 @@ def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:0
      The next execution date
      """
     default_state_params_json = json.dumps({'last_executed': default_if_absent,})
-    state_params_json = get_kv(for_flow, default_state_params_json)
+    key = format_key(for_flow, 'json')
+    state_params_json = get_kv(key, default_state_params_json)
 
     try:
         state_params_dict = json.loads(state_params_json)
@@ -79,4 +86,4 @@ def update_last_executed_value(for_flow: str, default_if_absent='2000-01-01 00:0
 
     logger = prefect.context.get("logger")
     logger.info(f"Set last executed time to: {state_params_dict['last_executed']}")
-    set_kv(for_flow, json.dumps(state_params_dict))
+    set_kv(key, json.dumps(state_params_dict))
