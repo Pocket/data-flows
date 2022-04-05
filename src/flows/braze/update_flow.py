@@ -53,7 +53,7 @@ ORDER BY LOADED_AT ASC
 
 DEFAULT_LOADED_AT_START = '2022-03-22'  # Value to use for the loaded_at_start query param if KV-store key is missing.
 LAST_LOADED_AT_KV_STORE_KEY = format_key(FLOW_NAME, "last_loaded_at")  # KV-store key name
-MAX_OPERATIONS_PER_TASK_RUN = 1000  # The workload is split up in chunks of this size, and each chunk is run separately.
+DEFAULT_MAX_OPERATIONS_PER_TASK_RUN = 100000  # The workload is run in parallel in chunks of this many rows.
 DEFAULT_TABLE_NAME = 'STG_BRAZE_USER_DELTAS'
 
 
@@ -364,6 +364,8 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_ANALYTICS_DATABASE)
     snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA)
     extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
+    # This parameter controls the number of rows processed by each task run. Higher number = less parallelism.
+    max_operations_per_task_run = Parameter('max_operations_per_task_run', default=DEFAULT_MAX_OPERATIONS_PER_TASK_RUN)
 
     extract_query, extract_query_params = prepare_extract_query_and_parameters(table_name=extract_query_table_name)
 
@@ -387,7 +389,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     # The creation of user aliases for anonymous ('alias-only') signups needs to happen before track_users(),
     # because attributes can't be applies to alias-only users that don't exist yet.
     track_users_task = track_users.map(
-        split_in_chunks(all_user_deltas, chunk_size=MAX_OPERATIONS_PER_TASK_RUN)
+        split_in_chunks(all_user_deltas, chunk_size=max_operations_per_task_run)
     )
 
     # Get the user deltas with a new email alias for a Pocket user (i.e. a user with an external_id)
@@ -398,7 +400,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     create_email_aliases_task = create_email_aliases.map(
         split_in_chunks(
             user_deltas_with_new_pocket_user_emails,
-            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
+            chunk_size=max_operations_per_task_run,
         ),
     ).set_upstream(
         track_users_task,  # Users creation needs to happen first
@@ -409,7 +411,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     identify_users_task = identify_users.map(
         split_in_chunks(
             user_deltas_with_new_pocket_user_emails,
-            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
+            chunk_size=max_operations_per_task_run,
         ),
     ).set_upstream(
         track_users_task,  # Users creation needs to happen first
@@ -419,7 +421,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     subscribe_users_task = subscribe_users.map(
         split_dict_of_lists_in_chunks(
            group_user_deltas_by_newsletter_subscription_name(all_user_deltas),
-           chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
+           chunk_size=max_operations_per_task_run,
         )
     ).set_upstream(
         track_users_task,  # Users creation needs to happen first
@@ -429,7 +431,7 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     delete_users_results = delete_user_profiles.map(
         split_in_chunks(
             filter_user_deltas_by_trigger(all_user_deltas, trigger='account_delete'),
-            chunk_size=MAX_OPERATIONS_PER_TASK_RUN,
+            chunk_size=max_operations_per_task_run,
         ),
     ).set_upstream(
         track_users_task,  # Users creation needs to happen first, because otherwise deleted users might be recreated.
