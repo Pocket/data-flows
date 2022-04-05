@@ -50,14 +50,14 @@ class DataFlows extends TerraformStack {
       pocketVPC
     );
 
-    // Create a bucket with Prefect storage.
-    const storageBucket = this.createStorageBucket();
+    // Create a bucket with Prefect Results.
+    const resultsBucket = this.createResultsBucket();
 
     // Create task role for ECS tasks that execute flows.
     const flowTaskRole = new FlowTaskRole(
       this,
       'flow-task-role',
-      storageBucket
+      resultsBucket
     );
 
     // Create the Prefect agent in ECS.
@@ -80,13 +80,13 @@ class DataFlows extends TerraformStack {
       caller,
       imageUri,
       taskRole: flowTaskRole.iamRole,
+      resultsBucket: resultsBucket,
     });
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
     new DataFlowsCodePipeline(this, 'data-flows-code-pipeline', {
       region,
       caller,
-      storageBucket,
       flowTaskDefinitionArn: flowTaskDefinition.taskDefinition.arn,
     });
   }
@@ -137,15 +137,13 @@ class DataFlows extends TerraformStack {
   }
 
   /**
-   * Create an s3 bucket Prefect storage
+   * Create an s3 bucket storing Prefect Results, which allows resuming flows from failure by loading results from S3.
    *
-   * After registration, the flow will be stored under <slugified-flow-name>/<slugified-current-timestamp>
-   * Flows configured with s3 storage also default to using a S3Result for persisting any task results in this bucket.
-   * @see https://docs.prefect.io/orchestration/flow_config/storage.html
+   * @see https://docs.prefect.io/core/concepts/results.html#result-objects
    * @private
    */
-  private createStorageBucket(): s3.S3Bucket {
-    return this.createBucket('storage');
+  private createResultsBucket(): s3.S3Bucket {
+    return this.createBucket('results');
   }
 
   /**

@@ -1,7 +1,6 @@
 from collections import defaultdict
 import datetime
 from dataclasses import dataclass
-from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -21,7 +20,7 @@ from api_clients.braze.pocket_config import EMAIL_ALIAS_LABEL, SUBSCRIPTION_GROU
 from api_clients.braze.utils import is_valid_email, format_date
 from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
-from utils.flow import get_flow_name
+from utils.flow import get_flow_name, get_s3_result
 from utils.iteration import chunks
 from utils import config
 from common_tasks.mapping import split_in_chunks, split_dict_of_lists_in_chunks
@@ -94,7 +93,7 @@ def prepare_extract_query_and_parameters(table_name: str) -> Tuple[str, Dict]:
     """
     :return: Tuple where the first element is the query string, and the second the query parameters
     """
-    # Table name can only contain alpha-numeric characters and underscores to prevent SQL-injection.
+    # Table name can only contain alphanumeric characters and underscores to prevent SQL-injection.
     assert re.fullmatch(r'[a-zA-Z0-9_]+', table_name), "Invalid table name"
     query = EXTRACT_QUERY.format(table_name=table_name)
 
@@ -121,7 +120,6 @@ def set_last_loaded_at(user_deltas: List[UserDelta]):
         set_kv(key=LAST_LOADED_AT_KV_STORE_KEY, value=max_loaded_at)
     else:
         logger.info(f"{LAST_LOADED_AT_KV_STORE_KEY} is not updated because we did not query any rows from Snowflake.")
-
 
 
 @task()
@@ -360,8 +358,11 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
     return rows
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
-    # To backfill data we can manually run this flow and override the Snowflake table (default="STG_BRAZE_USER_DELTAS")
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as flow:
+    # To backfill data we can manually run this flow and override the Snowflake database, schema, and table.
+    # The default is ANALYTICS.DBT_STAGING.STG_BRAZE_USER_DELTAS.
+    snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_ANALYTICS_DATABASE)
+    snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA)
     extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
 
     extract_query, extract_query_params = prepare_extract_query_and_parameters(table_name=extract_query_table_name)
@@ -369,8 +370,8 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     user_deltas_dicts = PocketSnowflakeQuery()(
         query=extract_query,
         data=extract_query_params,
-        database=config.SNOWFLAKE_ANALYTICS_DATABASE,
-        schema=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA,
+        database=snowflake_database,
+        schema=snowflake_schema,
         output_type=OutputType.DICT,
     )
 

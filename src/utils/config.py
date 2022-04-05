@@ -7,6 +7,7 @@ PROJECT_LOCAL = "local"
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", ENV_LOCAL)
 PREFECT_PROJECT_NAME = os.getenv('PREFECT_PROJECT_NAME', PROJECT_LOCAL)
+PREFECT_S3_RESULT_BUCKET = os.getenv('PREFECT_S3_RESULT_BUCKET')
 
 GCS_BUCKET = 'pocket-prefect-stage-prod' if ENVIRONMENT == ENV_PROD else 'pocket-prefect-stage-dev'
 GCS_PATH_DEFAULT = ENVIRONMENT
@@ -20,7 +21,7 @@ SNOWFLAKE_MOZILLA_SCHEMA = 'mozilla' if ENVIRONMENT == ENV_PROD else SNOWFLAKE_D
 SNOWFLAKE_ANALYTICS_DATABASE = 'ANALYTICS'
 SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA = os.getenv(
     'SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA',
-    '<no dbt staging schema>'  # For local development, set the Dbt staging schema in .env
+    'DBT_STAGING'  # For local development, set the Dbt staging schema in .env
 )
 
 BRAZE_API_KEY=os.getenv('BRAZE_API_KEY')
