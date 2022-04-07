@@ -385,9 +385,9 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     # Convert Snowflake dicts to @dataclass objects.
     all_user_deltas = get_user_deltas_from_dicts(user_deltas_dicts)
 
-    # Apply attributes, events, and payments. This creates users with an external_id if they don't exist already.
-    # The creation of user aliases for anonymous ('alias-only') signups needs to happen before track_users(),
-    # because attributes can't be applies to alias-only users that don't exist yet.
+    # Apply attributes, events, and payments.
+    # This creates users (with either an external_id or an email alias) if they do not already exist.
+    # Note: Both external_id and email aliases cannot be set simultaneously for the same user in the same call
     track_users_task = track_users.map(
         split_in_chunks(all_user_deltas, chunk_size=max_operations_per_task_run)
     )
@@ -395,8 +395,8 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     # Get the user deltas with a new email alias for a Pocket user (i.e. a user with an external_id)
     user_deltas_with_new_pocket_user_emails = filter_user_deltas_with_new_pocket_user_emails(all_user_deltas)
 
-    # Create email aliases for users WITH an external_id.
-    # Note: anonymous email aliases were created in the track_users task above.
+    # Create email aliases for existing users WITH an external_id.
+    # Note: users with email aliases without external_id were created in the track_users task above.
     create_email_aliases_task = create_email_aliases.map(
         split_in_chunks(
             user_deltas_with_new_pocket_user_emails,
@@ -449,3 +449,9 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
 
 if __name__ == "__main__":
     flow.run()
+    # For local testing: For changing the default values for the parameters
+    # flow.run(parameters={
+    #     'snowflake_database': 'DEVELOPMENT',
+    #     'snowflake_schema': 'GAURANG_BLAZE',
+    #     'snowflake_table_name': 'STG_BRAZE_USER_DELTAS_TEST'
+    # })
