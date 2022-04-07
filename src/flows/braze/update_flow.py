@@ -451,7 +451,7 @@ if __name__ == "__main__":
     flow.run()
     # For local testing: For changing the default values for the parameters
     # flow.run(parameters={
-    #     'snowflake_database': 'DEVELOPMENT',
-    #     'snowflake_schema': 'GAURANG_BLAZE',
-    #     'snowflake_table_name': 'STG_BRAZE_USER_DELTAS_TEST'
+    #     'snowflake_database': '<DB name>',
+    #     'snowflake_schema': '<Schema name>',
+    #     'snowflake_table_name': '<Table name replacement for STG_BRAZE_USER_DELTAS>'
     # })
