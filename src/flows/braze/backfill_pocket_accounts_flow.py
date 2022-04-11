@@ -448,4 +448,10 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
 
 
 if __name__ == "__main__":
-    flow.run()
+    # flow.run()
+    # For local testing: For changing the default values for the parameters
+    flow.run(parameters={
+        'snowflake_database': '<DB name>',
+        'snowflake_schema': '<Schema name>',
+        'snowflake_table_name': '<Table name replacement for STG_BRAZE_USER_DELTAS>'
+    })
