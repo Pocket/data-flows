@@ -168,7 +168,6 @@ def delete_user_profiles(users_to_delete: List[UserDelta]):
     logger = context.get("logger")
 
     for chunk in chunks(users_to_delete, USER_DELETE_LIMIT):
-        # logger.info(f"Deleting {len(chunk)} user profiles with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
         logger.info(f"Deleting {len(chunk)} user profiles with event_ids=[{[c.event_id for c in chunk]}]")
 
         BrazeClient(logger=logger).delete_users(models.UserDeleteInput(
@@ -187,7 +186,6 @@ def identify_users(user_deltas: List[UserDelta]):
     logger = context.get("logger")
 
     for chunk in chunks(user_deltas, IDENTIFY_USER_ALIAS_LIMIT):
-        # logger.info(f"Identifying {len(chunk)} user profiles with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
         logger.info(f"Identifying {len(chunk)} user profiles with event_ids=[{[c.event_id for c in chunk]}]")
 
         BrazeClient(logger=logger).identify_users(models.IdentifyUsersInput(
@@ -211,7 +209,6 @@ def create_email_aliases(user_deltas: List[UserDelta]):
     logger = context.get("logger")
 
     for chunk in chunks(user_deltas, NEW_USER_ALIAS_LIMIT):
-        # logger.info(f"Aliasing {len(chunk)} emails with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
         logger.info(f"Aliasing {len(chunk)} emails with event_ids=[{[c.event_id for c in chunk]}]")
 
         BrazeClient(logger=logger).create_new_user_aliases(models.CreateUserAliasInput(
@@ -251,8 +248,6 @@ def subscribe_users(subscription_group_user_deltas: Tuple[str, List[UserDelta]])
 
     subscription_group_name, user_deltas = subscription_group_user_deltas
     for chunk in chunks(user_deltas, SUBSCRIPTION_SET_LIMIT):
-        # logger.info(f"Subscribing {len(chunk)} users to {subscription_group_name}"
-        #             f" with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
         logger.info(f"Subscribing {len(chunk)} users to {subscription_group_name}"
                     f" with event_ids=[{[c.event_id for c in chunk]}]")
 
@@ -275,7 +270,6 @@ def track_users(user_deltas: List[UserDelta]):
     logger = context.get("logger")
 
     for chunk in chunks(user_deltas, USER_TRACK_LIMIT):
-        # logger.info(f"Tracking {len(chunk)} users with event_id=[{chunk[0].event_id}..{chunk[-1].event_id}]")
         logger.info(f"Tracking {len(chunk)} users with event_ids=[{[c.event_id for c in chunk]}]")
 
         # Note: The attributes and events below are bulk updates. They're not necessarily of equal length or in order.
