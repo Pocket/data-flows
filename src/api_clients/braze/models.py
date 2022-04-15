@@ -71,6 +71,7 @@ class UserAttributes(_UserIdentifier):
 
     # Pocket's custom Attributes
     is_premium: Optional[bool] = None
+    pocket_locale: Optional[str] = None
 
 
 """

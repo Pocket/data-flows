@@ -293,6 +293,7 @@ def get_attributes_for_user_deltas(user_deltas: Sequence[UserDelta]) -> List[mod
             is_premium=user_delta.is_premium,
             time_zone=user_delta.time_zone,
             country=user_delta.country,
+            pocket_locale=user_delta.pocket_locale,
             email_subscribe=user_delta.email_subscribe,
         ) for user_delta in user_deltas
     ]
