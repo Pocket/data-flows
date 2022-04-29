@@ -10,7 +10,6 @@ import {
 import {
   AwsProvider,
   datasources,
-  ecr,
   iam,
   kms,
   s3,
@@ -71,7 +70,7 @@ class DataFlows extends TerraformStack {
       flowTaskRole,
     });
 
-    const ecrRepository = this.getPrefectEcrRepository(prefectAgentApp);
+    const ecrRepository = prefectAgentApp.ecsService.ecrRepos[0];
     const imageUri = `${ecrRepository.repositoryUrl}:latest`;
 
     // Create task definition for ECS tasks that execute flows.
@@ -88,22 +87,8 @@ class DataFlows extends TerraformStack {
       region,
       caller,
       flowTaskDefinitionArn: flowTaskDefinition.taskDefinition.arn,
-    });
-  }
-
-  /**
-   * Gets the Prefect Agent ECR repository created by PocketALBApplication.
-   * Terraform-Modules doesn't make this repository available, so we have to get it using DataAwsEcrRepository.
-   * @param application
-   * @private
-   */
-  private getPrefectEcrRepository(
-    application: PocketALBApplication
-  ): ecr.DataAwsEcrRepository {
-    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
-      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
-      // The ECS repository is created in PocketALBApplication.ecsService, so we have a dependency on that.
-      dependsOn: [application.ecsService],
+      prefectImageRepository: ecrRepository,
+      prefectImageRepositoryUri: imageUri,
     });
   }
 

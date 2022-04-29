@@ -14,8 +14,6 @@ import { DataFlowsARN } from './DataFlowsARN';
 export class DataFlowsCodePipeline extends Resource {
   private readonly pocketEcsCodePipeline: PocketECSCodePipeline;
   private readonly flowRegistrationCodeBuildProject: codebuild.CodebuildProject;
-  private readonly prefectImageRepository: ecr.DataAwsEcrRepository;
-  private readonly prefectImageUri: string;
 
   constructor(
     scope: Construct,
@@ -24,12 +22,11 @@ export class DataFlowsCodePipeline extends Resource {
       region: datasources.DataAwsRegion;
       caller: datasources.DataAwsCallerIdentity;
       flowTaskDefinitionArn: string;
+      prefectImageRepository: ecr.EcrRepository;
+      prefectImageRepositoryUri: string;
     }
   ) {
     super(scope, name);
-
-    this.prefectImageRepository = this.getPrefectEcrRepository();
-    this.prefectImageUri = `${this.prefectImageRepository.repositoryUrl}:latest`;
 
     this.flowRegistrationCodeBuildProject =
       this.createFlowRegistrationCodeBuildProject();
@@ -91,7 +88,7 @@ export class DataFlowsCodePipeline extends Resource {
       cache: { type: 'NO_CACHE' },
       environment: {
         computeType: 'BUILD_GENERAL1_SMALL',
-        image: this.prefectImageUri,
+        image: this.dependencies.prefectImageRepositoryUri,
         type: 'LINUX_CONTAINER',
         imagePullCredentialsType: 'SERVICE_ROLE',
         environmentVariable: [
@@ -183,7 +180,7 @@ export class DataFlowsCodePipeline extends Resource {
               'ecr:BatchGetImage',
               'ecr:BatchCheckLayerAvailability',
             ],
-            resources: [this.prefectImageRepository.arn],
+            resources: [this.dependencies.prefectImageRepository.arn],
             effect: 'Allow',
           },
           {
