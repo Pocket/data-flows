@@ -27,13 +27,13 @@ class DataFlows extends TerraformStack {
   constructor(scope: Construct, name: string) {
     super(scope, name);
 
-    new AwsProvider(this, 'aws', { region: 'us-east-1' });
+    new AwsProvider(this, 'aws', { region: config.awsRegion });
     new NullProvider(this, 'null', {});
     new LocalProvider(this, 'local', {});
 
     new RemoteBackend(this, {
       hostname: 'app.terraform.io',
-      organization: 'Pocket',
+      organization: config.terraformBackend.organization,
       workspaces: [{ prefix: `${config.name}-` }],
     });
 
@@ -98,7 +98,7 @@ class DataFlows extends TerraformStack {
    */
   private getCodeDeploySnsTopic() {
     return new sns.DataAwsSnsTopic(this, 'data_products_notifications', {
-      name: `DataAndLearning-${config.environment}-ChatBot`,
+      name: config.codePipeline.codeDeploySnsTopicName,
     });
   }
 
@@ -140,8 +140,7 @@ class DataFlows extends TerraformStack {
   private createBucket(name: string, preventDestroy = true): s3.S3Bucket {
     return new s3.S3Bucket(this, `prefect-${name.toLowerCase()}-bucket`, {
       bucket:
-        `pocket-${config.name}-${name}-${config.environment}`.toLowerCase(),
-      acl: 'private',
+        `${config.s3BucketPrefix}-${config.name}-${name}-${config.environment}`.toLowerCase(),
       forceDestroy: !preventDestroy, // Allow the bucket to be deleted even if it's not empty.
       lifecycle: {
         preventDestroy: preventDestroy,
@@ -262,6 +261,7 @@ class DataFlows extends TerraformStack {
       internal: true,
       prefix: config.prefix,
       alb6CharacterPrefix: config.shortName,
+      region: config.awsRegion,
       tags: config.tags,
       cdn: false,
       domain: config.domain,

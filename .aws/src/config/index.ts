@@ -1,11 +1,12 @@
 const name = 'DataFlows';
+const organization = 'mmiermans';
 const domainPrefix = 'data-flows';
 const isDev = process.env.NODE_ENV === 'development';
 const environment = isDev ? 'Dev' : 'Prod';
-const fullEnvironment = isDev ? 'development' : 'production'
+const fullEnvironment = isDev ? 'development' : 'production';
 const domain = isDev
-  ? `${domainPrefix}.getpocket.dev`
-  : `${domainPrefix}.readitlater.com`;
+  ? `${domainPrefix}.miermans.help`
+  : `${domainPrefix}.miermans.link`;
 const graphqlVariant = isDev ? 'development' : 'current';
 const githubConnectionArn = isDev
   ? 'arn:aws:codestar-connections:us-east-1:410318598490:connection/7426c139-1aa0-49e2-aabc-5aef11092032'
@@ -28,9 +29,6 @@ const prefect = {
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
     cpu: 4096, // 4096 = 4 vCPU
     memory: 30720, // 30720 = 30GB
-    dataLearningBucketName: isDev
-      ? 'pocket-data-learning-dev'
-      : 'pocket-data-learning',
     // To securely inject an environment variable FOO_BAR in the ECS task that executes Prefect Flows, add 'FOO_BAR' to
     // the list below and create Parameters /DataFlows/Prod/FOO_BAR and /DataFlows/Dev/FOO_BAR in Prod and Dev.
     parameterStoreNames: [
@@ -53,6 +51,11 @@ export const config = {
   name,
   isDev,
   prefix: `${name}-${environment}`,
+  awsRegion: 'us-west-2',
+  terraformBackend: {
+    organization: organization,
+  },
+  s3BucketPrefix: organization,
   circleCIPrefix: `/${name}/CircleCI/${environment}`,
   shortName: 'DATAFL',
   environment,
@@ -60,9 +63,11 @@ export const config = {
   domain,
   prefect,
   codePipeline: {
+    prefix: `${organization}-${name}-${environment}`,
     githubConnectionArn,
     repository: 'pocket/data-flows',
     branch,
+    codeDeploySnsTopicName: `Deployment-${environment}-ChatBot`,
   },
   graphqlVariant,
   healthCheck: {

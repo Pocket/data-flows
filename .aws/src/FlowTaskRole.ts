@@ -15,7 +15,6 @@ export class FlowTaskRole extends Resource {
 
     // Create a policy with all the additional access that the ECS tasks need to execute Flows.
     const flowPolicy = this.createPolicy([
-      this.getDataLearningS3BucketReadAccess(),
       this.getStepFunctionExecuteAccess(),
       this.getResultsS3BucketWriteAccess(resultsBucket),
       this.putFeatureGroupRecordsAccess(),
@@ -60,24 +59,6 @@ export class FlowTaskRole extends Resource {
       name: `${config.prefix}-FlowTaskRolePolicy`,
       policy: dataEcsTaskRolePolicy.json,
     });
-  }
-
-  /**
-   * Give Read access to s3 bucket pocket-data-learning (or pocket-data-learning-dev in Pocket-Dev).
-   * @private
-   */
-  private getDataLearningS3BucketReadAccess(): iam.DataAwsIamPolicyDocumentStatement {
-    const s3Bucket = new s3.DataAwsS3Bucket(
-      this,
-      'pocket-data-learning-bucket',
-      { bucket: config.prefect.flowTask.dataLearningBucketName }
-    );
-
-    return {
-      actions: ['s3:GetObject*', 's3:ListBucket*', 's3:HeadObject'],
-      resources: [s3Bucket.arn, `${s3Bucket.arn}/*`],
-      effect: 'Allow',
-    };
   }
 
   /**
