@@ -230,13 +230,12 @@ class DataFlows extends TerraformStack {
       },
     };
 
-    const content = Fn.yamlencode(runTaskKwargs);
-
     return new s3.S3BucketObject(this, 'run-task-kwargs-object', {
       bucket,
       key: 'run_task_kwargs.yml',
-      content,
-      etag: Fn.md5(content),
+      content: Fn.yamlencode(runTaskKwargs),
+      // cdktf 0.9.0 introduces a bug that prevents variables set to Fn from being reused.
+      etag: Fn.md5(Fn.yamlencode(runTaskKwargs)),
     });
   }
 
