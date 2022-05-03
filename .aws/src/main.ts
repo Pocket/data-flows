@@ -10,7 +10,6 @@ import {
 import {
   AwsProvider,
   datasources,
-  ecr,
   iam,
   kms,
   s3,
@@ -71,7 +70,7 @@ class DataFlows extends TerraformStack {
       flowTaskRole,
     });
 
-    const ecrRepository = this.getPrefectEcrRepository(prefectAgentApp);
+    const ecrRepository = prefectAgentApp.ecsService.ecrRepos[0];
     const imageUri = `${ecrRepository.repositoryUrl}:latest`;
 
     // Create task definition for ECS tasks that execute flows.
@@ -88,22 +87,8 @@ class DataFlows extends TerraformStack {
       region,
       caller,
       flowTaskDefinitionArn: flowTaskDefinition.taskDefinition.arn,
-    });
-  }
-
-  /**
-   * Gets the Prefect Agent ECR repository created by PocketALBApplication.
-   * Terraform-Modules doesn't make this repository available, so we have to get it using DataAwsEcrRepository.
-   * @param application
-   * @private
-   */
-  private getPrefectEcrRepository(
-    application: PocketALBApplication
-  ): ecr.DataAwsEcrRepository {
-    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
-      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
-      // The ECS repository is created in PocketALBApplication.ecsService, so we have a dependency on that.
-      dependsOn: [application.ecsService],
+      prefectImageRepository: ecrRepository,
+      prefectImageRepositoryUri: imageUri,
     });
   }
 
@@ -245,13 +230,12 @@ class DataFlows extends TerraformStack {
       },
     };
 
-    const content = Fn.yamlencode(runTaskKwargs);
-
     return new s3.S3BucketObject(this, 'run-task-kwargs-object', {
       bucket,
       key: 'run_task_kwargs.yml',
-      content,
-      etag: Fn.md5(content),
+      content: Fn.yamlencode(runTaskKwargs),
+      // cdktf 0.9.0 introduces a bug that prevents variables set to Fn from being reused.
+      etag: Fn.md5(Fn.yamlencode(runTaskKwargs)),
     });
   }
 
