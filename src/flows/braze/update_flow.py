@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from prefect import Flow, task, context, Parameter
+from prefect import Flow, task, context, Parameter, case
 from prefect.executors import LocalDaskExecutor
 
 from api_clients.braze import models
@@ -89,16 +89,22 @@ class UserDelta:
 
 
 @task()
-def prepare_extract_query_and_parameters(table_name: str) -> Tuple[str, Dict]:
+def prepare_extract_query_and_parameters(table_name: str, loaded_at_start: Optional[str]) -> Tuple[str, Dict]:
     """
+    :param table_name: Snowflake table to query from
+    :param loaded_at_start: Minimum loaded_at date to query from Snowflake.
+           By default, if loaded_at_start is empty or None, the loaded_at_start value will be fetched from the KV store.
     :return: Tuple where the first element is the query string, and the second the query parameters
     """
     # Table name can only contain alphanumeric characters and underscores to prevent SQL-injection.
     assert re.fullmatch(r'[a-zA-Z0-9_]+', table_name), "Invalid table name"
     query = EXTRACT_QUERY.format(table_name=table_name)
 
+    if not loaded_at_start:
+        loaded_at_start = get_kv(key=LAST_LOADED_AT_KV_STORE_KEY, default_value=DEFAULT_LOADED_AT_START)
+
     query_params = {
-        'loaded_at_start': get_kv(key=LAST_LOADED_AT_KV_STORE_KEY, default_value=DEFAULT_LOADED_AT_START),
+        'loaded_at_start': loaded_at_start,
     }
 
     logger = context.get("logger")
@@ -367,8 +373,12 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
     # This parameter controls the number of rows processed by each task run. Higher number = less parallelism.
     max_operations_per_task_run = Parameter('max_operations_per_task_run', default=DEFAULT_MAX_OPERATIONS_PER_TASK_RUN)
+    loaded_at_start_override = Parameter('loaded_at_start_override', default='')
 
-    extract_query, extract_query_params = prepare_extract_query_and_parameters(table_name=extract_query_table_name)
+    extract_query, extract_query_params = prepare_extract_query_and_parameters(
+        table_name=extract_query_table_name,
+        loaded_at_start=loaded_at_start_override,
+    )
 
     user_deltas_dicts = PocketSnowflakeQuery()(
         query=extract_query,
@@ -438,14 +448,16 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
         track_users_task,  # Users creation needs to happen first, because otherwise deleted users might be recreated.
     )
 
-    # Set KV-store 'last_loaded_at' key to the maximum loaded_at seen so far if all tasks finished successfully.
-    set_last_loaded_at(all_user_deltas).set_dependencies(upstream_tasks=[
-        create_email_aliases_task,
-        delete_users_results,
-        identify_users_task,
-        subscribe_users_task,
-        track_users_task,
-    ])
+    # When doing a backfill (the table name is not the default), don't write loaded_at to the KV store.
+    with case(extract_query_table_name, DEFAULT_TABLE_NAME):
+        # Set KV-store 'last_loaded_at' key to the maximum loaded_at seen so far if all tasks finished successfully.
+        set_last_loaded_at(all_user_deltas).set_dependencies(upstream_tasks=[
+            create_email_aliases_task,
+            delete_users_results,
+            identify_users_task,
+            subscribe_users_task,
+            track_users_task,
+        ])
 
 
 if __name__ == "__main__":
