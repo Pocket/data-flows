@@ -13,11 +13,8 @@ RUN pip install pipenv
 WORKDIR /
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pipenv lock -r > requirements.txt
-RUN pipenv lock -r --dev-only > dev-requirements.txt
 RUN echo "GIT_SHA=${GIT_SHA}"
-RUN pip install -r requirements.txt
-RUN if [ "$GIT_SHA" = "local" ]; then pip install -r dev-requirements.txt; fi
+RUN if [ "$GIT_SHA" = "local" ]; then pipenv install --system --dev; else pipenv install --system; fi
 
 #Sentry GITSHA
 ENV GIT_SHA=$GIT_SHA

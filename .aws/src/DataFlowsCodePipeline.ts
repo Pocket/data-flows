@@ -219,11 +219,4 @@ export class DataFlowsCodePipeline extends Resource {
 
     return codeBuildRole;
   }
-
-  private getPrefectEcrRepository(): ecr.DataAwsEcrRepository {
-    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
-      // TODO: If Terraform-Modules would expose the ECR repository that it creates, we could reference the repo name.
-      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
-    });
-  }
 }
