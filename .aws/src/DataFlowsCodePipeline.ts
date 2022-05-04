@@ -42,6 +42,10 @@ export class DataFlowsCodePipeline extends Resource {
         repository: config.codePipeline.repository,
         branchName: config.codePipeline.branch,
       },
+      codeDeploy: {
+        applicationName: `${config.prefix}-ECS`,
+        deploymentGroupName: `${config.prefix}-ECS`,
+      },
       postDeployStages: [
         {
           name: 'Register_Prefect_Flows',

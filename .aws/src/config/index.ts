@@ -4,6 +4,7 @@ const domainPrefix = 'data-flows';
 const isDev = process.env.NODE_ENV === 'development';
 const environment = isDev ? 'Dev' : 'Prod';
 const fullEnvironment = isDev ? 'development' : 'production';
+const prefix = `${name}-${environment}`;
 const domain = isDev
   ? `${domainPrefix}.miermans.help`
   : `${domainPrefix}.miermans.link`;
@@ -50,7 +51,7 @@ const prefect = {
 export const config = {
   name,
   isDev,
-  prefix: `${name}-${environment}`,
+  prefix,
   awsRegion: 'us-west-2',
   terraformBackend: {
     organization: organization,
@@ -63,9 +64,9 @@ export const config = {
   domain,
   prefect,
   codePipeline: {
-    prefix: `${organization}-${name}-${environment}`,
+    prefix: `${organization}-${prefix}`,
     githubConnectionArn,
-    repository: 'pocket/data-flows',
+    repository: 'miermans/data-flows',
     branch,
     codeDeploySnsTopicName: `Deployment-${environment}-ChatBot`,
   },
