@@ -33,14 +33,6 @@ const prefect = {
     // To securely inject an environment variable FOO_BAR in the ECS task that executes Prefect Flows, add 'FOO_BAR' to
     // the list below and create Parameters /DataFlows/Prod/FOO_BAR and /DataFlows/Dev/FOO_BAR in Prod and Dev.
     parameterStoreNames: [
-      'SNOWFLAKE_PRIVATE_KEY',
-      'SNOWFLAKE_ACCOUNT',
-      'SNOWFLAKE_USER',
-      'DBT_CLOUD_TOKEN',
-      'DBT_CLOUD_ACCOUNT_ID',
-      'GCE_KEY',
-      'BRAZE_API_KEY',
-      'BRAZE_REST_ENDPOINT',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
