@@ -61,14 +61,13 @@ def load_feature_group(df: pd.DataFrame, feature_group_name):
     feature_group = FeatureGroup(name=feature_group_name, sagemaker_session=feature_store_session)
     feature_group.ingest(df, max_workers=4, max_processes=4, wait=True)
 
-# Schedule to run every 5 minutes
+# Schedule to run every hour
 if config.ENVIRONMENT == config.ENV_PROD:
     schedule = IntervalSchedule(interval=datetime.timedelta(hours=1))
 else:
     schedule = None
 
 with Flow(FLOW_NAME, schedule=schedule) as flow:
-    logger = context.get("logger")
     feature_group = Parameter("feature group", default="user-impressions")
     max_impr_age = Parameter("max impression age", default=6)
     max_impr_count = Parameter("max impression count", default=12)
