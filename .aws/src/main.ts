@@ -10,7 +10,6 @@ import {
 import {
   AwsProvider,
   datasources,
-  ecr,
   iam,
   kms,
   s3,
@@ -50,14 +49,14 @@ class DataFlows extends TerraformStack {
       pocketVPC
     );
 
-    // Create a bucket with Prefect storage.
-    const storageBucket = this.createStorageBucket();
+    // Create a bucket with Prefect Results.
+    const resultsBucket = this.createResultsBucket();
 
     // Create task role for ECS tasks that execute flows.
     const flowTaskRole = new FlowTaskRole(
       this,
       'flow-task-role',
-      storageBucket
+      resultsBucket
     );
 
     // Create the Prefect agent in ECS.
@@ -71,7 +70,7 @@ class DataFlows extends TerraformStack {
       flowTaskRole,
     });
 
-    const ecrRepository = this.getPrefectEcrRepository(prefectAgentApp);
+    const ecrRepository = prefectAgentApp.ecsService.ecrRepos[0];
     const imageUri = `${ecrRepository.repositoryUrl}:latest`;
 
     // Create task definition for ECS tasks that execute flows.
@@ -80,30 +79,16 @@ class DataFlows extends TerraformStack {
       caller,
       imageUri,
       taskRole: flowTaskRole.iamRole,
+      resultsBucket: resultsBucket,
     });
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
     new DataFlowsCodePipeline(this, 'data-flows-code-pipeline', {
       region,
       caller,
-      storageBucket,
       flowTaskDefinitionArn: flowTaskDefinition.taskDefinition.arn,
-    });
-  }
-
-  /**
-   * Gets the Prefect Agent ECR repository created by PocketALBApplication.
-   * Terraform-Modules doesn't make this repository available, so we have to get it using DataAwsEcrRepository.
-   * @param application
-   * @private
-   */
-  private getPrefectEcrRepository(
-    application: PocketALBApplication
-  ): ecr.DataAwsEcrRepository {
-    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
-      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
-      // The ECS repository is created in PocketALBApplication.ecsService, so we have a dependency on that.
-      dependsOn: [application.ecsService],
+      prefectImageRepository: ecrRepository,
+      prefectImageRepositoryUri: imageUri,
     });
   }
 
@@ -137,15 +122,13 @@ class DataFlows extends TerraformStack {
   }
 
   /**
-   * Create an s3 bucket Prefect storage
+   * Create an s3 bucket storing Prefect Results, which allows resuming flows from failure by loading results from S3.
    *
-   * After registration, the flow will be stored under <slugified-flow-name>/<slugified-current-timestamp>
-   * Flows configured with s3 storage also default to using a S3Result for persisting any task results in this bucket.
-   * @see https://docs.prefect.io/orchestration/flow_config/storage.html
+   * @see https://docs.prefect.io/core/concepts/results.html#result-objects
    * @private
    */
-  private createStorageBucket(): s3.S3Bucket {
-    return this.createBucket('storage');
+  private createResultsBucket(): s3.S3Bucket {
+    return this.createBucket('results');
   }
 
   /**
@@ -247,13 +230,12 @@ class DataFlows extends TerraformStack {
       },
     };
 
-    const content = Fn.yamlencode(runTaskKwargs);
-
     return new s3.S3BucketObject(this, 'run-task-kwargs-object', {
       bucket,
       key: 'run_task_kwargs.yml',
-      content,
-      etag: Fn.md5(content),
+      content: Fn.yamlencode(runTaskKwargs),
+      // cdktf 0.9.0 introduces a bug that prevents variables set to Fn from being reused.
+      etag: Fn.md5(Fn.yamlencode(runTaskKwargs)),
     });
   }
 

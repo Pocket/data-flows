@@ -26,8 +26,8 @@ const prefect = {
   flowTask: {
     // See the documentation below for valid values for CPU and memory:
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
-    cpu: 1024,
-    memory: 8192,
+    cpu: 4096, // 4096 = 4 vCPU
+    memory: 30720, // 30720 = 30GB
     dataLearningBucketName: isDev
       ? 'pocket-data-learning-dev'
       : 'pocket-data-learning',
@@ -37,7 +37,6 @@ const prefect = {
       'SNOWFLAKE_PRIVATE_KEY',
       'SNOWFLAKE_ACCOUNT',
       'SNOWFLAKE_USER',
-      'SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA',
       'DBT_CLOUD_TOKEN',
       'DBT_CLOUD_ACCOUNT_ID',
       'GCE_KEY',

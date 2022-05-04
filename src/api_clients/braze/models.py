@@ -14,7 +14,7 @@ class UserAlias:
     alias_name: str
 
     def __post_init__(self):
-        assert self.alias_label and self.alias_name
+        assert self.alias_label and self.alias_name is not None
 
 
 @dataclass
@@ -71,6 +71,7 @@ class UserAttributes(_UserIdentifier):
 
     # Pocket's custom Attributes
     is_premium: Optional[bool] = None
+    pocket_locale: Optional[str] = None
 
 
 """
@@ -149,7 +150,8 @@ class TrackUsersInput:
 
 @dataclass
 class UserDeleteInput:
-    external_ids: List[str]
+    external_ids: Optional[List[str]] = None
+    user_aliases: Optional[List[UserAlias]] = None
 
 
 @dataclass
