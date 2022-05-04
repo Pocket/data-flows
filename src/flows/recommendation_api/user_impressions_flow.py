@@ -48,6 +48,7 @@ def transform_user_impressions_df(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={"USER_ID": "user_id",
                             "RESOLVED_IDS": "resolved_ids",
                             "UPDATED_AT": "updated_at"}).astype({"user_id": int})
+    df["resolved_ids"] = df.resolved_ids.apply(lambda x: "["+x+"]")
     df["updated_at"] = df.updated_at.apply(lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ"))
     return df
 
