@@ -25,7 +25,7 @@ prep as (
   FROM ANALYTICS.DBT.FIRST_IMPRESSED_AGE as a
   JOIN ANALYTICS.DBT.CONTENT AS c
     ON c.CONTENT_ID = a.CONTENT_ID
-  WHERE CURRENT_DATE - DATE(a.TIME_ADDED) < 15  -- two weeks 
+  WHERE CURRENT_DATE - DATE(a.TIME_ADDED) <= 1  
   GROUP BY 1, 2, 3
   )
   
@@ -36,7 +36,8 @@ SELECT
 FROM prep as p
 JOIN ANALYTICS.DBT.USERS as u
   ON p.HASHED_USER_ID = u.HASHED_USER_ID
-WHERE (p.max_impression_age > %(MAX_AGE)s) OR (p.total_imprs > %(MAX_IMPRS)s)
+WHERE ((p.max_impression_age > %(MAX_AGE)s) OR (p.total_imprs > %(MAX_IMPRS)s))
+  AND CURRENT_DATE = p.HAPPEEND_AT
 GROUP BY 1, 2
 """
 
@@ -62,7 +63,7 @@ def load_feature_group(df: pd.DataFrame, feature_group_name):
 
 # Schedule to run every hour
 if config.ENVIRONMENT == config.ENV_PROD:
-    schedule = IntervalSchedule(interval=datetime.timedelta(hours=1))
+    schedule = IntervalSchedule(interval=datetime.timedelta(days=1))
 else:
     schedule = None
 
@@ -76,8 +77,8 @@ with Flow(FLOW_NAME, schedule=schedule) as flow:
         data={"MAX_AGE": max_impr_age, "MAX_IMPRS": max_impr_count}
     )
 
-    xdf = transform_user_impressions_df(snowflake_result)
-    load_feature_group(df=xdf, feature_group_name=feature_group)
+    xformed_df = transform_user_impressions_df(snowflake_result)
+    load_feature_group(df=xformed_df, feature_group_name=feature_group)
 
 if __name__ == "__main__":
     flow.run()
