@@ -126,7 +126,7 @@ export class DataFlowsCodePipeline extends Resource {
     const caller = this.dependencies.caller;
     // This matches the SourceOutput S3 object ARN. I believe the bucket is created by CodePipeline, but we could
     // specify one ourselves in Terraform-Modules. I couldn't find how to get this value dynamically so I'm using `-*`.
-    const sourceArtifactObjectArn = `arn:aws:s3:::pocket-codepipeline-*/${config.prefix}-*`;
+    const sourceArtifactObjectArn = `arn:aws:s3:::${config.codePipeline.artifactBucketPrefix}-*/${config.prefix}-*`;
 
     const dataCodebuildAssume = new iam.DataAwsIamPolicyDocument(
       this,
