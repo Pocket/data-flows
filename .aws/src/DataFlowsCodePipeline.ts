@@ -36,15 +36,12 @@ export class DataFlowsCodePipeline extends Resource {
 
   private createCodePipeline(): PocketECSCodePipeline {
     return new PocketECSCodePipeline(this, 'code-pipeline', {
-      prefix: config.codePipeline.prefix,
+      prefix: config.prefix,
+      artifactBucketPrefix: config.codePipeline.artifactBucketPrefix,
       source: {
         codeStarConnectionArn: config.codePipeline.githubConnectionArn,
         repository: config.codePipeline.repository,
         branchName: config.codePipeline.branch,
-      },
-      codeDeploy: {
-        applicationName: `${config.prefix}-ECS`,
-        deploymentGroupName: `${config.prefix}-ECS`,
       },
       postDeployStages: [
         {
