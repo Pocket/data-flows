@@ -1,14 +1,19 @@
 #!/usr/bin/env python
+import json
 import os
 from os import environ
 from typing import Callable
 
 import prefect
+from prefect.backend import FlowView
 from prefect.run_configs import RunConfig, ECSRun
 from prefect.storage import Storage, Local
+from prefect.client import Client
 
 
 # Takes in a path to the flow, and returns a storage object.
+from utils.graphql import get_flow_group_id_by_flow_id
+
 STORAGE_FACTORY_TYPE = Callable[[str], Storage]
 
 
@@ -43,10 +48,11 @@ class FlowDeployment:
         self.run_config = run_config
         self.build = build
 
-    def register_flow(self, file_path: str):
+    def register_flow(self, file_path: str) -> str:
         """
         Register a single flow with Prefect
         :param file_path: Path of the Python file where the flow is defined.
+        :return flow_id of the flow that was registered
         """
         flow = prefect.utilities.storage.extract_flow_from_file(file_path)
 
@@ -59,7 +65,30 @@ class FlowDeployment:
         flow.run_config = self.run_config
 
         # flow.register builds the flow and registers it with Prefect.
-        flow.register(self.project_name, build=self.build)
+        flow_id = flow.register(self.project_name, build=self.build)
+        return flow_id
+
+    def update_flow_readme(self, flow_id: str, markdown_path: str):
+        with open(markdown_path) as f:
+            markdown = f.read()
+
+        mutation = {
+            "mutation($input: set_flow_group_description_input!)": {
+                "set_flow_group_description(input: $input)": {"success", "error"}
+            }
+        }
+
+        result = Client().graphql(
+            mutation,
+            variables={
+                "input": {
+                    "flow_group_id": get_flow_group_id_by_flow_id(flow_id),
+                    "description": markdown,
+                }
+            },
+        )
+
+        print(result)
 
     def register_all_flows(self, flows_path: str):
         """
@@ -68,7 +97,12 @@ class FlowDeployment:
         """
         for flow_path in self._get_all_python_files(flows_path):
             print(f"Registering {flow_path}")
-            self.register_flow(flow_path)
+            flow_id = self.register_flow(flow_path)
+
+            markdown_path = os.path.splitext(flow_path)[0] + '.md'
+            if os.path.exists(markdown_path):
+                print(f"Updating flow readme {markdown_path}")
+                self.update_flow_readme(flow_id, markdown_path)
 
     def _get_all_python_files(self, dir_path: str) -> str:
         """
@@ -81,7 +115,6 @@ class FlowDeployment:
                 # Ignore __pycache__ and other non-python files by filtering on .py extension.
                 if file.endswith(".py") and file != '__init__.py':
                     yield os.path.join(root, file)
-
 
 # This script is executed in CodeBuild using buildspec_register_flows.yml
 if __name__ == "__main__":
