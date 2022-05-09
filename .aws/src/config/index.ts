@@ -1,5 +1,5 @@
 const name = 'DataFlows';
-const organization = 'mmiermans';
+const organization = 'pocket';
 const domainPrefix = 'data-flows';
 const isDev = process.env.NODE_ENV === 'development';
 const environment = isDev ? 'Dev' : 'Prod';
@@ -29,6 +29,9 @@ const prefect = {
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
     cpu: 4096, // 4096 = 4 vCPU
     memory: 30720, // 30720 = 30GB
+    dataLearningBucketName: isDev
+      ? 'pocket-data-learning-dev'
+      : 'pocket-data-learning',
     // To securely inject an environment variable FOO_BAR in the ECS task that executes Prefect Flows, add 'FOO_BAR' to
     // the list below and create Parameters /DataFlows/Prod/FOO_BAR and /DataFlows/Dev/FOO_BAR in Prod and Dev.
     parameterStoreNames: [
@@ -49,13 +52,10 @@ const prefect = {
 
 export const config = {
   name,
+  organization,
   isDev,
   prefix: `${name}-${environment}`,
-  awsRegion: 'us-west-2',
-  terraformBackend: {
-    organization: organization,
-  },
-  s3BucketPrefix: organization,
+  awsRegion: 'us-east-1',
   circleCIPrefix: `/${name}/CircleCI/${environment}`,
   shortName: 'DATAFL',
   environment,
@@ -63,11 +63,12 @@ export const config = {
   domain,
   prefect,
   codePipeline: {
-    prefix: `${organization}-${name}-${environment}`,
+    prefix: `${name}-${environment}`,
+    artifactBucketPrefix: `${organization}-codepipeline`,
     githubConnectionArn,
     repository: 'pocket/data-flows',
     branch,
-    codeDeploySnsTopicName: `Deployment-${environment}-ChatBot`,
+    codeDeploySnsTopicName: `DataAndLearning-${environment}-ChatBot`,
   },
   graphqlVariant,
   healthCheck: {

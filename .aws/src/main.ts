@@ -33,7 +33,7 @@ class DataFlows extends TerraformStack {
 
     new RemoteBackend(this, {
       hostname: 'app.terraform.io',
-      organization: config.terraformBackend.organization,
+      organization: config.organization,
       workspaces: [{ prefix: `${config.name}-` }],
     });
 
@@ -140,7 +140,7 @@ class DataFlows extends TerraformStack {
   private createBucket(name: string, preventDestroy = true): s3.S3Bucket {
     return new s3.S3Bucket(this, `prefect-${name.toLowerCase()}-bucket`, {
       bucket:
-        `${config.s3BucketPrefix}-${config.name}-${name}-${config.environment}`.toLowerCase(),
+        `${config.organization}-${config.name}-${name}-${config.environment}`.toLowerCase(),
       forceDestroy: !preventDestroy, // Allow the bucket to be deleted even if it's not empty.
       lifecycle: {
         preventDestroy: preventDestroy,
