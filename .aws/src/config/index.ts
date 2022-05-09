@@ -63,7 +63,6 @@ export const config = {
   domain,
   prefect,
   codePipeline: {
-    prefix: `${name}-${environment}`,
     artifactBucketPrefix: `${organization}-codepipeline`,
     githubConnectionArn,
     repository: 'pocket/data-flows',
