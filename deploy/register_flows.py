@@ -69,8 +69,11 @@ class FlowDeployment:
         return flow_id
 
     def update_flow_readme(self, flow_id: str, markdown_path: str):
+        markdown_header = f"_This readme was generated from {markdown_path}. " \
+                          f"Make edits in the Github repo, and NOT in the Prefect UI, to prevent loosing changes._\n\n"
+
         with open(markdown_path) as f:
-            markdown = f.read()
+            markdown_content = f.read()
 
         mutation = {
             "mutation($input: set_flow_group_description_input!)": {
@@ -83,7 +86,7 @@ class FlowDeployment:
             variables={
                 "input": {
                     "flow_group_id": get_flow_group_id_by_flow_id(flow_id),
-                    "description": markdown,
+                    "description": markdown_header + markdown_content,
                 }
             },
         )
