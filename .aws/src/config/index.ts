@@ -1,6 +1,6 @@
 const name = 'DataFlows';
-const organization = 'pocket';
 const domainPrefix = 'data-flows';
+const s3BucketPrefix = 'pocket';
 const isDev = process.env.NODE_ENV === 'development';
 const environment = isDev ? 'Dev' : 'Prod';
 const fullEnvironment = isDev ? 'development' : 'production';
@@ -52,18 +52,21 @@ const prefect = {
 
 export const config = {
   name,
-  organization,
   isDev,
   prefix: `${name}-${environment}`,
   awsRegion: 'us-east-1',
+  s3BucketPrefix,
   circleCIPrefix: `/${name}/CircleCI/${environment}`,
   shortName: 'DATAFL',
   environment,
   fullEnvironment,
   domain,
   prefect,
+  terraform: {
+    organization: 'Pocket',
+  },
   codePipeline: {
-    artifactBucketPrefix: `${organization}-codepipeline`,
+    artifactBucketPrefix: `${s3BucketPrefix}-codepipeline`,
     githubConnectionArn,
     repository: 'pocket/data-flows',
     branch,
