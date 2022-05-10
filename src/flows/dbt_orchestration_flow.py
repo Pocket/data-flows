@@ -1,12 +1,14 @@
+from datetime import timedelta
+
+from flows.prospecting import prereview_engagement_feature_store_flow, postreview_engagement_feature_store_flow, \
+    prospect_flow
 from prefect import Flow
-from prefect.schedules.clocks import CronClock
-from prefect.tasks.dbt import dbt
-from prefect.tasks.prefect import create_flow_run, wait_for_flow_run
 from prefect.executors import LocalDaskExecutor
 from prefect.schedules import Schedule
+from prefect.schedules.clocks import CronClock
+from prefect.tasks.dbt import dbt
+from prefect.tasks.prefect import create_flow_run
 from utils import config
-
-from flows.prospecting import prereview_engagement_feature_store_flow, postreview_engagement_feature_store_flow, prospect_flow
 from utils.flow import get_flow_name
 
 FLOW_NAME = get_flow_name(__file__)
@@ -26,22 +28,21 @@ else:
 
 @task
 def execute_flow(flow_name, upstream_tasks):
-    flow_id = create_flow_run(
+    return create_flow_run(
         flow_name=flow_name,
         project_name=config.PREFECT_PROJECT_NAME,
         task_args=dict(name=f"create_flow_run({flow_name})"),
         upstream_tasks=upstream_tasks,
+        wait=True
     )
 
-    wait_for_flow_run(
-        flow_id,
-        raise_final_state=True,
-        task_args=dict(name=f"wait_for_flow_run({flow_name})"),
-    )
+@task(max_retries=3, retry_delay=timedelta(minutes=1))
+def execute_dbt_cloud():
+    return dbt.DbtCloudRunJob()(cause=FLOW_NAME, job_id=DBT_CLOUD_JOB_ID, wait_for_job_run_completion=True)
 
 with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor()) as flow:
-    dbt_run_result = dbt.DbtCloudRunJob()(cause=FLOW_NAME, job_id=DBT_CLOUD_JOB_ID, wait_for_job_run_completion=True)
-    data_result = execute_flow.map(DATA_FLOWS, upstream_tasks=[dbt_run_result])
+    dbt_result = execute_dbt_cloud()
+    data_result = execute_flow.map(DATA_FLOWS, upstream_tasks=[dbt_result])
     execute_flow(prospect_flow.FLOW_NAME, upstream_tasks=data_result)
 
 # for execution in development only
