@@ -20,12 +20,22 @@ from api_clients.braze.pocket_config import EMAIL_ALIAS_LABEL, SUBSCRIPTION_GROU
 from api_clients.braze.utils import is_valid_email, format_date
 from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
+from prefect.schedules import IntervalSchedule
+from prefect.tasks.dbt import dbt
 from utils.flow import get_flow_name, get_s3_result
 from utils.iteration import chunks
 from utils import config
 from common_tasks.mapping import split_in_chunks, split_dict_of_lists_in_chunks
 
 FLOW_NAME = get_flow_name(__file__)
+
+DBT_CLOUD_BRAZE_JOB_ID = 99999 # TODO: Make job
+
+# Schedule to run every 5 minutes
+if config.ENVIRONMENT == config.ENV_PROD:
+    schedule = IntervalSchedule(interval=datetime.timedelta(minutes=10))
+else:
+    schedule = None
 
 EXTRACT_QUERY = """
 SELECT
@@ -359,7 +369,9 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
     return rows
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as flow:
+with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor(), result=get_s3_result()) as flow:
+    dbt_run_result = dbt.DbtCloudRunJob()(cause=FLOW_NAME, job_id=DBT_CLOUD_BRAZE_JOB_ID, wait_for_job_run_completion=True)
+
     # To backfill data we can manually run this flow and override the Snowflake database, schema, and table.
     # The default is ANALYTICS.DBT_STAGING.STG_BRAZE_USER_DELTAS.
     snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_ANALYTICS_DATABASE)
