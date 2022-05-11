@@ -1,11 +1,13 @@
-from collections import defaultdict
 import datetime
-from dataclasses import dataclass
 import re
+from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from prefect import Flow, task, context, Parameter
 from prefect.executors import LocalDaskExecutor
+from prefect.schedules import IntervalSchedule
+from prefect.tasks.dbt import dbt
 
 from api_clients.braze import models
 from api_clients.braze.client import (
@@ -18,14 +20,12 @@ from api_clients.braze.client import (
 )
 from api_clients.braze.pocket_config import EMAIL_ALIAS_LABEL, SUBSCRIPTION_GROUP_NAME_TO_ID
 from api_clients.braze.utils import is_valid_email, format_date
-from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
-from prefect.schedules import IntervalSchedule
-from prefect.tasks.dbt import dbt
+from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
+from common_tasks.mapping import split_in_chunks, split_dict_of_lists_in_chunks
+from utils import config
 from utils.flow import get_flow_name, get_s3_result
 from utils.iteration import chunks
-from utils import config
-from common_tasks.mapping import split_in_chunks, split_dict_of_lists_in_chunks
 
 FLOW_NAME = get_flow_name(__file__)
 
@@ -388,7 +388,7 @@ with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor(), result=get
         database=snowflake_database,
         schema=snowflake_schema,
         output_type=OutputType.DICT,
-    )
+    ).set_upstream(dbt_run_result)
 
     # Prevent us from accidentally emailing users from our dev environment by changing all domains to @example.com,
     # unless we are in the production environment.
