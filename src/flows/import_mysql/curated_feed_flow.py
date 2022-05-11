@@ -1,6 +1,9 @@
 from prefect import Flow
 
 from utils.config import get_mysql_executor
+from utils.flow import get_flow_name
+
+FLOW_NAME = get_flow_name(__file__)
 
 EXTRACT_SQL = """
     SELECT
@@ -38,7 +41,7 @@ LOAD_SQL = """
 """
 
 
-with Flow(name='import_mysql_curated_feed') as flow:
+with Flow(FLOW_NAME) as flow:
     execute = get_mysql_executor()
     extract_result = execute(query=EXTRACT_SQL)
     execute(query=LOAD_SQL, upstream_tasks=[extract_result])
