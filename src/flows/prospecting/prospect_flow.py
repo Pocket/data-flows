@@ -3,13 +3,14 @@ from datetime import datetime
 from prefect import Flow, task
 from prefect.tasks.aws import StepActivate
 
+ARN_PREFIX = 'arn:aws:states:us-east-1:996905175585:stateMachine:'
 PROSPECTING_STEP_FUNCTIONS = [
     'TimespentProspectModelTrainingFlow'
 ]
 
-@task
+@task()
 def execute_step(name, timestamp):
-    arn = 'arn:aws:states:us-east-1:996905175585:stateMachine:{}'.format(name)
+    arn = '{}{}'.format(ARN_PREFIX, name)
     execution_name = 'Prefect Prospect {fn} {timestamp}'.format(fn=name, timestamp=timestamp)
     StepActivate(state_machine_arn=arn, execution_name=execution_name)
 

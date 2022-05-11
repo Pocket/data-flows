@@ -43,6 +43,9 @@ const prefect = {
       'GCE_KEY',
       'BRAZE_API_KEY',
       'BRAZE_REST_ENDPOINT',
+      'AURORA_DB_USER',
+      'AURORA_DB_PASSWORD',
+      'AURORA_DB_HOST',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
