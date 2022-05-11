@@ -65,7 +65,7 @@ def extract():
 
 @task()
 def load():
-    return execute_flow.map([f.FLOW_NAME for f in IMPORT_MYSQL_FLOWS])
+    return execute_flow.map([f.FLOW_NAME for f in DATA_FLOWS])
 
 
 @task()
