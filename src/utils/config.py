@@ -1,5 +1,7 @@
 import os
 
+from prefect.tasks.mysql import MySQLExecute
+
 ENV_LOCAL = "local"
 ENV_DEV = "development"
 ENV_PROD = "production"
@@ -26,3 +28,11 @@ SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA = os.getenv(
 
 BRAZE_API_KEY=os.getenv('BRAZE_API_KEY')
 BRAZE_REST_ENDPOINT=os.getenv('BRAZE_REST_ENDPOINT')
+
+AURORA_DB_NAME='readitla_ril-tmp'
+AURORA_DB_HOST = os.environ.get('AURORA_DB_HOST')
+AURORA_DB_USER = os.environ.get('AURORA_DB_USER')
+AURORA_DB_PASSWORD = os.environ.get('AURORA_DB_PASSWORD')
+
+def get_mysql_executor(db_name=AURORA_DB_NAME, user=AURORA_DB_USER, password=AURORA_DB_PASSWORD, host=AURORA_DB_HOST):
+    return MySQLExecute(db_name=db_name, user=user, password=password, host=host)
