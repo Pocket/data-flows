@@ -32,12 +32,12 @@ prep as (
 SELECT
     u.USER_ID,
     p.HAPPENED_AT AS UPDATED_AT,
-    LISTAGG(DISTINCT p.RESOLVED_ID, ',') AS RESOLVED_IDS
+    ARRAY_AGG(DISTINCT p.RESOLVED_ID) AS RESOLVED_IDS
 FROM prep as p
 JOIN ANALYTICS.DBT.USERS as u
   ON p.HASHED_USER_ID = u.HASHED_USER_ID
 WHERE ((p.max_impression_age > %(MAX_AGE)s) OR (p.total_imprs > %(MAX_IMPRS)s))
-  AND CURRENT_DATE = p.HAPPEEND_AT
+  AND CURRENT_DATE = p.HAPPENED_AT
 GROUP BY 1, 2
 """
 
@@ -47,7 +47,6 @@ def transform_user_impressions_df(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={"USER_ID": "user_id",
                             "RESOLVED_IDS": "resolved_ids",
                             "UPDATED_AT": "updated_at"}).astype({"user_id": int})
-    df["resolved_ids"] = df.resolved_ids.apply(lambda x: "["+x+"]")
     df["updated_at"] = df.updated_at.apply(lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ"))
     return df
 
@@ -77,8 +76,8 @@ with Flow(FLOW_NAME, schedule=schedule) as flow:
         data={"MAX_AGE": max_impr_age, "MAX_IMPRS": max_impr_count}
     )
 
-    xformed_df = transform_user_impressions_df(snowflake_result)
-    load_feature_group(df=xformed_df, feature_group_name=feature_group)
+    transformed_df = transform_user_impressions_df(snowflake_result)
+    load_feature_group(df=transformed_df, feature_group_name=feature_group)
 
 if __name__ == "__main__":
     flow.run()
