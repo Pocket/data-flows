@@ -1,0 +1,74 @@
+from typing import Dict, Sequence
+import json
+import datetime
+
+from prefect import task, Flow, Parameter, unmapped
+from prefect.tasks.aws.s3 import S3List
+import pandas as pd
+import boto3
+from sagemaker.feature_store.feature_group import FeatureGroup, FeatureValue
+from sagemaker.session import Session
+
+from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
+from utils import config
+from utils.flow import get_flow_name
+
+FLOW_NAME = get_flow_name(__file__)
+
+CURATED_CORPUS_CANDIDATE_SET_ID = 'deea0f06-9dc9-44a5-b864-fea4a4d0beb7'
+
+# Export scheduled corpus items
+EXPORT_SQL = """
+SELECT APPROVED_CORPUS_ITEM_EXTERNAL_ID
+FROM "SCHEDULED_CORPUS_ITEMS"
+WHERE SCHEDULED_SURFACE_ID = %(scheduled_surface_id)s
+AND SCHEDULED_CORPUS_ITEM_SCHEDULED_AT BETWEEN DATEADD(day, %(scheduled_at_start_day)s, CURRENT_TIMESTAMP) AND CURRENT_TIMESTAMP
+ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC
+LIMIT 500;
+"""
+
+
+@task()
+def create_corpus_candidate_set_record(
+        id: str,
+        corpus_items: Dict,
+        unloaded_at: datetime.datetime = datetime.datetime.now()
+) -> Sequence[FeatureValue]:
+    return [
+        FeatureValue('ID', id),
+        FeatureValue('UNLOADED_AT', unloaded_at.strftime("%Y-%m-%dT%H:%M:%SZ")),
+        FeatureValue('CORPUS_ITEMS', json.dumps(corpus_items)),
+    ]
+
+
+@task()
+def load_feature_record(record: Sequence[FeatureValue], feature_group_name):
+    boto_session = boto3.Session()
+    feature_store_session = Session(boto_session=boto_session,
+                                    sagemaker_client=boto_session.client(service_name='sagemaker'),
+                                    sagemaker_featurestore_runtime_client=boto_session.client(service_name='sagemaker-featurestore-runtime'))
+    feature_group = FeatureGroup(name=feature_group_name, sagemaker_session=feature_store_session)
+    feature_group.put_record(record)
+
+
+with Flow(FLOW_NAME) as flow:
+    corpus_candidate_results = PocketSnowflakeQuery()(
+        query=EXPORT_SQL,
+        data={
+            'scheduled_at_start_day': -3,
+            'scheduled_surface_id': 'NEW_TAB_EN_INTL',  # Change this to NEW_TAB_EN_US when it launches
+        },
+        database=config.SNOWFLAKE_ANALYTICS_DATABASE,
+        schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
+        output_type=OutputType.DICT,
+    )
+
+    feature_group = Parameter("feature group", default=f"{config.ENVIRONMENT}-corpus-candidate-sets-v1")
+    feature_group_record = create_corpus_candidate_set_record(
+        id=CURATED_CORPUS_CANDIDATE_SET_ID,
+        corpus_items=corpus_candidate_results,
+    )
+    load_feature_record(feature_group_record, feature_group_name=feature_group)
+
+if __name__ == "__main__":
+    flow.run()
