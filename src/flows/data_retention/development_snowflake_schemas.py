@@ -16,7 +16,11 @@ DATABASE = "DEVELOPMENT"
 SCHEDULE = Schedule(clocks=[CronClock("0 0 * * *")])
 
 GET_SCHEMAS_SQL = """
-SELECT schema_name
+SELECT catalog_name as database,
+       schema_name,
+       schema_owner,
+       created,
+       last_altered
 FROM information_schema.schemata
 WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP());
 """
@@ -27,8 +31,8 @@ DROP SCHEMA {schema_name}
 
 
 @task()
-def delete_schema(row: tuple[str], executor: PocketSnowflakeQuery):
-    return executor(query=DROP_SCHEMA_SQL, data={"schema_name": row[0]})
+def delete_schema(row: dict[str, str], ex: PocketSnowflakeQuery):
+    return ex(query=DROP_SCHEMA_SQL, data={"schema_name": row['schema_name']})
 
 
 with Flow(FLOW_NAME) as flow:
