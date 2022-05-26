@@ -25,9 +25,7 @@ FROM information_schema.schemata
 WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP());
 """
 
-DROP_SCHEMA_SQL = """
-DROP SCHEMA {schema_name}
-"""
+DROP_SCHEMA_SQL = "DROP SCHEMA {schema_name}"
 
 
 @task()
