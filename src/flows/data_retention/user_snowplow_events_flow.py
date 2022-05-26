@@ -19,7 +19,7 @@ DELETE_SQL = """
 DELETE FROM "SNOWPLOW"."ATOMIC"."EVENTS" as e
 USING "ANALYTICS"."DBT_STAGING"."STG_ACCOUNT_DELETIONS" as d 
 WHERE e.CONTEXTS_COM_POCKET_USER_1[0]:hashed_user_id = d.hashed_user_id
-AND d.happened_at > DATEADD("day", -90, NOW())
+AND d.happened_at > DATEADD("day", -90, CURRENT_TIMESTAMP())
 """
 
 with Flow(FLOW_NAME, schedule=SCHEDULE) as flow:
