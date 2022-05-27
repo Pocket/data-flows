@@ -5,6 +5,8 @@ ENV_DEV = "development"
 ENV_PROD = "production"
 PROJECT_LOCAL = "local"
 
+SRC_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+
 ENVIRONMENT = os.getenv("ENVIRONMENT", ENV_LOCAL)
 PREFECT_PROJECT_NAME = os.getenv('PREFECT_PROJECT_NAME', PROJECT_LOCAL)
 PREFECT_S3_RESULT_BUCKET = os.getenv('PREFECT_S3_RESULT_BUCKET')
