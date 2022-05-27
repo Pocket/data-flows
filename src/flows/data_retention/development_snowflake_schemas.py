@@ -22,8 +22,17 @@ SELECT catalog_name as database,
        created,
        last_altered
 FROM information_schema.schemata
-WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP());
+WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP())
+AND schema_name != 'DBT_SBISWAS';
 """
+"""
+We are excluding schema `DBT_SBISWAS` as its being actively used for delivering Android push notifications experiments.
+Kirill will be doing an experiment to explore doing this work our DBT workflow and as a result putting this data in our
+ANALYTICS database. Once we have results on this experiment we will decide next steps for this schema exclusion.
+
+https://pocket.slack.com/archives/C03E28D1GUD/p1653672644243659?thread_ts=1653582347.792469&cid=C03E28D1GUD
+"""
+
 
 DROP_SCHEMA_SQL = "DROP SCHEMA {schema_name}"
 
