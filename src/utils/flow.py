@@ -1,8 +1,10 @@
 import re
+from datetime import timedelta
 
 from prefect.engine.results import S3Result
+from prefect.schedules import IntervalSchedule
 
-from utils.config import PREFECT_S3_RESULT_BUCKET
+from utils.config import PREFECT_S3_RESULT_BUCKET, ENVIRONMENT, ENV_PROD
 
 
 def get_flow_name(file_path: str) -> str:
@@ -18,3 +20,15 @@ def get_s3_result() -> S3Result:
     :return: Prefect S3Result that can be set on the flow, which allow us to resume flows from failure using data in S3.
     """
     return S3Result(bucket=PREFECT_S3_RESULT_BUCKET)
+
+
+def get_interval_schedule(minutes: int) -> IntervalSchedule:
+    """
+    :return: Prefect IntervalSchedule for PROD only environment.
+    """
+    if ENVIRONMENT == ENV_PROD:
+        schedule = IntervalSchedule(interval=timedelta(minutes=minutes))
+    else:
+        schedule = None
+
+    return schedule

@@ -1,10 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import prefect
 from prefect import Flow, task
-from prefect.schedules import IntervalSchedule
 from prefect.tasks.gcp.bigquery import BigQueryTask
 from utils import config
-from utils.flow import get_flow_name
+from utils.flow import get_flow_name, get_interval_schedule
 from api_clients.prefect_key_value_store_client import get_last_executed_value, update_last_executed_value
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
 
@@ -151,13 +150,7 @@ def prepare_exp_imp_params(last_executed_timestamp: datetime):
 
     return bq_export_query_param_list, snowflake_import_param
 
-# Schedule to run every 5 minutes
-schedule = IntervalSchedule(
-    start_date=datetime.utcnow() + timedelta(seconds=1),
-    interval=timedelta(minutes=5),
-)
-
-with Flow(FLOW_NAME, schedule) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=5)) as flow:
     last_executed_timestamp = get_last_executed_value(flow_name=FLOW_NAME,
                                                   default_if_absent=str(datetime.utcnow())
                                                   )
