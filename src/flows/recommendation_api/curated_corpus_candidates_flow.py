@@ -11,7 +11,7 @@ from sagemaker.session import Session
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from utils import config
-from utils.flow import get_flow_name
+from utils.flow import get_flow_name, get_interval_schedule
 
 FLOW_NAME = get_flow_name(__file__)
 
@@ -53,7 +53,7 @@ def load_feature_record(record: Sequence[FeatureValue], feature_group_name):
     feature_group.put_record(record)
 
 
-with Flow(FLOW_NAME) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_CORPUS_ITEMS_SQL,
         data={
