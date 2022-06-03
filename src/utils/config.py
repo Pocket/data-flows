@@ -23,10 +23,7 @@ SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA = os.getenv(
     'SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA',
     'DBT_STAGING'  # For local development, set the Dbt staging schema in .env
 )
-SNOWFLAKE_ANALYTICS_DBT_SCHEMA = os.getenv(
-    'SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA',
-    'DBT_STAGING'  # For local development, set the Dbt staging schema in .env
-)
+SNOWFLAKE_ANALYTICS_DBT_SCHEMA = os.getenv('SNOWFLAKE_ANALYTICS_DBT_SCHEMA', 'DBT')
 
 BRAZE_API_KEY=os.getenv('BRAZE_API_KEY')
 BRAZE_REST_ENDPOINT=os.getenv('BRAZE_REST_ENDPOINT')

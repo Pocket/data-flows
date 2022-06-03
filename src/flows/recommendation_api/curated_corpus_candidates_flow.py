@@ -15,15 +15,17 @@ from utils.flow import get_flow_name
 
 FLOW_NAME = get_flow_name(__file__)
 
-CURATED_CORPUS_CANDIDATE_SET_ID = 'deea0f06-9dc9-44a5-b864-fea4a4d0beb7'
+NEW_TAB_EN_US_CORPUS_CANDIDATE_SET_ID = 'deea0f06-9dc9-44a5-b864-fea4a4d0beb7'
 
-# Export scheduled corpus items
-EXPORT_SQL = """
-SELECT APPROVED_CORPUS_ITEM_EXTERNAL_ID
-FROM "SCHEDULED_CORPUS_ITEMS"
-WHERE SCHEDULED_SURFACE_ID = %(scheduled_surface_id)s
-AND SCHEDULED_CORPUS_ITEM_SCHEDULED_AT BETWEEN DATEADD(day, %(scheduled_at_start_day)s, CURRENT_TIMESTAMP) AND CURRENT_TIMESTAMP
-ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC
+# Export approved corpus items by language and recency
+EXPORT_CORPUS_ITEMS_SQL = """
+SELECT
+    APPROVED_CORPUS_ITEM_EXTERNAL_ID as ID,
+    TOPIC
+FROM "APPROVED_CORPUS_ITEMS"
+WHERE LANGUAGE = %(language)s
+AND REVIEWED_CORPUS_ITEM_CREATED_AT BETWEEN DATEADD(day, %(scheduled_at_start_day)s, CURRENT_TIMESTAMP) AND CURRENT_TIMESTAMP
+ORDER BY REVIEWED_CORPUS_ITEM_CREATED_AT DESC
 LIMIT 500;
 """
 
@@ -35,9 +37,9 @@ def create_corpus_candidate_set_record(
         unloaded_at: datetime.datetime = datetime.datetime.now()
 ) -> Sequence[FeatureValue]:
     return [
-        FeatureValue('ID', id),
-        FeatureValue('UNLOADED_AT', unloaded_at.strftime("%Y-%m-%dT%H:%M:%SZ")),
-        FeatureValue('CORPUS_ITEMS', json.dumps(corpus_items)),
+        FeatureValue('id', id),
+        FeatureValue('unloaded_at', unloaded_at.strftime("%Y-%m-%dT%H:%M:%SZ")),
+        FeatureValue('corpus_items', json.dumps(corpus_items)),
     ]
 
 
@@ -52,11 +54,11 @@ def load_feature_record(record: Sequence[FeatureValue], feature_group_name):
 
 
 with Flow(FLOW_NAME) as flow:
-    corpus_candidate_results = PocketSnowflakeQuery()(
-        query=EXPORT_SQL,
+    corpus_items = PocketSnowflakeQuery()(
+        query=EXPORT_CORPUS_ITEMS_SQL,
         data={
-            'scheduled_at_start_day': -3,
-            'scheduled_surface_id': 'NEW_TAB_EN_INTL',  # Change this to NEW_TAB_EN_US when it launches
+            'scheduled_at_start_day': -14,
+            'language': 'EN',
         },
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
@@ -65,8 +67,8 @@ with Flow(FLOW_NAME) as flow:
 
     feature_group = Parameter("feature group", default=f"{config.ENVIRONMENT}-corpus-candidate-sets-v1")
     feature_group_record = create_corpus_candidate_set_record(
-        id=CURATED_CORPUS_CANDIDATE_SET_ID,
-        corpus_items=corpus_candidate_results,
+        id=NEW_TAB_EN_US_CORPUS_CANDIDATE_SET_ID,
+        corpus_items=corpus_items,
     )
     load_feature_record(feature_group_record, feature_group_name=feature_group)
 
