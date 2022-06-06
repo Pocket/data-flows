@@ -15,7 +15,7 @@ from utils.flow import get_flow_name, get_interval_schedule
 
 FLOW_NAME = get_flow_name(__file__)
 
-NEW_TAB_EN_US_CORPUS_CANDIDATE_SET_ID = 'deea0f06-9dc9-44a5-b864-fea4a4d0beb7'
+SETUP_MOMENT_CORPUS_CANDIDATE_SET_ID = 'deea0f06-9dc9-44a5-b864-fea4a4d0beb7'
 
 # Export approved corpus items by language and recency
 EXPORT_CORPUS_ITEMS_SQL = """
@@ -68,7 +68,7 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
 
     feature_group = Parameter("feature group", default=f"{config.ENVIRONMENT}-corpus-candidate-sets-v1")
     feature_group_record = create_corpus_candidate_set_record(
-        id=NEW_TAB_EN_US_CORPUS_CANDIDATE_SET_ID,
+        id=SETUP_MOMENT_CORPUS_CANDIDATE_SET_ID,
         corpus_items=corpus_items,
     )
     load_feature_record(feature_group_record, feature_group_name=feature_group)
