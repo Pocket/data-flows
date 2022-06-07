@@ -23,7 +23,7 @@ SELECT catalog_name as database,
        last_altered
 FROM information_schema.schemata
 WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP())
-AND schema_name != 'DBT_SBISWAS';
+AND schema_name not in ('DBT_SBISWAS', 'PUBLIC');
 """
 """
 We are excluding schema `DBT_SBISWAS` as its being actively used for delivering Android push notifications experiments.
@@ -34,7 +34,10 @@ https://pocket.slack.com/archives/C03E28D1GUD/p1653672644243659?thread_ts=165358
 """
 
 
-DROP_SCHEMA_SQL = "DROP SCHEMA {schema_name}"
+DROP_SCHEMA_SQL = "DROP SCHEMA DEVELOPMENT.{schema_name}"
+"""
+We added the fully qualified schema name to be 100% confident that we are deleting the appropriate schemas. :)
+"""
 
 
 @task()
