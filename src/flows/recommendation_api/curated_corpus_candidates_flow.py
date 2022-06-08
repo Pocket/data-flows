@@ -22,7 +22,7 @@ EXPORT_CORPUS_ITEMS_SQL = """
 SELECT
     APPROVED_CORPUS_ITEM_EXTERNAL_ID as ID,
     TOPIC
-FROM "APPROVED_CORPUS_ITEMS"
+FROM "SCHEDULED_CORPUS_ITEMS"
 WHERE LANGUAGE = %(language)s
 AND IS_SYNDICATED = TRUE
 AND REVIEWED_CORPUS_ITEM_CREATED_AT BETWEEN DATEADD(day, %(scheduled_at_start_day)s, CURRENT_TIMESTAMP) AND CURRENT_TIMESTAMP
@@ -54,7 +54,8 @@ def load_feature_record(record: Sequence[FeatureValue], feature_group_name):
     feature_group.put_record(record)
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
+# with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
+with Flow(FLOW_NAME) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_CORPUS_ITEMS_SQL,
         data={
