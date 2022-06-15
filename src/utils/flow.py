@@ -2,7 +2,8 @@ import re
 from datetime import timedelta
 
 from prefect.engine.results import S3Result
-from prefect.schedules import IntervalSchedule
+from prefect.schedules import IntervalSchedule, Schedule
+from prefect.schedules.clocks import CronClock
 
 from utils.config import PREFECT_S3_RESULT_BUCKET, ENVIRONMENT, ENV_PROD
 
@@ -28,6 +29,17 @@ def get_interval_schedule(minutes: int) -> IntervalSchedule:
     """
     if ENVIRONMENT == ENV_PROD:
         schedule = IntervalSchedule(interval=timedelta(minutes=minutes))
+    else:
+        schedule = None
+
+    return schedule
+
+def get_cron_schedule(cron: str) -> Schedule:
+    """
+    :return: Prefect Schedule based on CronClock for PROD only environment.
+    """
+    if ENVIRONMENT == ENV_PROD:
+        schedule = Schedule(clocks=[CronClock(cron)])
     else:
         schedule = None
 
