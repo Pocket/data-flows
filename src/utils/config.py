@@ -1,4 +1,5 @@
 import os
+import base64
 
 ENV_LOCAL = "local"
 ENV_DEV = "development"
@@ -29,12 +30,14 @@ BRAZE_API_KEY=os.getenv('BRAZE_API_KEY')
 BRAZE_REST_ENDPOINT=os.getenv('BRAZE_REST_ENDPOINT')
 
 SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT = {
-    "user_env_var_name": "SNOWFLAKE_DATA_RETENTION_USER",
-    "private_key_env_var_name": "SNOWFLAKE_DATA_RETENTION_PRIVATE_KEY",
-    "role_env_var_name": "SNOWFLAKE_DATA_RETENTION_ROLE",
-    "warehouse_env_var_name": "SNOWFLAKE_DATA_RETENTION_WAREHOUSE",
-    "account_env_var_name": "SNOWFLAKE_ACCOUNT",
+    "user": os.getenv("SNOWFLAKE_DATA_RETENTION_USER"),
+    "private_key": base64.b64decode(os.getenv("SNOWFLAKE_DATA_RETENTION_PRIVATE_KEY")),
+    "role": os.getenv("SNOWFLAKE_DATA_RETENTION_ROLE"),
+    "warehouse": os.getenv("SNOWFLAKE_DATA_RETENTION_WAREHOUSE"),
+    "account": os.getenv("SNOWFLAKE_ACCOUNT"),
+    "database": os.getenv('SNOWFLAKE_DATA_RETENTION_DB'),
+    "schema": os.getenv('SNOWFLAKE_DATA_RETENTION_SCHEMA')
 }
 
-SNOWFLAKE_DATA_RETENTION_DB = os.getenv('SNOWFLAKE_DATA_RETENTION_DB')
-SNOWFLAKE_DATA_RETENTION_SCHEMA = os.getenv('SNOWFLAKE_DATA_RETENTION_SCHEMA')
+SNOWPLOW_DB = os.getenv('SNOWPLOW_DB')
+SNOWPLOW_SCHEMA = os.getenv('SNOWPLOW_SCHEMA')

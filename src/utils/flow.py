@@ -1,4 +1,5 @@
 import re
+import os
 from datetime import timedelta
 
 from prefect.engine.results import S3Result
@@ -44,3 +45,11 @@ def get_cron_schedule(cron: str) -> Schedule:
         schedule = None
 
     return schedule
+
+
+def get_flow_directory(file_path: str) -> str:
+    """
+    :param file_path: Path of the flow file
+    :return: Path directory
+    """
+    return os.path.dirname(file_path)
