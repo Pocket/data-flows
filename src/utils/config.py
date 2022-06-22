@@ -30,11 +30,11 @@ BRAZE_API_KEY=os.getenv('BRAZE_API_KEY')
 BRAZE_REST_ENDPOINT=os.getenv('BRAZE_REST_ENDPOINT')
 
 SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT = {
-    "user": os.getenv("SNOWFLAKE_DATA_RETENTION_USER"),
-    "private_key": base64.b64decode(os.getenv("SNOWFLAKE_DATA_RETENTION_PRIVATE_KEY")),
-    "role": os.getenv("SNOWFLAKE_DATA_RETENTION_ROLE"),
-    "warehouse": os.getenv("SNOWFLAKE_DATA_RETENTION_WAREHOUSE"),
     "account": os.getenv("SNOWFLAKE_ACCOUNT"),
+    "user": os.getenv("SNOWFLAKE_USER"),
+    "private_key": base64.b64decode(os.getenv("SNOWFLAKE_PRIVATE_KEY")),
+    "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
+    "role": os.getenv("SNOWFLAKE_DATA_RETENTION_ROLE"),
     "database": os.getenv('SNOWFLAKE_DATA_RETENTION_DB'),
     "schema": os.getenv('SNOWFLAKE_DATA_RETENTION_SCHEMA')
 }

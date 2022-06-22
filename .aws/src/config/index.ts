@@ -43,6 +43,9 @@ const prefect = {
       'GCE_KEY',
       'BRAZE_API_KEY',
       'BRAZE_REST_ENDPOINT',
+      'SNOWFLAKE_DATA_RETENTION_ROLE',
+      'SNOWFLAKE_DATA_RETENTION_DB',
+      'SNOWFLAKE_DATA_RETENTION_SCHEMA',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14

@@ -53,3 +53,7 @@ def get_flow_directory(file_path: str) -> str:
     :return: Path directory
     """
     return os.path.dirname(file_path)
+
+
+def get_flow_file_path(flow_path:str, file_path: str) -> str:
+    return os.path.join(get_flow_directory(flow_path), file_path)
