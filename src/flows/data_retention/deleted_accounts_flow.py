@@ -9,8 +9,15 @@ FLOW_NAME = get_flow_name(__file__)
 
 @task()
 def query_file(file_name: str, **kwargs):
-    return SnowflakeQueriesFromFile(**config.SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT)(
-        file_path=get_flow_file_path(__file__, file_name), **kwargs)
+    cfg = config.SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT
+    # SnowflakeQueriesFromFile has a bug where it throws a validation error if user and account
+    # are not passed to `run()`.
+    return SnowflakeQueriesFromFile(**cfg)(
+        file_path=get_flow_file_path(__file__, file_name),
+        account=cfg['account'],
+        user=cfg['user'],
+        **kwargs
+    )
 
 
 # with Flow(FLOW_NAME, schedule=get_cron_schedule(cron="0 0 1 * *")) as flow:
