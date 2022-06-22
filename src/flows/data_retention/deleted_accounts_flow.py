@@ -13,7 +13,8 @@ def query_file(file_name: str, **kwargs):
         file_path=get_flow_file_path(__file__, file_name), **kwargs)
 
 
-with Flow(FLOW_NAME, schedule=get_cron_schedule(cron="0 0 1 * *")) as flow:
+# with Flow(FLOW_NAME, schedule=get_cron_schedule(cron="0 0 1 * *")) as flow:
+with Flow(FLOW_NAME) as flow:
     backup_results = [
         query_file('deleted_account_emails.sql'),
         query_file('deleted_account_users.sql'),
