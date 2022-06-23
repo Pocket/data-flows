@@ -139,6 +139,7 @@ Replace `{Env}` with the environment name as defined in
 | `/DataFlows/{Env}/SNOWFLAKE_SNOWPLOW_SCHEMA`               | String       | Snowflake Schema that has the Snowplow raw events.                                         |
 | `/DataFlows/{Env}/SNOWFLAKE_RAWDATA_DB`                    | String       | Snowflake DB that has the legacy Raw events.                                               |
 | `/DataFlows/{Env}/SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA`       | String       | Snowflake Schema that has the legacy Raw events.                                           |
+| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_WAREHOUSE`      | String       | Snowflake Warehouse used for data deletions of Deleted User Accounts.                      |
 
 ## Roadmap
 

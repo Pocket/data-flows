@@ -34,7 +34,7 @@ SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT = {
     "account": os.getenv("SNOWFLAKE_ACCOUNT"),
     "user": os.getenv("SNOWFLAKE_USER"),
     "private_key": base64.b64decode(_BASE64_SNOWFLAKE_PRIVATE_KEY) if _BASE64_SNOWFLAKE_PRIVATE_KEY else None,
-    "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
+    "warehouse": os.getenv("SNOWFLAKE_DATA_RETENTION_WAREHOUSE"),
     "role": os.getenv("SNOWFLAKE_DATA_RETENTION_ROLE"),
     "database": os.getenv('SNOWFLAKE_DATA_RETENTION_DB'),
     "schema": os.getenv('SNOWFLAKE_DATA_RETENTION_SCHEMA')

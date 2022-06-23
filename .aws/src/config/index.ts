@@ -50,6 +50,7 @@ const prefect = {
       'SNOWFLAKE_SNOWPLOW_SCHEMA',
       'SNOWFLAKE_RAWDATA_DB',
       'SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA',
+      'SNOWFLAKE_DATA_RETENTION_WAREHOUSE',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
