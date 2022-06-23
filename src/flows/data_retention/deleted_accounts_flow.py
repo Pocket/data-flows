@@ -1,46 +1,47 @@
-from prefect import task, Flow, Parameter
+from prefect import Flow, task
+from prefect.tasks.snowflake import SnowflakeQueriesFromFile
 
-from api_clients.pocket_snowflake_query import PocketSnowflakeQuery
-from utils.flow import get_flow_name, get_cron_schedule
-from utils.config import SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT, SNOWFLAKE_DATA_RETENTION_DB, SNOWFLAKE_DATA_RETENTION_SCHEMA
+from utils import config
+from utils.flow import get_flow_name, get_cron_schedule, get_flow_file_path
 
 FLOW_NAME = get_flow_name(__file__)
 
-# Add new deleted user accounts
-ADD_DELETED_USERS_SQL = """
-insert into DELETED_USERS
-    (hashed_user_id, user_id)
-select distinct a.hashed_user_id, a.user_id
-from analytics.dbt_staging.stg_account_deletions as a
-left join DELETED_USERS as b 
-    on b.hashed_user_id = a.hashed_user_id and b.user_id = a.user_id
-where b.hashed_user_id is null;
-"""
 
-# Add new deleted user emails
-ADD_DELETED_EMAILS_SQL = """
-insert into DELETED_EMAILS
-    (email)
-select distinct m.email
-from analytics.dbt_staging.stg_user_to_email_map as m
-join DELETED_USERS as u on u.user_id = m.user_id
-left join DELETED_EMAILS as e on e.email = m.email
-where e.email is null;
-"""
+@task()
+def query_file(file_name: str, **kwargs):
+    cfg = config.SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT
+    # SnowflakeQueriesFromFile has a bug where it throws a validation error if user and account
+    # are not passed to `run()`.
+    return SnowflakeQueriesFromFile(**cfg).run(
+        file_path=get_flow_file_path(__file__, file_name),
+        account=cfg['account'],
+        user=cfg['user'],
+        **kwargs
+    )
+
 
 # with Flow(FLOW_NAME, schedule=get_cron_schedule(cron="0 0 1 * *")) as flow:
 with Flow(FLOW_NAME) as flow:
-    delete_user_result = PocketSnowflakeQuery(**SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT)(
-        query=ADD_DELETED_USERS_SQL,
-        database=SNOWFLAKE_DATA_RETENTION_DB,
-        schema=SNOWFLAKE_DATA_RETENTION_SCHEMA,
-    )
-    delete_email_result = PocketSnowflakeQuery(**SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT)(
-        query=ADD_DELETED_EMAILS_SQL,
-        database=SNOWFLAKE_DATA_RETENTION_DB,
-        schema=SNOWFLAKE_DATA_RETENTION_SCHEMA,
-    )
-    delete_email_result.set_upstream(delete_user_result)
+    # Maintain a list of deleted accounts in a protected DB/Schema tables
+    add_deleted_users_result = query_file(file_name='deleted_account_users.sql')
+    add_deleted_emails_result = query_file(file_name='deleted_account_emails.sql')
+    add_deleted_emails_result.set_upstream(add_deleted_users_result)
+
+    backup_results = [
+        add_deleted_users_result,
+        add_deleted_emails_result,
+    ]
+    # Delete Snowplow Raw events of deleted user accounts
+    delete_snowplow_events_result = query_file(file_name='delete_snowplow_events.sql',
+                                               database=config.SNOWFLAKE_SNOWPLOW_DB,
+                                               schema=config.SNOWFLAKE_SNOWPLOW_SCHEMA,
+                                               upstream_tasks=backup_results)
+
+    # Delete Raw data of deleted user accounts from other streaming sources
+    delete_raw_data_result = query_file(file_name='delete_raw_user_rows.sql',
+                                        database=config.SNOWFLAKE_RAWDATA_DB,
+                                        schema=config.SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA,
+                                        upstream_tasks=backup_results)
 
 if __name__ == "__main__":
     flow.run()
