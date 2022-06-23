@@ -72,9 +72,47 @@ jobs:
           paths:
             - app_prod
 
+  test_app:
+    docker:
+      - image: python:3.8
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
+    parameters:
+      pipenv_path:
+        default: "./"
+        type: string
+    environment:
+      WORKON_HOME: '~/.venv'
+    steps:
+      - checkout
+      - restore_cache:
+          key: deps-test-{{ checksum "<<parameters.pipenv_path>>Pipfile.lock" }}
+      - run:
+          name: Build environment and install requirements
+          command: |
+            pip install pipenv
+            pipenv install --dev
+      - save_cache:
+          key: deps-test-{{ checksum "<<parameters.pipenv_path>>Pipfile.lock" }}
+          paths:
+            - "~/.venv"
+      - run:
+          name: Run tests
+          command: |
+            cd src/
+            mkdir test-reports
+            pipenv run python -m pytest test/ --junitxml=test-reports/junit.xml
+      - store_test_results:
+          path: test-reports
+
 workflows:
   all:
     jobs:
+      - test_app:
+          <<: *not_main
+          context: pocket
+
       - build:
           context: pocket
 
