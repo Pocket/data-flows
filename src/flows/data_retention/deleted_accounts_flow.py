@@ -51,5 +51,13 @@ with Flow(FLOW_NAME) as flow:
                                         task_args=dict(name="DeletingRawData_RawFirehose")
                                         )
 
+    # Delete Snapshot Raw data of deleted user accounts from other streaming sources
+    delete_raw_data_result = query_file(file_name='delete_snapshot_firehose_rows.sql',
+                                        database=config.SNOWFLAKE_SNAPSHOT_DB,
+                                        schema=config.SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA,
+                                        upstream_tasks=backup_results,
+                                        task_args=dict(name="DeletingRawData_SnapshotFirehose")
+                                        )
+
 if __name__ == "__main__":
     flow.run()

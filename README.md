@@ -121,25 +121,27 @@ The following parameters need to be created in the SSM Parameter Store.
 Replace `{Env}` with the environment name as defined in
 [.aws/src/config](https://github.com/Pocket/data-flows/blob/main/.aws/src/config/index.ts).
 
-| Name                                                       | Type         | Description                                                                                |
-|------------------------------------------------------------|--------------|--------------------------------------------------------------------------------------------|
-| `/DataFlows/{Env}/PREFECT_API_KEY`                         | SecureString | Prefect service account API key with 'user' permissions to the  previously created project |
-| `/DataFlows/{Env}/SNOWFLAKE_PRIVATE_KEY`                   | SecureString | Decrypted base64 Snowflake private key                                                     |
-| `/DataFlows/{Env}/SNOWFLAKE_ACCOUNT`                       | String       | Snowflake account id                                                                       |
-| `/DataFlows/{Env}/SNOWFLAKE_USER`                          | String       | Snowflake username                                                                         |
-| `/DataFlows/{Env}/DBT_CLOUD_TOKEN`                         | SecureString | Dbt service account token                                                                  |
-| `/DataFlows/{Env}/DBT_CLOUD_ACCOUNT_ID`                    | String       | Dbt account id that you can find in the Dbt cloud url                                      |
-| `/DataFlows/{Env}/GCE_KEY`                                 | SecureString | GCP key                                                                                    |
-| `/DataFlows/{Env}/BRAZE_API_KEY`                           | SecureString | Braze API key with write access to 'User Data' and 'Subscription'.                         |
-| `/DataFlows/{Env}/BRAZE_REST_ENDPOINT`                     | String       | [Braze REST endpoint](https://www.braze.com/docs/api/basics/)                              |
-| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_ROLE`           | String       | Snowflake Role for executing the Deleted User Account data deletions.                      |
-| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_DB`             | String       | Snowflake DB to record the deleted user accounts.                                          |
-| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_SCHEMA`         | String       | Snowflake Schema to record the deleted user accounts.                                      |
-| `/DataFlows/{Env}/SNOWFLAKE_SNOWPLOW_DB`                   | String       | Snowflake DB that has the Snowplow raw events.                                             |
-| `/DataFlows/{Env}/SNOWFLAKE_SNOWPLOW_SCHEMA`               | String       | Snowflake Schema that has the Snowplow raw events.                                         |
-| `/DataFlows/{Env}/SNOWFLAKE_RAWDATA_DB`                    | String       | Snowflake DB that has the legacy Raw events.                                               |
-| `/DataFlows/{Env}/SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA`       | String       | Snowflake Schema that has the legacy Raw events.                                           |
-| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_WAREHOUSE`      | String       | Snowflake Warehouse used for data deletions of Deleted User Accounts.                      |
+| Name                                                  | Type         | Description                                                                                |
+|-------------------------------------------------------|--------------|--------------------------------------------------------------------------------------------|
+| `/DataFlows/{Env}/PREFECT_API_KEY`                    | SecureString | Prefect service account API key with 'user' permissions to the  previously created project |
+| `/DataFlows/{Env}/SNOWFLAKE_PRIVATE_KEY`              | SecureString | Decrypted base64 Snowflake private key                                                     |
+| `/DataFlows/{Env}/SNOWFLAKE_ACCOUNT`                  | String       | Snowflake account id                                                                       |
+| `/DataFlows/{Env}/SNOWFLAKE_USER`                     | String       | Snowflake username                                                                         |
+| `/DataFlows/{Env}/DBT_CLOUD_TOKEN`                    | SecureString | Dbt service account token                                                                  |
+| `/DataFlows/{Env}/DBT_CLOUD_ACCOUNT_ID`               | String       | Dbt account id that you can find in the Dbt cloud url                                      |
+| `/DataFlows/{Env}/GCE_KEY`                            | SecureString | GCP key                                                                                    |
+| `/DataFlows/{Env}/BRAZE_API_KEY`                      | SecureString | Braze API key with write access to 'User Data' and 'Subscription'.                         |
+| `/DataFlows/{Env}/BRAZE_REST_ENDPOINT`                | String       | [Braze REST endpoint](https://www.braze.com/docs/api/basics/)                              |
+| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_ROLE`      | String       | Snowflake Role for executing the Deleted User Account data deletions.                      |
+| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_WAREHOUSE` | String       | Snowflake Warehouse used for data deletions of Deleted User Accounts.                      |
+| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_DB`        | String       | Snowflake DB to record the deleted user accounts.                                          |
+| `/DataFlows/{Env}/SNOWFLAKE_DATA_RETENTION_SCHEMA`    | String       | Snowflake Schema to record the deleted user accounts.                                      |
+| `/DataFlows/{Env}/SNOWFLAKE_SNOWPLOW_DB`              | String       | Snowflake DB that has the Snowplow raw events.                                             |
+| `/DataFlows/{Env}/SNOWFLAKE_SNOWPLOW_SCHEMA`          | String       | Snowflake Schema that has the Snowplow raw events.                                         |
+| `/DataFlows/{Env}/SNOWFLAKE_RAWDATA_DB`               | String       | Snowflake DB that has the legacy Raw events.                                               |
+| `/DataFlows/{Env}/SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA`  | String       | Snowflake Schema that has the legacy Raw events.                                           |
+| `/DataFlows/{Env}/SNOWFLAKE_SNAPSHOT_DB`              | String       | Snowflake DB that has the legacy Raw Snapshot events.                                      |
+| `/DataFlows/{Env}/SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA` | String       | Snowflake Schema that has the legacy Raw Snapshot events.                                  |
 
 ## Roadmap
 
