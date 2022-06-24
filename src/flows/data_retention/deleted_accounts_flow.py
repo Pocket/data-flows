@@ -23,8 +23,12 @@ def query_file(file_name: str, **kwargs):
 # with Flow(FLOW_NAME, schedule=get_cron_schedule(cron="0 0 1 * *")) as flow:
 with Flow(FLOW_NAME) as flow:
     # Maintain a list of deleted accounts in a protected DB/Schema tables
-    add_deleted_users_result = query_file(file_name='deleted_account_users.sql')
-    add_deleted_emails_result = query_file(file_name='deleted_account_emails.sql')
+    add_deleted_users_result = query_file(file_name='deleted_account_users.sql',
+                                          task_args=dict(name="Saving Deleted User Account: user_ids")
+                                          )
+    add_deleted_emails_result = query_file(file_name='deleted_account_emails.sql',
+                                          task_args=dict(name="Saving Deleted User Account: emails")
+                                          )
     add_deleted_emails_result.set_upstream(add_deleted_users_result)
 
     backup_results = [
@@ -35,13 +39,20 @@ with Flow(FLOW_NAME) as flow:
     delete_snowplow_events_result = query_file(file_name='delete_snowplow_events.sql',
                                                database=config.SNOWFLAKE_SNOWPLOW_DB,
                                                schema=config.SNOWFLAKE_SNOWPLOW_SCHEMA,
-                                               upstream_tasks=backup_results)
+                                               upstream_tasks=backup_results,
+                                               task_args=dict(name=f"Deleting Snowplow raw events from "
+                                                                   f"{config.SNOWFLAKE_SNOWPLOW_DB}/"
+                                                                   f"{config.SNOWFLAKE_SNOWPLOW_SCHEMA}")
+                                               )
 
     # Delete Raw data of deleted user accounts from other streaming sources
     delete_raw_data_result = query_file(file_name='delete_raw_user_rows.sql',
                                         database=config.SNOWFLAKE_RAWDATA_DB,
                                         schema=config.SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA,
-                                        upstream_tasks=backup_results)
+                                        upstream_tasks=backup_results,
+                                        task_args=dict(name=f"Deleting Raw data from {config.SNOWFLAKE_RAWDATA_DB}"
+                                                            f"/{config.SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA}")
+                                        )
 
 if __name__ == "__main__":
     flow.run()
