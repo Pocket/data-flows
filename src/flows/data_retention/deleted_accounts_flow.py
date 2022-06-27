@@ -35,6 +35,7 @@ with Flow(FLOW_NAME) as flow:
         add_deleted_users_result,
         add_deleted_emails_result,
     ]
+
     # Delete Snowplow Raw events of deleted user accounts
     delete_snowplow_events_result = query_file(file_name='delete_snowplow_events.sql',
                                                database=config.SNOWFLAKE_SNOWPLOW_DB,
@@ -52,11 +53,17 @@ with Flow(FLOW_NAME) as flow:
                                         )
 
     # Delete Snapshot Raw data of deleted user accounts from other streaming sources
-    delete_raw_data_result = query_file(file_name='delete_snapshot_firehose_rows.sql',
+    delete_snapshot_data_result = query_file(file_name='delete_snapshot_firehose_rows.sql',
                                         database=config.SNOWFLAKE_SNAPSHOT_DB,
                                         schema=config.SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA,
                                         upstream_tasks=backup_results,
                                         task_args=dict(name="DeletingRawData_SnapshotFirehose")
+                                        )
+
+    # Delete Snapshot.Redshift data for deleted user accounts
+    delete_snapshot_redshift_data_result = query_file(file_name='delete_miscellaneous_table_rows.sql',
+                                        upstream_tasks=backup_results,
+                                        task_args=dict(name="DeletingRawData_MiscellaneousTable")
                                         )
 
 if __name__ == "__main__":
