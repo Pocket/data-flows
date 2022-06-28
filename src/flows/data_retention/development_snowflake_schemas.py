@@ -23,7 +23,7 @@ SELECT catalog_name as database,
        last_altered
 FROM information_schema.schemata
 WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP())
-AND schema_name not in ('DBT_SBISWAS', 'PUBLIC');
+AND schema_name not in ('DBT_SBISWAS', 'PUBLIC', 'DBT', 'DBT_STAGING');
 """
 """
 We are excluding schema `DBT_SBISWAS` as its being actively used for delivering Android push notifications experiments.
