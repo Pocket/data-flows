@@ -20,8 +20,8 @@ def query_file(file_name: str, **kwargs):
     )
 
 
-# with Flow(FLOW_NAME, schedule=get_cron_schedule(cron="0 0 1 * *")) as flow:
-with Flow(FLOW_NAME) as flow:
+with Flow(FLOW_NAME, schedule=get_cron_schedule(cron="0 0 15 * *")) as flow:
+
     # Maintain a list of deleted accounts in a protected DB/Schema tables
     add_deleted_users_result = query_file(file_name='deleted_account_users.sql',
                                           task_args=dict(name="SavingDeletedUserAccount_user_ids")
@@ -60,10 +60,16 @@ with Flow(FLOW_NAME) as flow:
                                         task_args=dict(name="DeletingRawData_SnapshotFirehose")
                                         )
 
-    # Delete Snapshot.Redshift data for deleted user accounts
-    delete_snapshot_redshift_data_result = query_file(file_name='delete_miscellaneous_table_rows.sql',
+    # Delete Miscellaneous table data for deleted user accounts
+    delete_miscellaneous_data_result = query_file(file_name='delete_miscellaneous_table_rows.sql',
                                         upstream_tasks=backup_results,
                                         task_args=dict(name="DeletingRawData_MiscellaneousTable")
+                                        )
+
+    # Delete Stripe data for deleted user accounts
+    delete_stripe_data_result = query_file(file_name='delete_stripe_table_rows.sql',
+                                        upstream_tasks=backup_results,
+                                        task_args=dict(name="DeletingRawData_Stripe")
                                         )
 
 if __name__ == "__main__":
