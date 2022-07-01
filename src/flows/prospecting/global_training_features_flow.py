@@ -10,7 +10,16 @@ from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 
 DAY_IN_MINUTES = 1440
+QUERY_PARAMS = {
+    "PROSPECT_SURFACE_GUID": "NEW_TAB_EN_US",
+    "SURFACE_START_DATE": "2022-05-30",
+    "MAX_INC_AGE": 1,
+    "MAX_BACKFILL_AGE": 360,
+    "PROSPECT_LEGACY_FEED_ID": 1
+}
+
 FLOW_NAME = get_flow_name(__file__)
+
 
 def create_global_prospect_record(row: pd.Series):
     now = datetime.datetime.utcnow()
@@ -22,24 +31,17 @@ def create_global_prospect_record(row: pd.Series):
                   )
     return record
 
-def load_query(query_file: str) -> str:
-    print("loading inc query")
-    with open(query_file, "r") as fp:
-        query = fp.read()
-    return query
-
 
 @task()
 def check_refresh(refresh: bool):
     return refresh == True
 
 @task()
-def load_refresh_query():
-    return load_query("global_training_full.sql")
-
-@task()
-def load_inc_query():
-    return load_query("global_training_inc.sql")
+def load_query(query_file: str) -> str:
+    print(f"loading query from {query_file}")
+    with open(query_file, "r") as fp:
+        query = fp.read()
+    return query
 
 @task()
 def load_feature_record(prospects_df: pd.DataFrame, feature_group_name: str):
@@ -55,34 +57,33 @@ def load_feature_record(prospects_df: pd.DataFrame, feature_group_name: str):
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=DAY_IN_MINUTES)) as flow:
 
+    print(f"Starting flow {FLOW_NAME}")
     # full_refresh if feature group needs to be rebuilt from scratch, e.g. schema change
     full_refresh = Parameter("full_refresh", default=False)
 
     training_feature_group = Parameter("feature group",
                                        default=f"{config.ENVIRONMENT}-global-prospect-modeling-data-v1")
 
-    query_params = {
-        "PROSPECT_SURFACE_GUID": "NEW_TAB_EN_US",
-        "SURFACE_START_DATE": "2022-05-30",
-        "MAX_INC_AGE": 1,
-        "MAX_BACKFILL_AGE": 360,
-        "PROSPECT_LEGACY_FEED_ID": 1
-    }
+    refresh_query_file = Parameter("refresh_query_file",
+                                   default="global_training_full.sql")
+
+    inc_query_file = Parameter("inc_query_file",
+                               default="global_training_inc.sql")
 
     refresh = check_refresh(full_refresh)
     print(refresh)
 
     with case(refresh, True):
-        query_r = load_refresh_query()
+        query_r = load_query(refresh_query_file)
 
     with case(refresh, False):
-        query_i = load_inc_query()
+        query_i = load_query(inc_query_file)
 
     query = merge(query_i, query_r)
 
     reviewed_prospects = PocketSnowflakeQuery()(
         query=query,
-        data=query_params,
+        data=QUERY_PARAMS,
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
         output_type=OutputType.DATA_FRAME,
@@ -91,4 +92,4 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=DAY_IN_MINUTES)) as 
     load_feature_record(reviewed_prospects, feature_group_name=training_feature_group)
 
 if __name__ == "__main__":
-    flow.run(parameters=dict(full_refresh=True))
+    flow.run(parameters=dict(full_refresh=False))
