@@ -12,19 +12,7 @@ SETUP_MOMENT_EDITORIAL_CORPUS_CANDIDATE_SET_ID = '57d544d6-0758-4cd1-a7b4-86f454
 """
 Data taken from: https://docs.google.com/spreadsheets/d/1gdl9695Ib6Kd0OUX28yD03wJzRAcHiKZkZqn9DVdI2I/edit#gid=1108537720
 
-Steps to dump this data:
-1. Use Snowflake to dump all syndicated items from the Corpus:
-    ```sql
-    SELECT URL, APPROVED_CORPUS_ITEM_EXTERNAL_ID as CORPUS_ID, TITLE, TOPIC
-    FROM "APPROVED_CORPUS_ITEMS"
-    WHERE IS_SYNDICATED = TRUE
-    ORDER BY URL ASC;
-    ```
-2. Open the spreadsheet above. In the 'Syndicated Corpus Items' sheet, choose File > Import. Select the Snowflake dump.
-3. In the 'FINAL PICKS' sheet, copy the 'ID' and 'TOPIC' column into a text editor / IDE.
-4. Convert CSV to Python by doing a regex replace all:
-^(.*)$
-"$1", 
+For steps how to dump this data see the flow readme (setup_moment_editorial_candidates_flow.md).
 """
 CORPUS_IDS = [
     "d65e5540-6d1b-44d5-b3b7-40c3058d5f9e",
