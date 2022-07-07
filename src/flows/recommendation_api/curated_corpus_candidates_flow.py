@@ -1,15 +1,7 @@
-from typing import Dict, Sequence
-import json
-import datetime
-
-from prefect import task, Flow, Parameter, unmapped
-from prefect.tasks.aws.s3 import S3List
-import pandas as pd
-import boto3
-from sagemaker.feature_store.feature_group import FeatureGroup, FeatureValue
-from sagemaker.session import Session
+from prefect import Flow, Parameter
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
+from common_tasks.corpus_candidate_set import create_corpus_candidate_set_record, load_feature_record
 from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 
@@ -30,30 +22,6 @@ QUALIFY row_number() OVER (PARTITION BY APPROVED_CORPUS_ITEM_EXTERNAL_ID ORDER B
 ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC
 LIMIT 500;
 """
-
-
-@task()
-def create_corpus_candidate_set_record(
-        id: str,
-        corpus_items: Dict,
-        unloaded_at: datetime.datetime = datetime.datetime.now()
-) -> Sequence[FeatureValue]:
-    return [
-        FeatureValue('id', id),
-        FeatureValue('unloaded_at', unloaded_at.strftime("%Y-%m-%dT%H:%M:%SZ")),
-        FeatureValue('corpus_items', json.dumps(corpus_items)),
-    ]
-
-
-@task()
-def load_feature_record(record: Sequence[FeatureValue], feature_group_name):
-    boto_session = boto3.Session()
-    feature_store_session = Session(boto_session=boto_session,
-                                    sagemaker_client=boto_session.client(service_name='sagemaker'),
-                                    sagemaker_featurestore_runtime_client=boto_session.client(service_name='sagemaker-featurestore-runtime'))
-    feature_group = FeatureGroup(name=feature_group_name, sagemaker_session=feature_store_session)
-    feature_group.put_record(record)
-
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
     corpus_items = PocketSnowflakeQuery()(
