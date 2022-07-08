@@ -1,7 +1,12 @@
 from prefect import Flow, Parameter
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
-from common_tasks.corpus_candidate_set import create_corpus_candidate_set_record, load_feature_record
+from common_tasks.corpus_candidate_set import (
+    create_corpus_candidate_set_record,
+    load_feature_record,
+    feature_group,
+    validate_corpus_items,
+)
 from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 
@@ -35,7 +40,8 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
         output_type=OutputType.DICT,
     )
 
-    feature_group = Parameter("feature group", default=f"{config.ENVIRONMENT}-corpus-candidate-sets-v1")
+    corpus_items = validate_corpus_items(corpus_items)
+
     feature_group_record = create_corpus_candidate_set_record(
         id=SETUP_MOMENT_CORPUS_CANDIDATE_SET_ID,
         corpus_items=corpus_items,

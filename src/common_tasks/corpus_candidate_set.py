@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Dict, Sequence
+from typing import Dict, Sequence, List
 
 import boto3
 from prefect import task, Parameter
@@ -9,6 +9,19 @@ from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.feature_store.inputs import FeatureValue
 
 from utils import config
+
+
+@task()
+def validate_corpus_items(corpus_items: List[Dict]):
+    min_item_count = 1
+    expected_keys = ['ID', 'TOPIC']
+
+    assert len(corpus_items) >= min_item_count
+    assert all(list(corpus_item.keys()) == expected_keys for corpus_item in corpus_items)
+    assert all(corpus_item['ID'] for corpus_item in corpus_items)
+    assert all(corpus_item['TOPIC'] for corpus_item in corpus_items)
+
+    return corpus_items
 
 
 @task()

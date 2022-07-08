@@ -1,7 +1,12 @@
 from prefect import Flow
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
-from common_tasks.corpus_candidate_set import create_corpus_candidate_set_record, load_feature_record, feature_group
+from common_tasks.corpus_candidate_set import (
+    create_corpus_candidate_set_record,
+    load_feature_record,
+    feature_group,
+    validate_corpus_items,
+)
 from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 
@@ -83,14 +88,12 @@ WHERE APPROVED_CORPUS_ITEM_EXTERNAL_ID IN ({",".join(f"'{corpus_id}'" for corpus
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_CORPUS_ITEMS_SQL,
-        data={
-            'scheduled_at_start_day': -60,
-            'language': 'EN',
-        },
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
         output_type=OutputType.DICT,
     )
+
+    corpus_items = validate_corpus_items(corpus_items)
 
     feature_group_record = create_corpus_candidate_set_record(
         id=SETUP_MOMENT_EDITORIAL_CORPUS_CANDIDATE_SET_ID,
