@@ -10,6 +10,7 @@ from global_training_features_flow import DAY_IN_MINUTES, QUERY_PARAMS, check_re
 FLOW_NAME = get_flow_name(__file__)
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=DAY_IN_MINUTES)) as flow:
+# with Flow(FLOW_NAME) as flow:  # to run in production in pycharm need to disable schedule
 
     # full_refresh if feature group needs to be rebuilt from scratch, e.g. schema change
     full_refresh = Parameter("full_refresh", default=False)

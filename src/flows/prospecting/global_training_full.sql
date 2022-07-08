@@ -47,7 +47,7 @@ backfill_prospects AS (
     JOIN analytics.dbt.content as c
       ON c.resolved_id = p.resolved_id
     WHERE p.feed_id = %(PROSPECT_LEGACY_FEED_ID) s
-      AND DATEDIFF(day, p.time_added, %(SURFACE_START_DATE)s ) BETWEEN 0 AND %(MAX_BACKFILL_AGE) s
+      AND DATEDIFF(day, p.time_added, %(SURFACE_START_DATE)s ) BETWEEN 0 AND %(MAX_BACKFILL_AGE)s
 
 ),
 

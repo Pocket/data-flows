@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 import boto3
+import re
 
 from prefect import task, Flow, Parameter, case
 from prefect.tasks.control_flow import merge
@@ -24,8 +25,9 @@ FLOW_NAME = get_flow_name(__file__)
 def create_global_prospect_record(row: pd.Series):
     now = datetime.datetime.utcnow()
     now_as_string = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    regex = re.compile("[^a-zA-Z 0-9]")
     record = [{"FeatureName": c,
-               "ValueAsString": str(row[c])} for c in row.index]
+               "ValueAsString": regex.sub("", str(row[c]))} for c in row.index]
     record.extend([{"FeatureName": "UNLOADED_AT", "ValueAsString": now_as_string},
                    {"FeatureName": "VERSION", "ValueAsString": "0.1.0"}]
                   )
@@ -56,6 +58,7 @@ def load_feature_record(prospects_df: pd.DataFrame, feature_group_name: str):
 
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=DAY_IN_MINUTES)) as flow:
+# with Flow(FLOW_NAME) as flow:  # to run in production in pycharm need to disable schedule
 
     print(f"Starting flow {FLOW_NAME}")
     # full_refresh if feature group needs to be rebuilt from scratch, e.g. schema change
