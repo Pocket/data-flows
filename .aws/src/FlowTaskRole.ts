@@ -19,6 +19,7 @@ export class FlowTaskRole extends Resource {
       this.getStepFunctionExecuteAccess(),
       this.getResultsS3BucketWriteAccess(resultsBucket),
       this.putFeatureGroupRecordsAccess(),
+      this.getDataProductsSqsWriteAccess(),
     ]);
 
     // Create a role with the above policies.
@@ -89,6 +90,21 @@ export class FlowTaskRole extends Resource {
       actions: ['states:StartExecution'],
       //TODO: Limit the resource to Metaflow step functions
       resources: ['arn:aws:states:*:*:stateMachine:*'],
+      effect: 'Allow',
+    };
+  }
+
+  /**
+   * Give SQS access to send messages.
+   * @private
+   */
+  private getDataProductsSqsWriteAccess(): iam.DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: ['sqs:SendMessage'],
+      resources: [
+        'arn:aws:sqs:*:*:RecommendationAPI-*',
+        'arn:aws:sqs:*:*:ProspectAPI-*',
+      ],
       effect: 'Allow',
     };
   }
