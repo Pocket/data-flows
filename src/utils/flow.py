@@ -1,8 +1,10 @@
 import re
+import os
 from datetime import timedelta
 
 from prefect.engine.results import S3Result
-from prefect.schedules import IntervalSchedule
+from prefect.schedules import IntervalSchedule, Schedule
+from prefect.schedules.clocks import CronClock
 
 from utils.config import PREFECT_S3_RESULT_BUCKET, ENVIRONMENT, ENV_PROD
 
@@ -32,3 +34,26 @@ def get_interval_schedule(minutes: int) -> IntervalSchedule:
         schedule = None
 
     return schedule
+
+def get_cron_schedule(cron: str) -> Schedule:
+    """
+    :return: Prefect Schedule based on CronClock for PROD only environment.
+    """
+    if ENVIRONMENT == ENV_PROD:
+        schedule = Schedule(clocks=[CronClock(cron)])
+    else:
+        schedule = None
+
+    return schedule
+
+
+def get_flow_directory(file_path: str) -> str:
+    """
+    :param file_path: Path of the flow file
+    :return: Path directory
+    """
+    return os.path.dirname(file_path)
+
+
+def get_flow_file_path(flow_path:str, file_path: str) -> str:
+    return os.path.join(get_flow_directory(flow_path), file_path)
