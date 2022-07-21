@@ -1,0 +1,144 @@
+[
+ {
+    "id": "1bf756c0-632f-49e8-9cce-324f38f4cc71",
+    "slug": "business",
+    "curatorLabel": "BUSINESS",
+    "query": "business corporate finance biomedical commerce management economics industry",
+    "algorithmicCandidateID": "70701fe5-0ee5-44ab-bb84-dd7a5041e365",
+    "curatedCandidateID": "c7a0201d-0e36-4b3e-b09a-70dd239f057b",
+    "curatedNotNewTabCandidateID": "962a8efb-2a57-472a-9bd4-2631dc6684f3"
+ },
+ {
+    "id": "1c5f278c-2b59-48aa-96fc-da6b84798474",
+    "slug": "career",
+    "curatorLabel": "CAREER",
+    "query": "career job resume workplace hiring salary employment",
+    "algorithmicCandidateID": "496ae933-d84c-4546-8730-145f0fccf36d",
+    "curatedCandidateID": "f693a2e2-9ed0-49d4-a739-2b25b41da5e3",
+    "curatedNotNewTabCandidateID": "651990d0-d223-46bf-b9d1-007ea312dd88"
+ },
+ {
+    "id": "c29fbf48-0093-49d2-ae55-4e01a3cf800e",
+    "slug": "coronavirus",
+    "curatorLabel": "CORONAVIRUS",
+    "query": "health body beauty weight fitness pain disease hospital nursing nutrition diet",
+    "curatedCandidateID": "c29fbf48-0093-49d2-ae55-4e01a3cf800e"
+ },
+ {
+    "id": "52f6285f-21e5-4492-a31d-d18367042702",
+    "slug": "education",
+    "curatorLabel": "EDUCATION",
+    "query": "education school college teacher learning student classroom",
+    "algorithmicCandidateID": "49f8c31c-bd45-4965-8335-8aab2988b238",
+    "curatedCandidateID": "b85a946e-a093-4f14-8d7d-412b34f1206b",
+    "curatedNotNewTabCandidateID": "3a5f2bf4-c7aa-45c4-9105-4ac548679dd8"
+ },
+ {
+    "id": "c6242e35-4ef7-494f-ae9f-51f95b836424",
+    "slug": "entertainment",
+    "curatorLabel": "ENTERTAINMENT",
+    "query": "entertainment celebrity arts movies music humor television film society",
+    "algorithmicCandidateID": "56053d72-5fd2-4bc3-ae12-5fda3160d96d",
+    "curatedCandidateID": "ad9b3930-9f16-43dc-ae5c-eb14766c1ec9",
+    "curatedNotNewTabCandidateID": "e53ae7b1-5489-45cf-b007-ffffdcac50ba"
+ },
+ {
+    "id": "6795f425-2991-4698-86d2-b4cd986b6e93",
+    "slug": "food",
+    "curatorLabel": "FOOD",
+    "query": "food restaurant drinking cooking desserts baking dining agriculture kitchen",
+    "algorithmicCandidateID": "f0cc2cf4-f6db-48b4-bd50-8fd118e5fb92",
+    "curatedCandidateID": "2da138a0-74c1-405e-9191-1317cc59ceed",
+    "curatedNotNewTabCandidateID": "5b5bc672-59bb-4189-b6c4-79dc9f58242b"
+ },
+ {
+    "id": "fea00efc-ee03-48f5-95dc-148550c0b69c",
+    "slug": "gaming",
+    "curatorLabel": "GAMING",
+    "query": "hobbies video games gaming gamer",
+    "algorithmicCandidateID": "5aa1e0d8-3f56-4bed-9708-f4eaa9b5bb49",
+    "curatedCandidateID": "2bf336d5-1645-4b71-8444-2e5271d7e32c",
+    "curatedNotNewTabCandidateID": "00dbf162-0178-45ce-8926-9fdb9ae3c5e1"
+ },
+ {
+    "id": "26a3efb4-0f82-415a-9f47-7893df85853f",
+    "slug": "health",
+    "curatorLabel": "HEALTH_FITNESS",
+    "query": "health body beauty weight fitness pain disease hospital nursing nutrition diet",
+    "algorithmicCandidateID": "60d62ea8-0518-49e4-8531-fecd486d5220",
+    "curatedCandidateID": "5681d1c4-7e50-4e35-a54b-643a3bd14769",
+    "curatedNotNewTabCandidateID": "37a81a59-9052-455e-9912-763c6d994292"
+ },
+ {
+    "id": "c000cae6-1ec2-416d-9e8c-e9579b22dd45",
+    "slug": "parenting",
+    "curatorLabel": "PARENTING",
+    "query": "parenting kids baby teens relationships",
+    "algorithmicCandidateID": "117e17b3-23cc-4343-91d7-2e1a37da78b0",
+    "curatedCandidateID": "fb1e0d23-28e0-448d-82a8-a7cb0a6c1ad1",
+    "curatedNotNewTabCandidateID": "69efd069-0f7b-4868-b49b-409a02fae83e"
+ },
+ {
+    "id": "1134bf31-c167-4d00-8178-7e5b02b5fc01",
+    "slug": "personal-finance",
+    "curatorLabel": "PERSONAL_FINANCE",
+    "query": "personal finance tax credit debt loans financial retirement insurance investing stocks real estate",
+    "algorithmicCandidateID": "ea2aa748-4c9f-4d0a-9319-f05b19f54102",
+    "curatedCandidateID": "5abdc94e-76d5-4f59-8e8d-22c8ee084a2d",
+    "curatedNotNewTabCandidateID": "acaa5ee8-fd8e-4932-86d6-4411aeb7fe73"
+ },
+ {
+    "id": "0ea5e739-7f95-4703-b824-5c5a4d834388",
+    "slug": "politics",
+    "curatorLabel": "POLITICS",
+    "query": "law politics government society legal policy military democracy economy",
+    "algorithmicCandidateID": "6f96238e-df6e-4ef0-8adc-48dc181bbf6a",
+    "curatedCandidateID": "d893eb54-f3ce-43df-a0c9-76cd8fd53d4b",
+    "curatedNotNewTabCandidateID": "c1ae549f-3058-410d-aa81-601f339c7b9a"
+ },
+ {
+    "id": "058011b8-c70d-4a25-92e5-478e3ff0f0e6",
+    "slug": "science",
+    "curatorLabel": "SCIENCE",
+    "query": "science space astronomy biology chemistry environment energy geology weather physics",
+    "algorithmicCandidateID": "70e59f76-d488-48a2-b99d-076f667bb9e4",
+    "curatedCandidateID": "81754b9d-ff5b-454f-ba97-9ce72d9fc747",
+    "curatedNotNewTabCandidateID": "207828a9-5962-4ea0-8ec2-78e694af6606"
+ },
+ {
+    "id": "45f8e740-42e0-4f54-8363-21310a084f1f",
+    "slug": "self-improvement",
+    "curatorLabel": "SELF_IMPROVEMENT",
+    "query": "self-improvement learning habits advice relationships spirituality",
+    "algorithmicCandidateID": "a6696de0-2695-4ab8-b389-6dd82e28ff98",
+    "curatedCandidateID": "5857f00b-634f-441d-9fe9-e892a5743f48",
+    "curatedNotNewTabCandidateID": "2113e88f-1c2a-4181-8bc3-3e936496f4d1"
+ },
+ {
+    "id": "06bbe29a-7ae8-4e66-a94e-0dbf10bf2f70",
+    "slug": "sports",
+    "curatorLabel": "SPORTS",
+    "query": "sports athletics boxing cycling tennis running olympics football baseball basketball soccer surfing swimming skiing",
+    "algorithmicCandidateID": "88424d81-8737-4cab-aa72-64496d015a03",
+    "curatedCandidateID": "81ee1a0f-19a2-4a26-8223-75baffab5af0",
+    "curatedNotNewTabCandidateID": "cb69b5a1-c20d-4218-ab89-c577c7bfa20b"
+ },
+ {
+    "id": "25c716f1-e1b2-43db-bf52-1a5553d9fb74",
+    "slug": "technology",
+    "curatorLabel": "TECHNOLOGY",
+    "query": "technology ai web digital tech biotech computing software network data email mobile internet",
+    "algorithmicCandidateID": "46ec119b-2705-4631-8cc2-69092b95b26a",
+    "curatedCandidateID": "e78cc946-c042-4607-abb1-b25f759df059",
+    "curatedNotNewTabCandidateID": "6ad94e1d-11e5-4d05-8ad7-8ff3faec3e9d"
+ },
+ {
+    "id": "7dc49254-686d-46e1-aa94-7ac3e7767f66",
+    "slug": "travel",
+    "curatorLabel": "TRAVEL",
+    "query": "vacation trip tourism travel airplane cruises hotels",
+    "algorithmicCandidateID": "1da85dce-44f5-42ed-9c06-e95ebc797a65",
+    "curatedCandidateID": "e10b7582-73e8-40b2-bba9-84e27b8de046",
+    "curatedNotNewTabCandidateID": "8130b37a-9703-4ea1-a4ba-2ded7be7d643"
+ }
+]

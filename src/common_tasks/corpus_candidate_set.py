@@ -14,10 +14,10 @@ from utils import config
 @task()
 def validate_corpus_items(corpus_items: List[Dict]):
     min_item_count = 1
-    expected_keys = ['ID', 'TOPIC']
+    expected_keys = {'ID', 'TOPIC'}
 
     assert len(corpus_items) >= min_item_count
-    assert all(list(corpus_item.keys()) == expected_keys for corpus_item in corpus_items)
+    assert all((expected_keys - set(corpus_item.keys())) == set() for corpus_item in corpus_items)
     assert all(corpus_item['ID'] for corpus_item in corpus_items)
     assert all(corpus_item['TOPIC'] for corpus_item in corpus_items)
 
