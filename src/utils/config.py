@@ -48,22 +48,12 @@ SNOWFLAKE_SNAPSHOT_DB = os.getenv('SNOWFLAKE_SNAPSHOT_DB')
 SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA = os.getenv('SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA')
 
 
-# SQS
-
 SQS_MESSAGE_VERSION = 3
-FIREHOSE_NAME = os.getenv('FIREHOSE_NAME')
-SQS_REC_QUEUE = os.getenv('SQS_REC_QUEUE')
-SQS_PROSPECT_QUEUE = os.getenv('SQS_PROSPECT_QUEUE')
+SQS_REC_QUEUE = 'RecommendationAPI-Prod-Sqs-Translation-Queue' \
+    if ENVIRONMENT == ENV_PROD \
+    else 'RecommendationAPI-Dev-Sqs-Translation-Queue'
+SQS_PROSPECT_QUEUE = 'ProspectAPI-Prod-Sqs-Translation-Queue' \
+    if ENVIRONMENT == ENV_PROD \
+    else 'ProspectAPI-Dev-Sqs-Translation-Queue'
 
 
-@dataclass
-class SQSInfo:
-    name: CandidateType
-    sqs_queue: str
-
-
-class SQSConfig:
-    recommendation = SQSInfo(name=CandidateType.recommendation,
-                             sqs_queue=SQS_REC_QUEUE)
-    prospecting = SQSInfo(name=CandidateType.prospect,
-                          sqs_queue=SQS_PROSPECT_QUEUE)

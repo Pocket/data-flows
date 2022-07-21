@@ -15,6 +15,9 @@ from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID
 Builds Coronovirus candidate set and writes it to SQS and Feature Store
 '''
 
+# todo: switch to generic curated topic flow
+
+
 FLOW_NAME = get_flow_name(__file__)
 
 CORONAVIRUS_CANDIDATE_SET_ID = 'c29fbf48-0093-49d2-ae55-4e01a3cf800e'
@@ -37,6 +40,15 @@ ORDER BY s.scheduled_corpus_item_scheduled_at DESC
 LIMIT 60
 """
 
+
+def transform(corpus_items: dict) -> List[RecommendationCandidate]:
+    return [RecommendationCandidate(
+        item_id=recommendation_item["resolved_id"],
+        publisher=recommendation_item["publisher"],
+        feed_id=NewTabFeedID.en_US
+    ) for recommendation_item in corpus_items]
+
+
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=CORONAVIRUS_SQL,
@@ -49,22 +61,15 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
         output_type=OutputType.DICT,
     )
 
-    #todo: blocklists?
-
-    # SafeMaker Feature Store won't be used until we switch in RecAPI
-    print("Posting Coronavirus candidates to SageMaker Feature store.")
+    # SageMaker Feature Store won't be used until we switch in RecAPI
     feature_group_record = create_corpus_candidate_set_record(
         id=CORONAVIRUS_CANDIDATE_SET_ID,
         corpus_items=corpus_items,
     )
     load_feature_record(feature_group_record, feature_group_name=feature_group)
 
-    print("Posting Coronavirus candidates to SQS.")
-    candidates = [RecommendationCandidate(
-        item_id=recommendation_item["resolved_id"],
-        publisher=recommendation_item["publisher"],
-        feed_id=NewTabFeedID.en_US
-    ) for recommendation_item in corpus_items]
+    # write to sqs
+    candidates = transform(corpus_items)
     put_results(CORONAVIRUS_CANDIDATE_SET_ID, candidates, curated=True)
 
 if __name__ == "__main__":
