@@ -26,7 +26,7 @@ CORONAVIRUS_CANDIDATE_SET_ID = 'c29fbf48-0093-49d2-ae55-4e01a3cf800e'
 
 CORONAVIRUS_SQL = """
 SELECT
-    s.resolved_id,   
+    s.resolved_id as id,   
     c.top_domain_name as publisher,
     s.resolved_url,
     s.scheduled_corpus_item_scheduled_at,
@@ -42,17 +42,25 @@ ORDER BY s.scheduled_corpus_item_scheduled_at DESC
 LIMIT 60
 """
 
+
 @task()
-def transform(corpus_items: dict) -> List[RecommendationCandidate]:
+def transform_to_candidates(records: dict) -> List[RecommendationCandidate]:
     return [RecommendationCandidate(
-        item_id=recommendation_item["resolved_id"],
-        publisher=recommendation_item["publisher"],
-        feed_id=NewTabFeedID.en_US
-    ) for recommendation_item in corpus_items]
+        item_id=rec["ID"],
+        publisher=rec["PUBLISHER"],
+        feed_id=int(NewTabFeedID.en_US)
+    ) for rec in records]
+
+
+@task()
+def transform_to_corpus_items(records: dict) -> List[dict]:
+    return [
+        {'ID': rec['ID'], 'TOPIC': rec['TOPIC']}
+        for rec in records]
 
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
-    corpus_items = PocketSnowflakeQuery()(
+    records = PocketSnowflakeQuery()(
         query=CORONAVIRUS_SQL,
         data={
             'scheduled_at_start_day': -60,
@@ -63,9 +71,9 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
         output_type=OutputType.DICT,
     )
 
-    corpus_items = validate_corpus_items(corpus_items)
-
     # SageMaker Feature Store won't be used until we switch in RecAPI
+    corpus_items = transform_to_corpus_items(records)
+    corpus_items = validate_corpus_items(corpus_items)
     feature_group_record = create_corpus_candidate_set_record(
         id=CORONAVIRUS_CANDIDATE_SET_ID,
         corpus_items=corpus_items,
@@ -73,7 +81,7 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
     load_feature_record(feature_group_record, feature_group_name=feature_group)
 
     # write to sqs
-    candidates = transform(corpus_items)
+    candidates = transform_to_candidates(records)
     put_results(CORONAVIRUS_CANDIDATE_SET_ID, candidates, curated=True)
 
 if __name__ == "__main__":
