@@ -1,19 +1,15 @@
-import logging
-import sys
-import urllib
 import json
 import time
 import uuid
-import boto3
-import os
-import pandas as pd
-from prefect import task
-
-from collections import Counter
-from typing import Tuple, Dict, List, Union, Set
-from typing import Optional, List
-from pydantic import BaseModel, root_validator
+from dataclasses import dataclass
 from enum import Enum
+from typing import Optional, List
+from typing import Union
+
+import boto3
+import prefect
+from prefect import task
+from pydantic import BaseModel, root_validator
 
 from utils.config import SQS_MESSAGE_VERSION, SQS_REC_QUEUE, SQS_PROSPECT_QUEUE
 
@@ -22,19 +18,6 @@ ONE_WEEK_S = ONE_DAY_S * 7
 
 
 # todo: remove sqs when we finished migration to SageMaker Feature Store
-
-@dataclass
-class SQSInfo:
-    name: CandidateType
-    sqs_queue: str
-
-
-class SQSConfig:
-    recommendation = SQSInfo(name=CandidateType.recommendation,
-                             sqs_queue=SQS_REC_QUEUE)
-    prospecting = SQSInfo(name=CandidateType.prospect,
-                          sqs_queue=SQS_PROSPECT_QUEUE)
-
 
 class RecommendationCandidate(BaseModel):
     item_id: int
@@ -81,6 +64,19 @@ class NewTabFeedID(int, Enum):
     en_INTL = 8
 
 
+@dataclass
+class SQSInfo:
+    name: CandidateType
+    sqs_queue: str
+
+
+class SQSConfig:
+    recommendation = SQSInfo(name=CandidateType.recommendation,
+                             sqs_queue=SQS_REC_QUEUE)
+    prospecting = SQSInfo(name=CandidateType.prospect,
+                          sqs_queue=SQS_PROSPECT_QUEUE)
+
+
 @task()
 def put_results(candidate_set_id: str,
                 candidates: Union[List[RecommendationCandidate], List[CurationProspect]],
@@ -99,8 +95,8 @@ def put_results(candidate_set_id: str,
     # note there are extra fields in this model not present in the recommendation-api
     # candidate set model, however they should pass through
     candidate_set = CandidateSet(id=candidate_set_id,
-                                 flow=current.flow_name,
-                                 run=current.run_id,
+                                 flow=prefect.context.flow_name,
+                                 run=prefect.context.flow_run_id,
                                  expires_at=int(time.time() + expires_in_s),
                                  type=candidate_type,
                                  version=SQS_MESSAGE_VERSION,
