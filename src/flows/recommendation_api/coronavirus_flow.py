@@ -1,4 +1,6 @@
-from prefect import Flow, Parameter
+from typing import List
+
+from prefect import Flow, task
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from common_tasks.corpus_candidate_set import (
@@ -40,7 +42,7 @@ ORDER BY s.scheduled_corpus_item_scheduled_at DESC
 LIMIT 60
 """
 
-
+@task()
 def transform(corpus_items: dict) -> List[RecommendationCandidate]:
     return [RecommendationCandidate(
         item_id=recommendation_item["resolved_id"],
@@ -60,6 +62,8 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
         output_type=OutputType.DICT,
     )
+
+    corpus_items = validate_corpus_items(corpus_items)
 
     # SageMaker Feature Store won't be used until we switch in RecAPI
     feature_group_record = create_corpus_candidate_set_record(
