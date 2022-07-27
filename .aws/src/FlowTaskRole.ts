@@ -100,7 +100,7 @@ export class FlowTaskRole extends Resource {
    */
   private getDataProductsSqsWriteAccess(): iam.DataAwsIamPolicyDocumentStatement {
     return {
-      actions: ['sqs:SendMessage'],
+      actions: ['sqs:SendMessage', 'sqs:GetQueueUrl'],
       resources: [
         'arn:aws:sqs:*:*:RecommendationAPI-*',
         'arn:aws:sqs:*:*:ProspectAPI-*',
