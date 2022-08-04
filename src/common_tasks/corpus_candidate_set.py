@@ -18,8 +18,8 @@ def validate_corpus_items(corpus_items: List[Dict]):
 
     assert len(corpus_items) >= min_item_count
     assert all(list(corpus_item.keys()) == expected_keys for corpus_item in corpus_items)
-    assert all(corpus_item['ID'] for corpus_item in corpus_items)
-    assert all(corpus_item['TOPIC'] for corpus_item in corpus_items)
+    assert all(isinstance(corpus_item['ID'], str) and corpus_item['ID'] != '' for corpus_item in corpus_items)
+    assert all(isinstance(corpus_item['TOPIC'], str) and corpus_item['TOPIC'] != '' for corpus_item in corpus_items)
 
     return corpus_items
 

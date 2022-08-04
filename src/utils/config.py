@@ -46,3 +46,14 @@ SNOWFLAKE_RAWDATA_DB = os.getenv('SNOWFLAKE_RAWDATA_DB')
 SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA = os.getenv('SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA')
 SNOWFLAKE_SNAPSHOT_DB = os.getenv('SNOWFLAKE_SNAPSHOT_DB')
 SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA = os.getenv('SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA')
+
+
+SQS_MESSAGE_VERSION = 3
+SQS_REC_QUEUE = 'RecommendationAPI-Prod-Sqs-Translation-Queue' \
+    if ENVIRONMENT == ENV_PROD \
+    else 'RecommendationAPI-Dev-Sqs-Translation-Queue'
+SQS_PROSPECT_QUEUE = 'ProspectAPI-Prod-Sqs-Translation-Queue' \
+    if ENVIRONMENT == ENV_PROD \
+    else 'ProspectAPI-Dev-Sqs-Translation-Queue'
+
+
