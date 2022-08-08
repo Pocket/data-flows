@@ -14,7 +14,7 @@ FLOW_NAME = get_flow_name(__file__)
 # Export approved candidate items by language and recency
 EXPORT_CORPUS_ITEMS_SQL = """
 SELECT 
-    a.resolved_id as "ID", 
+    a.resolved_id as "ID",
     c.top_domain_name as "PUBLISHER"
 FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS" as a
 JOIN "ANALYTICS"."DBT".content as c ON c.content_id = a.content_id
@@ -25,16 +25,14 @@ AND a.LANGUAGE = 'EN'
 
 GET_TOPICS_SQL = """
 select 
-    CURATEDCANDIDATEID as "CURATED_CORPUS_CANDIDATE_SET_ID",
-    CORPUS_TOPIC_ID as "CORPUS_TOPIC_ID"    
-from "ANALYTICS"."DBT"."STATIC_TOPIC_MAP_GUIDS" as m
-join "ANALYTICS"."DBT"."STATIC_TOPIC_LIST" as t on t.id = m.id
-where CURATEDCANDIDATEID is not null and CORPUS_TOPIC_ID is not null
+    LEGACY_CURATED_CORPUS_CANDIDATE_SET_ID as "LEGACY_CURATED_CORPUS_CANDIDATE_SET_ID",
+    CORPUS_TOPIC_ID as "CORPUS_TOPIC_ID"
+from "ANALYTICS"."DBT"."STATIC_CORPUS_CANDIDATE_SET_TOPICS"
 """
 
 @task()
 def get_candidate_set_ids(topics):
-    return [i['CURATED_CORPUS_CANDIDATE_SET_ID'] for i in topics]
+    return [i['LEGACY_CURATED_CORPUS_CANDIDATE_SET_ID'] for i in topics]
 
 @task()
 def transform_to_candidates(records: dict) -> List[RecommendationCandidate]:
