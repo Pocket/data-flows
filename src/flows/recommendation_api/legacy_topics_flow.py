@@ -57,7 +57,7 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30), executor=LocalD
     # Fetch the most recent Topic Candidate Items
     topic_candidate_items = query.map(data=topics, query=unmapped(EXPORT_CORPUS_ITEMS_SQL))
 
-    # Fetch the most recent Topic Candidate Items
+    # Validate Topic Candidate Items
     valid_topic_candidate_items = validate_candidate_items.map(topic_candidate_items)
 
     # Write Topic Candidate sets to SQS
