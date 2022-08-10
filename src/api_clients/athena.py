@@ -26,20 +26,11 @@ def AthenaQuery(query: str = None):
             raise Exception('Athena query "{}" failed or was cancelled'.format(query))
         sleep(1)
 
-    response = client.get_table_metadata(
-        CatalogName="AwsDataCatalog",
-        DatabaseName="sagemaker_featurestore",
-        TableName="development-user-recommendation-preferences-v1-1654826050",
-    )
-    columns = [
-        col['Name']
-        for col in response['TableMetadata']['Columns']
-    ]
-
     response = client.get_query_results(
         QueryExecutionId=QueryExecutionId,
         MaxResults=20
     )
+    columns = [col.get('VarCharValue') for col in response['ResultSet']['Rows'][0]['Data']]
     results = [[data.get('VarCharValue') for data in row['Data']] for row in response['ResultSet']['Rows'][1:]]
 
     df = pd.DataFrame(results, columns=columns)
