@@ -40,7 +40,8 @@ def AthenaQuery(query: str = None):
         QueryExecutionId=QueryExecutionId,
         MaxResults=20
     )
-    results = [[data.get('VarCharValue') for data in row['Data']] for row in response['ResultSet']['Rows'][1:]]
+    return [[data.get('VarCharValue') for data in row['Data']] for row in response['ResultSet']['Rows'][1:]]
+    # return [{'user_id': 123, 'updated_at': '...'}]
 
-    df = pd.DataFrame(results, columns=columns)
-    return df
+    # df = pd.DataFrame(results, columns=columns)
+    # return df

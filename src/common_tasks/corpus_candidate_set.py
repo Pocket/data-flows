@@ -49,6 +49,7 @@ def create_corpus_candidate_set_record(
     ]
 
 
+# TODO: Move this out of corpus_candidate_set, because this is a generic task to ingest into Feature Store.
 @task()
 def load_feature_record(record: Sequence[FeatureValue], feature_group_name):
     boto_session = boto3.Session()
