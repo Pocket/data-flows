@@ -65,8 +65,6 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     user_topics_prefs = AthenaQuery(
         query=ATHENA_SQL,
     )
-
-    # Extracts user preferences from the v1 (integer user_id based) Feature group using Athena query
     user_topics_pref_rows = get_user_topics_pref_rows(user_topics_prefs)
 
     # Prepare v2 user preferences using user_id to hash_user_id maps from Snowflake DB
