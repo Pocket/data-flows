@@ -142,6 +142,7 @@ Replace `{Env}` with the environment name as defined in
 | `/DataFlows/{Env}/SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA`  | String       | Snowflake Schema that has the legacy Raw events.                                           |
 | `/DataFlows/{Env}/SNOWFLAKE_SNAPSHOT_DB`              | String       | Snowflake DB that has the legacy Raw Snapshot events.                                      |
 | `/DataFlows/{Env}/SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA` | String       | Snowflake Schema that has the legacy Raw Snapshot events.                                  |
+| `/DataFlows/{Env}/ATHENA_S3_OUTPUT`                   | String       | S3 staging location for Athena query execution                                             |
 
 ## Roadmap
 
