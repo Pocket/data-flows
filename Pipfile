@@ -11,6 +11,7 @@ pyarrow = "==7.0.0"
 s3fs = {version = "==0.4.2", extras = ["boto3"]}
 sagemaker = "==2.80.0"
 pydantic = "*"
+scipy = "*"
 
 [dev-packages]
 graphviz = "==0.19.1"
