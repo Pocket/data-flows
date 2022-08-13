@@ -18,8 +18,7 @@ export class FlowTaskRole extends Resource {
       this.getDataLearningS3BucketReadAccess(),
       this.getStepFunctionExecuteAccess(),
       this.getS3BucketWriteAccess(resultsBucket),
-      this.getS3BucketWriteAccess(athenaQueryOutputBucket),
-      this.athenaAccess(),
+      ...this.athenaAccess(athenaQueryOutputBucket),
       this.putFeatureGroupRecordsAccess(),
       this.getDataProductsSqsWriteAccess(),
     ]);
@@ -127,21 +126,34 @@ export class FlowTaskRole extends Resource {
    * Give access to query Athena
    * @private
    */
-  private athenaAccess(): iam.DataAwsIamPolicyDocumentStatement {
-    return {
-      actions: [
-        'athena:GetQueryExecution',
-        'athena:GetQueryResults',
-        'athena:GetWorkGroup',
-        'athena:ListDatabases',
-        'athena:ListDataCatalogs',
-        'athena:ListTableMetadata',
-        'athena:StartQueryExecution',
-        'athena:StopQueryExecution',
-      ],
-      resources: ['*'],
-      effect: 'Allow',
-    };
+  private athenaAccess(athenaQueryOutputBucket: s3.S3Bucket): iam.DataAwsIamPolicyDocumentStatement[] {
+    return [
+      this.getS3BucketWriteAccess(athenaQueryOutputBucket),
+      {
+        actions: [
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          'athena:GetWorkGroup',
+          'athena:ListDatabases',
+          'athena:ListDataCatalogs',
+          'athena:ListTableMetadata',
+          'athena:StartQueryExecution',
+          'athena:StopQueryExecution',
+        ],
+        resources: ['*'],
+        effect: 'Allow',
+      },
+      {
+        actions: ['glue:GetJob*', 'glue:GetTable*', 'glue:GetWorkflowRun'],
+        resources: ['*'],
+      },
+      {
+        resources: [
+          'arn:aws:glue:*:*:database/sagemaker_featurestore',
+        ],
+        actions: ['glue:GetDatabase'],
+      }
+    ];
   }
 
   /**
