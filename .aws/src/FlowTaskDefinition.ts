@@ -95,7 +95,7 @@ export class FlowTaskDefinition extends Resource {
         },
         {
           name: 'PREFECT_S3_ATHENA_QUERY_OUTPUT_BUCKET',
-          value: athenaQueryOutputBucket.bucket,
+          value: `s3://${athenaQueryOutputBucket.bucket}/`,
         },
       ],
       secretEnvVars: secretEnvVars,
