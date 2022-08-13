@@ -6,7 +6,7 @@ import { config } from './config';
 export class FlowTaskRole extends Resource {
   public readonly iamRole: iam.IamRole;
 
-  constructor(scope: Construct, name: string, resultsBucket: s3.S3Bucket) {
+  constructor(scope: Construct, name: string, resultsBucket: s3.S3Bucket, athenaQueryOutputBucket: s3.S3Bucket) {
     super(scope, name);
 
     const existingPolicies = this.getExistingPolicies(
@@ -17,7 +17,9 @@ export class FlowTaskRole extends Resource {
     const flowPolicy = this.createPolicy([
       this.getDataLearningS3BucketReadAccess(),
       this.getStepFunctionExecuteAccess(),
-      this.getResultsS3BucketWriteAccess(resultsBucket),
+      this.getS3BucketWriteAccess(resultsBucket),
+      this.getS3BucketWriteAccess(athenaQueryOutputBucket),
+      this.athenaAccess(),
       this.putFeatureGroupRecordsAccess(),
       this.getDataProductsSqsWriteAccess(),
     ]);
@@ -122,11 +124,31 @@ export class FlowTaskRole extends Resource {
   }
 
   /**
-   * Give write access to the Results Bucket, such that Prefect can write the task output data to it.
-   * @see https://docs.prefect.io/core/concepts/results.html#result-objects
+   * Give access to query Athena
    * @private
    */
-  private getResultsS3BucketWriteAccess(
+  private athenaAccess(): iam.DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: [
+        'athena:GetQueryExecution',
+        'athena:GetQueryResults',
+        'athena:GetWorkGroup',
+        'athena:ListDatabases',
+        'athena:ListDataCatalogs',
+        'athena:ListTableMetadata',
+        'athena:StartQueryExecution',
+        'athena:StopQueryExecution',
+      ],
+      resources: ['*'],
+      effect: 'Allow',
+    };
+  }
+
+  /**
+   * Give write access to the Bucket.
+   * @private
+   */
+  private getS3BucketWriteAccess(
     s3Bucket: s3.S3Bucket
   ): iam.DataAwsIamPolicyDocumentStatement {
     return {
