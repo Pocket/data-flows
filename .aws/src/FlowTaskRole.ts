@@ -152,7 +152,13 @@ export class FlowTaskRole extends Resource {
     s3Bucket: s3.S3Bucket
   ): iam.DataAwsIamPolicyDocumentStatement {
     return {
-      actions: ['s3:GetObject*', 's3:PutObject*', 's3:ListBucket*'],
+      actions: [
+        's3:GetObject*',
+        's3:PutObject*',
+        's3:ListBucket*',
+        's3:GetBucketLocation',
+        's3:AbortMultipartUpload',
+      ],
       resources: [s3Bucket.arn, `${s3Bucket.arn}/*`],
       effect: 'Allow',
     };
