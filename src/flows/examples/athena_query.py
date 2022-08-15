@@ -7,8 +7,8 @@ from utils.flow import get_flow_name
 
 FLOW_NAME = get_flow_name(__file__)
 
-ATHENA_DATABASE = 'development-user-recommendation-preferences-v1-1654826050' if ENVIRONMENT == ENV_PROD else \
-    'production-user-recommendation-preferences-v1-1654798646'
+ATHENA_DATABASE = 'production-user-recommendation-preferences-v1-1654798646' if ENVIRONMENT == ENV_PROD else \
+    'development-user-recommendation-preferences-v1-1654826050'
 
 
 @task()
