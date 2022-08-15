@@ -53,7 +53,6 @@ const prefect = {
       'SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA',
       'SNOWFLAKE_SNAPSHOT_DB',
       'SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA',
-      'ATHENA_S3_OUTPUT',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
