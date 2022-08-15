@@ -23,12 +23,10 @@ class PocketPublisherDatabaseQuery(MySQLFetch):
             database_dbname_env_var_name: str = "POCKET_PUBLISHER_DATABASE_DBNAME",
             database_user_var_name: str = "POCKET_PUBLISHER_DATABASE_USER",
             database_password_var_name: str = "POCKET_PUBLISHER_DATABASE_PASSWORD",
-            cursor_type: str = 'cursor',
             **kwargs: Any,  # See the base SnowflakeQuery class for additional arguments
     ):
         super().__init__(
             query=query,
-            cursor_type=cursor_type,
             **kwargs
         )
         self.database_dbname_env_var_name = database_dbname_env_var_name
@@ -44,7 +42,6 @@ class PocketPublisherDatabaseQuery(MySQLFetch):
         "database_host_env_var_name",
         "database_port_env_var_name",
         "database_password_var_name",
-        "cursor_type",
     )
     def run(
             self,
@@ -59,7 +56,6 @@ class PocketPublisherDatabaseQuery(MySQLFetch):
             database_port: int = None,
             database_password_var_name: str = None,
             database_password: str = None,
-            cursor_type: str = 'cursor',
             **kwargs):
 
         if database_dbname is None and database_dbname_env_var_name in os.environ:
@@ -88,7 +84,6 @@ class PocketPublisherDatabaseQuery(MySQLFetch):
             user=database_user,
             password=database_password,
             db_name=database_dbname,
-            cursor_type=cursor_type,
             **kwargs
         )
 

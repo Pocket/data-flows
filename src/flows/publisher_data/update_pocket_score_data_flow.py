@@ -89,42 +89,28 @@ DELETE FROM `readitla_pub`.content_quality_score_beta_queue
     and content_id = {content_id}
 """
 
+# max signed int
+# 2018-04-11 - We hit the max signed int with our item_ids. This broke tables did not have `unsigned` specified.
+# The hack we are adding here creates a new content_quality_score table (_v2), fixes the column definitions
+# and inserts new items into that table.
+max_content_id = 2147483647
+# score variables
+loss_multiple = 9
+inc_beta_var = float(1) / (1 + loss_multiple)
+open_var = 1
+fav_var = 5
+share_var = 7
 
-with Flow(FLOW_NAME) as flow:
-    # max signed int
-    # 2018-04-11 - We hit the max signed int with our item_ids. This broke tables did not have `unsigned` specified.
-    # The hack we are adding here creates a new content_quality_score table (_v2), fixes the column definitions
-    # and inserts new items into that table.
-    max_content_id = 2147483647
 
-    # score variables
-    loss_multiple = 9
-    inc_beta_var = float(1) / (1 + loss_multiple)
-    open_var = 1
-    fav_var = 5
-    share_var = 7
-
-    # prepare variables
-    first_hour_id = 1357020000
-    current_time = int(time.time())
-    today_hour_id = (current_time / 86400) * 86400
-    current_hour_id = today_hour_id - 86400
-
-    PocketPublisherDatabaseExecute()(
-        query=MOVE_TO_BETA_QUEUE_SQL
-    )
-
-    PocketPublisherDatabaseExecute()(
-        query=TRUNCATE_CONTENT_QUALITY_SQL
-    )
-
+@task()
+def while_loop():
     counter = 0
 
     # loop through array of publisher_ids
 
     while True:
         # query for data needed to calculate score
-        data = PocketPublisherDatabaseQuery()(
+        data = PocketPublisherDatabaseQuery().run(
             query=DATA_FOR_SCORE_CALCULATION_SQL
         )
 
@@ -146,11 +132,11 @@ with Flow(FLOW_NAME) as flow:
                 if save_cnt > 0 or open_cnt > 0 or favorite_cnt > 0 or share_cnt > 0:
 
                     if content_id > max_content_id:
-                        PocketPublisherDatabaseExecute()(
+                        PocketPublisherDatabaseExecute().run(
                             query=INSERT_TO_CONTENT_V1_SQL.format(publisher_id=publisher_id, content_id=content_id)
                         )
                     else:
-                        PocketPublisherDatabaseExecute()(
+                        PocketPublisherDatabaseExecute().run(
                             query=INSERT_TO_CONTENT_V2_SQL.format(
                                 publisher_id=publisher_id, content_id=content_id)
                         )
@@ -178,19 +164,31 @@ with Flow(FLOW_NAME) as flow:
                                    'total_score': total_score, 'publisher_id': publisher_id, 'content_id': content_id}
 
                     if content_id > max_content_id:
-                        PocketPublisherDatabaseExecute()(
+                        PocketPublisherDatabaseExecute().run(
                             query=UPDATE_CONTENT_V2_SQL.format(**update_vars)
                         )
                     else:
-                        PocketPublisherDatabaseExecute()(
+                        PocketPublisherDatabaseExecute().run(
                             query=UPDATE_CONTENT_V1_SQL.format(**update_vars)
                         )
 
-            PocketPublisherDatabaseExecute()(
+            PocketPublisherDatabaseExecute().run(
                 query=DELETE_BETA_QUEUE_SQL.format(publisher_id=publisher_id, content_id=content_id)
             )
 
             counter += 1
+
+
+with Flow(FLOW_NAME) as flow:
+    PocketPublisherDatabaseExecute()(
+        query=MOVE_TO_BETA_QUEUE_SQL
+    )
+
+    PocketPublisherDatabaseExecute()(
+        query=TRUNCATE_CONTENT_QUALITY_SQL
+    )
+
+    while_loop()
 
 if __name__ == "__main__":
     flow.run()
