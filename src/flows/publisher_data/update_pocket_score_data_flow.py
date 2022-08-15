@@ -4,9 +4,7 @@ from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 from api_clients.pocket_publisher_database_execute import PocketPublisherDatabaseExecute
 from api_clients.pocket_publisher_database_query import PocketPublisherDatabaseQuery
-import time
 import scipy.special
-from datetime import datetime
 
 '''
 Load and update the content quality score in the publisher database
@@ -179,7 +177,7 @@ def while_loop():
             counter += 1
 
 
-with Flow(FLOW_NAME) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(hours=1)) as flow:
     PocketPublisherDatabaseExecute()(
         query=MOVE_TO_BETA_QUEUE_SQL
     )

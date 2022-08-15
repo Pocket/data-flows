@@ -12,6 +12,7 @@ s3fs = {version = "==0.4.2", extras = ["boto3"]}
 sagemaker = "==2.80.0"
 pydantic = "*"
 scipy = "*"
+pymysql = "*"
 
 [dev-packages]
 graphviz = "==0.19.1"
