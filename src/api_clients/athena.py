@@ -5,9 +5,9 @@ from prefect import task
 from utils import config
 
 @task()
-def AthenaQuery(query: str = None):
+def athena_query(query: str):
     """
-    AthenaQuery executes the query and returns the query result
+    athena_query executes the query and returns the query result
     Input: query (str): query statement
     Returns: query result as Pandas DataFrame
     """

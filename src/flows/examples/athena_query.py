@@ -10,7 +10,6 @@ FLOW_NAME = get_flow_name(__file__)
 ATHENA_DATABASE = 'production-user-recommendation-preferences-v1-1654798646' if ENVIRONMENT == ENV_PROD else \
     'development-user-recommendation-preferences-v1-1654826050'
 
-
 @task()
 def log_query_result(result):
     logger = prefect.context.get("logger")
