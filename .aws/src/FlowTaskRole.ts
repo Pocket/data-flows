@@ -149,6 +149,15 @@ export class FlowTaskRole extends Resource {
       },
       {
         resources: [
+          'arn:aws:glue:*:*:table/*',
+          'arn:aws:glue:*:*:catalog',
+          'arn:aws:glue:*:*:database/*',
+        ],
+        actions: ['glue:GetDatabases', 'glue:GetTable', 'glue:GetTables'],
+      },
+      {
+        resources: [
+          'arn:aws:glue:*:*:catalog',
           'arn:aws:glue:*:*:database/sagemaker_featurestore',
         ],
         actions: ['glue:GetDatabase'],
