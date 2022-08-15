@@ -27,6 +27,7 @@ class PocketPublisherDatabaseExecute(MySQLExecute):
     ):
         super().__init__(
             query=query,
+            commit=True,
             **kwargs
         )
         self.database_dbname_env_var_name = database_dbname_env_var_name
@@ -84,6 +85,7 @@ class PocketPublisherDatabaseExecute(MySQLExecute):
             user=database_user,
             password=database_password,
             db_name=database_dbname,
+            commit=True,
             **kwargs
         )
 

@@ -109,7 +109,8 @@ def while_loop():
     while True:
         # query for data needed to calculate score
         data = PocketPublisherDatabaseQuery().run(
-            query=DATA_FOR_SCORE_CALCULATION_SQL
+            query=DATA_FOR_SCORE_CALCULATION_SQL,
+            fetch='all'
         )
 
         if not data:
@@ -131,11 +132,11 @@ def while_loop():
 
                     if content_id > max_content_id:
                         PocketPublisherDatabaseExecute().run(
-                            query=INSERT_TO_CONTENT_V1_SQL.format(publisher_id=publisher_id, content_id=content_id)
+                            query=INSERT_TO_CONTENT_V2_SQL.format(publisher_id=publisher_id, content_id=content_id)
                         )
                     else:
                         PocketPublisherDatabaseExecute().run(
-                            query=INSERT_TO_CONTENT_V2_SQL.format(
+                            query=INSERT_TO_CONTENT_V1_SQL.format(
                                 publisher_id=publisher_id, content_id=content_id)
                         )
 
