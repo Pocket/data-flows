@@ -23,7 +23,7 @@ class PocketPublisherDatabaseExecute(MySQLExecute):
             database_dbname_env_var_name: str = "POCKET_PUBLISHER_DATABASE_DBNAME",
             database_user_var_name: str = "POCKET_PUBLISHER_DATABASE_USER",
             database_password_var_name: str = "POCKET_PUBLISHER_DATABASE_PASSWORD",
-            **kwargs: Any,  # See the base SnowflakeQuery class for additional arguments
+            **kwargs: Any,
     ):
         super().__init__(
             query=query,
@@ -73,7 +73,7 @@ class PocketPublisherDatabaseExecute(MySQLExecute):
         if database_password is None and database_password_var_name in os.environ:
             database_password = os.environ.get(database_password_var_name)
 
-        self.logger.info(f"Connecting using database={kwargs.get('database')} and schema={kwargs.get('schema')}."
+        self.logger.info(f"Connecting using database={database_host} and schema={kwargs.get('database_dbname')}." 
                          f" (If 'None' then the default database/schema is used.)")
         self.logger.info(query)
 

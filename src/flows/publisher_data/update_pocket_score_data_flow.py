@@ -177,7 +177,7 @@ def while_loop():
             counter += 1
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(hours=1)) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     PocketPublisherDatabaseExecute()(
         query=MOVE_TO_BETA_QUEUE_SQL
     )
