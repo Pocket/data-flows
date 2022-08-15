@@ -144,6 +144,15 @@ export class FlowTaskRole extends Resource {
         effect: 'Allow',
       },
       {
+        actions: [
+          's3:GetObject*',
+          's3:ListBucket*',
+          's3:GetBucketLocation',
+        ],
+        resources: ['arn:aws:s3:::pocket-sagemaker*'],  // Feature Store bucket
+        effect: 'Allow',
+      },
+      {
         actions: ['glue:GetJob*', 'glue:GetTable*', 'glue:GetWorkflowRun'],
         resources: ['*'],
       },
