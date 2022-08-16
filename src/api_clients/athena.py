@@ -34,7 +34,6 @@ def athena_query(query: str):
             raise Exception('Athena query "{}" failed or was cancelled'.format(query))
         sleep(1)
 
-    # Can you see this?
     next_token_param = {}
     has_next_token = True
     is_first_iteration = True
