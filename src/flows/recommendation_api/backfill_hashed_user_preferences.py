@@ -11,9 +11,8 @@ from utils.config import ENVIRONMENT, ENV_PROD
 
 FLOW_NAME = get_flow_name(__file__)
 
-# ATHENA_DATABASE = 'production-user-recommendation-preferences-v1-1654798646' if ENVIRONMENT == ENV_PROD else \
-#     'development-user-recommendation-preferences-v1-1654826050'
-ATHENA_DATABASE = 'production-user-recommendation-preferences-v1-1654798646'
+ATHENA_DATABASE = 'production-user-recommendation-preferences-v1-1654798646' if ENVIRONMENT == ENV_PROD else \
+    'development-user-recommendation-preferences-v1-1654826050'
 
 HASHED_USER_ID_MAP_QUERY = """
 SELECT 

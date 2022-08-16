@@ -1,4 +1,4 @@
-whileimport boto3
+import boto3
 import pandas as pd
 from time import sleep
 from prefect import task
@@ -37,9 +37,10 @@ def athena_query(query: str):
     # Can you see this?
     next_token_param = {}
     has_next_token = True
+    is_first_iteration = True
     rows = []
     columns = []
-    while has_next_token is not None:
+    while has_next_token:
 
         # Get query results
         response = client.get_query_results(
@@ -47,13 +48,17 @@ def athena_query(query: str):
             MaxResults=1000,
             **next_token_param
         )
-        if not columns:
-            columns = [col.get('VarCharValue') for col in response['ResultSet']['Rows'][0]['Data']]
-        rows += [[data.get('VarCharValue') for data in row['Data']] for row in response['ResultSet']['Rows'][1:]]
+
+        data_rows_start_index = 1 if is_first_iteration else 0
+        result_rows = response['ResultSet']['Rows']
+        if is_first_iteration:
+            columns = [col.get('VarCharValue') for col in result_rows[0]['Data']]
+        rows += [[data.get('VarCharValue') for data in row['Data']] for row in result_rows[data_rows_start_index:]]
 
         next_token = response.get('NextToken')
         has_next_token = next_token is not None
         next_token_param = {'NextToken': next_token}
+        is_first_iteration = False
 
     df = pd.DataFrame(rows, columns=columns)
     return df
