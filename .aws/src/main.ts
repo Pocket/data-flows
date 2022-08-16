@@ -49,14 +49,17 @@ class DataFlows extends TerraformStack {
       pocketVPC
     );
 
-    // Create a bucket with Prefect Results.
+    // Create a bucket with Prefect Results. @see https://docs.prefect.io/core/concepts/results.html#result-objects
     const resultsBucket = this.createResultsBucket();
+    // Create a bucket to store Athena query results.
+    const athenaQueryOutputBucket = this.createBucket('athena-query-results', false);
 
     // Create task role for ECS tasks that execute flows.
     const flowTaskRole = new FlowTaskRole(
       this,
       'flow-task-role',
-      resultsBucket
+      resultsBucket,
+      athenaQueryOutputBucket
     );
 
     // Create the Prefect agent in ECS.
@@ -80,6 +83,7 @@ class DataFlows extends TerraformStack {
       imageUri,
       taskRole: flowTaskRole.iamRole,
       resultsBucket: resultsBucket,
+      athenaQueryOutputBucket,
     });
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
