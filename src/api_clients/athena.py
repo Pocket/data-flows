@@ -1,7 +1,7 @@
 import boto3
 import pandas as pd
 from time import sleep
-from prefect import task
+from prefect import task, context
 from utils import config
 
 @task()
@@ -12,6 +12,7 @@ def athena_query(query: str):
     Returns: query result as Pandas DataFrame
     """
 
+    logger = context.get("logger")
     client = boto3.client('athena')
 
     # Submit Athena query for execution
@@ -63,4 +64,5 @@ def athena_query(query: str):
         is_first_iteration = False
 
     df = pd.DataFrame(rows, columns=columns)
+    logger.info(f'Athena Row Count: {len(df)}')
     return df
