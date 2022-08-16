@@ -1,4 +1,6 @@
 from typing import Dict, Sequence, List
+
+import prefect
 from prefect import Flow, Parameter, unmapped, task
 from prefect.executors import LocalDaskExecutor
 from utils.flow import get_flow_name, get_interval_schedule
@@ -47,11 +49,15 @@ def build_v2_user_topics_prefs(
         data=v1_record,
     )
 
-    return [
-        FeatureValue('hashed_user_id', hashed_user_id_map[0]['HASHED_USER_ID']),
-        FeatureValue('updated_at', v1_record['updated_at']),
-        FeatureValue('preferred_topics', v1_record['preferred_topics']),
-    ] if len(hashed_user_id_map) else None
+    if len(hashed_user_id_map):
+        return [
+            FeatureValue('hashed_user_id', hashed_user_id_map[0]['HASHED_USER_ID']),
+            FeatureValue('updated_at', v1_record['updated_at']),
+            FeatureValue('preferred_topics', v1_record['preferred_topics']),
+        ]
+    else:
+        raise Exception('No record found in Snowflake for {v1_record}')
+
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
 
