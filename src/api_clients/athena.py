@@ -1,4 +1,4 @@
-import boto3
+whileimport boto3
 import pandas as pd
 from time import sleep
 from prefect import task
@@ -34,11 +34,26 @@ def athena_query(query: str):
             raise Exception('Athena query "{}" failed or was cancelled'.format(query))
         sleep(1)
 
-    # Get query results
-    response = client.get_query_results(
-        QueryExecutionId=QueryExecutionId,
-    )
-    columns = [col.get('VarCharValue') for col in response['ResultSet']['Rows'][0]['Data']]
-    rows = [[data.get('VarCharValue') for data in row['Data']] for row in response['ResultSet']['Rows'][1:]]
+    # Can you see this?
+    next_token_param = {}
+    has_next_token = True
+    rows = []
+    columns = []
+    while has_next_token is not None:
+
+        # Get query results
+        response = client.get_query_results(
+            QueryExecutionId=QueryExecutionId,
+            MaxResults=1000,
+            **next_token_param
+        )
+        if not columns:
+            columns = [col.get('VarCharValue') for col in response['ResultSet']['Rows'][0]['Data']]
+        rows += [[data.get('VarCharValue') for data in row['Data']] for row in response['ResultSet']['Rows'][1:]]
+
+        next_token = response.get('NextToken')
+        has_next_token = next_token is not None
+        next_token_param = {'NextToken': next_token}
+
     df = pd.DataFrame(rows, columns=columns)
     return df
