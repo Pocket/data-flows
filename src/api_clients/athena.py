@@ -50,8 +50,11 @@ def athena_query(query: str):
 
         data_rows_start_index = 1 if is_first_iteration else 0
         result_rows = response['ResultSet']['Rows']
+
         if is_first_iteration:
             columns = [col.get('VarCharValue') for col in result_rows[0]['Data']]
+        # This code probably doesn't scale very well with large data sets. With Prefect 2.0 we can have circular graphs,
+        # where we yield each result set of 1000 rows independently, and loop until we're done.
         rows += [[data.get('VarCharValue') for data in row['Data']] for row in result_rows[data_rows_start_index:]]
 
         next_token = response.get('NextToken')
