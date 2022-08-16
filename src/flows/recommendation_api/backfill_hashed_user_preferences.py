@@ -1,4 +1,6 @@
 from typing import Dict, Sequence, List
+
+import prefect
 from prefect import Flow, Parameter, unmapped, task
 from prefect.executors import LocalDaskExecutor
 from utils.flow import get_flow_name, get_interval_schedule
@@ -26,8 +28,6 @@ V2_FEATURE_GROUP_NAME = f'{config.ENVIRONMENT}-user-recommendation-preferences-v
 
 @task()
 def get_user_topics_pref_rows(df):
-    print(len(df))
-    # print(df)
     return df.to_dict('records')
 
 @task()
@@ -49,11 +49,15 @@ def build_v2_user_topics_prefs(
         data=v1_record,
     )
 
-    return [
-        FeatureValue('hashed_user_id', hashed_user_id_map[0]['HASHED_USER_ID']),
-        FeatureValue('updated_at', v1_record['updated_at']),
-        FeatureValue('preferred_topics', v1_record['preferred_topics']),
-    ] if len(hashed_user_id_map) else None
+    if len(hashed_user_id_map):
+        return [
+            FeatureValue('hashed_user_id', hashed_user_id_map[0]['HASHED_USER_ID']),
+            FeatureValue('updated_at', v1_record['updated_at']),
+            FeatureValue('preferred_topics', v1_record['preferred_topics']),
+        ]
+    else:
+        raise Exception('No record found in Snowflake for {v1_record}')
+
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
 
@@ -70,11 +74,11 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     )
     user_topics_pref_rows = get_user_topics_pref_rows(user_topics_prefs)
 
-    # # Prepare v2 user preferences using user_id to hash_user_id maps from Snowflake DB
-    # v2_user_topics_prefs = build_v2_user_topics_prefs.map(v1_record=user_topics_pref_rows)
+    # Prepare v2 user preferences using user_id to hash_user_id maps from Snowflake DB
+    v2_user_topics_prefs = build_v2_user_topics_prefs.map(v1_record=user_topics_pref_rows)
 
-    # # Load user preferences to v2 Feature group
-    # load_feature_record.map(v2_user_topics_prefs, feature_group_name=unmapped(V2_FEATURE_GROUP_NAME))
+    # Load user preferences to v2 Feature group
+    load_feature_record.map(v2_user_topics_prefs, feature_group_name=unmapped(V2_FEATURE_GROUP_NAME))
 
 if __name__ == "__main__":
     flow.run()
