@@ -18,8 +18,20 @@ def validate_corpus_items(corpus_items: List[Dict]):
 
     assert len(corpus_items) >= min_item_count
     assert all(list(corpus_item.keys()) == expected_keys for corpus_item in corpus_items)
-    assert all(corpus_item['ID'] for corpus_item in corpus_items)
-    assert all(corpus_item['TOPIC'] for corpus_item in corpus_items)
+    assert all(isinstance(corpus_item['ID'], str) and corpus_item['ID'] != '' for corpus_item in corpus_items)
+    assert all(isinstance(corpus_item['TOPIC'], str) and corpus_item['TOPIC'] != '' for corpus_item in corpus_items)
+
+    return corpus_items
+
+@task()
+def validate_candidate_items(corpus_items: List[Dict]):
+    min_item_count = 1
+    expected_keys = ['ID', 'PUBLISHER']
+
+    assert len(corpus_items) >= min_item_count
+    assert all(list(corpus_item.keys()) == expected_keys for corpus_item in corpus_items)
+    assert all(isinstance(corpus_item['ID'], int) and corpus_item['ID'] != None for corpus_item in corpus_items)
+    assert all(isinstance(corpus_item['PUBLISHER'], str) and corpus_item['PUBLISHER'] != '' for corpus_item in corpus_items)
 
     return corpus_items
 

@@ -34,6 +34,7 @@ def test_validate_corpus_items_returns_corpus_items(corpus_items_100):
         ([{'id': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a'}]),                       # Must contain 'TOPIC'
         ([{'id': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': 'BUSINESS'}]),  # 'ID' key is case-sensitive
         ([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'Topic': 'BUSINESS'}]),  # 'TOPIC' key is case-sensitive
+        ([{'ID': 1234, 'TOPIC': 'BUSINESS'}]),                                      # ID must be a string
         ([{'ID': '', 'TOPIC': 'BUSINESS'}]),                                      # 'ID' key must be non-empty
         ([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': ''}]),          # 'TOPIC' must be non-empty
         ([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': 'BUSINESS', 'FOO': 'BAR'}]),  # No other keys expected
