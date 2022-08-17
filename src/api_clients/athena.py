@@ -1,7 +1,7 @@
 import boto3
 import pandas as pd
 from time import sleep
-from prefect import task
+from prefect import task, context
 from utils import config
 
 @task()
@@ -12,6 +12,7 @@ def athena_query(query: str):
     Returns: query result as Pandas DataFrame
     """
 
+    logger = context.get("logger")
     client = boto3.client('athena')
 
     # Submit Athena query for execution
@@ -34,11 +35,34 @@ def athena_query(query: str):
             raise Exception('Athena query "{}" failed or was cancelled'.format(query))
         sleep(1)
 
-    # Get query results
-    response = client.get_query_results(
-        QueryExecutionId=QueryExecutionId,
-    )
-    columns = [col.get('VarCharValue') for col in response['ResultSet']['Rows'][0]['Data']]
-    rows = [[data.get('VarCharValue') for data in row['Data']] for row in response['ResultSet']['Rows'][1:]]
+    next_token_param = {}
+    has_next_token = True
+    is_first_iteration = True
+    rows = []
+    columns = []
+    while has_next_token:
+
+        # Get query results
+        response = client.get_query_results(
+            QueryExecutionId=QueryExecutionId,
+            MaxResults=1000,
+            **next_token_param
+        )
+
+        data_rows_start_index = 1 if is_first_iteration else 0
+        result_rows = response['ResultSet']['Rows']
+
+        if is_first_iteration:
+            columns = [col.get('VarCharValue') for col in result_rows[0]['Data']]
+        # This code probably doesn't scale very well with large data sets. With Prefect 2.0 we can have circular graphs,
+        # where we yield each result set of 1000 rows independently, and loop until we're done.
+        rows += [[data.get('VarCharValue') for data in row['Data']] for row in result_rows[data_rows_start_index:]]
+
+        next_token = response.get('NextToken')
+        has_next_token = next_token is not None
+        next_token_param = {'NextToken': next_token}
+        is_first_iteration = False
+
     df = pd.DataFrame(rows, columns=columns)
+    logger.info(f'Athena Row Count: {len(df)}')
     return df
