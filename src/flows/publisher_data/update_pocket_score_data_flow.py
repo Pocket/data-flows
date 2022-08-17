@@ -179,15 +179,17 @@ def while_loop():
 
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
-    PocketPublisherDatabaseExecute()(
+    move_to_beta_queue_task = PocketPublisherDatabaseExecute()(
         query=MOVE_TO_BETA_QUEUE_SQL
     )
 
-    PocketPublisherDatabaseExecute()(
+    truncate_content_quality_task = PocketPublisherDatabaseExecute()(
         query=TRUNCATE_CONTENT_QUALITY_SQL
+    ).set_upstream(
+        move_to_beta_queue_task,  # Users creation needs to happen first
     )
 
-    while_loop()
+    while_loop(upstream_tasks=[move_to_beta_queue_task, truncate_content_quality_task])
 
 if __name__ == "__main__":
     flow.run()
