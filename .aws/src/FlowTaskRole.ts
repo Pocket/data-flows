@@ -6,7 +6,7 @@ import { config } from './config';
 export class FlowTaskRole extends Resource {
   public readonly iamRole: iam.IamRole;
 
-  constructor(scope: Construct, name: string, resultsBucket: s3.S3Bucket) {
+  constructor(scope: Construct, name: string, resultsBucket: s3.S3Bucket, athenaQueryOutputBucket: s3.S3Bucket) {
     super(scope, name);
 
     const existingPolicies = this.getExistingPolicies(
@@ -17,7 +17,8 @@ export class FlowTaskRole extends Resource {
     const flowPolicy = this.createPolicy([
       this.getDataLearningS3BucketReadAccess(),
       this.getStepFunctionExecuteAccess(),
-      this.getResultsS3BucketWriteAccess(resultsBucket),
+      this.getS3BucketWriteAccess(resultsBucket),
+      ...this.athenaAccess(athenaQueryOutputBucket),
       this.putFeatureGroupRecordsAccess(),
       this.getDataProductsSqsWriteAccess(),
     ]);
@@ -122,15 +123,72 @@ export class FlowTaskRole extends Resource {
   }
 
   /**
-   * Give write access to the Results Bucket, such that Prefect can write the task output data to it.
-   * @see https://docs.prefect.io/core/concepts/results.html#result-objects
+   * Give access to query Athena
    * @private
    */
-  private getResultsS3BucketWriteAccess(
+  private athenaAccess(athenaQueryOutputBucket: s3.S3Bucket): iam.DataAwsIamPolicyDocumentStatement[] {
+    return [
+      this.getS3BucketWriteAccess(athenaQueryOutputBucket),
+      {
+        actions: [
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          'athena:GetWorkGroup',
+          'athena:ListDatabases',
+          'athena:ListDataCatalogs',
+          'athena:ListTableMetadata',
+          'athena:StartQueryExecution',
+          'athena:StopQueryExecution',
+        ],
+        resources: ['*'],
+        effect: 'Allow',
+      },
+      {
+        actions: [
+          's3:GetObject*',
+          's3:ListBucket*',
+          's3:GetBucketLocation',
+        ],
+        resources: ['arn:aws:s3:::pocket-sagemaker*'],  // Feature Store bucket
+        effect: 'Allow',
+      },
+      {
+        actions: ['glue:GetJob*', 'glue:GetTable*', 'glue:GetWorkflowRun'],
+        resources: ['*'],
+      },
+      {
+        resources: [
+          'arn:aws:glue:*:*:table/*',
+          'arn:aws:glue:*:*:catalog',
+          'arn:aws:glue:*:*:database/*',
+        ],
+        actions: ['glue:GetDatabases', 'glue:GetTable', 'glue:GetTables'],
+      },
+      {
+        resources: [
+          'arn:aws:glue:*:*:catalog',
+          'arn:aws:glue:*:*:database/sagemaker_featurestore',
+        ],
+        actions: ['glue:GetDatabase'],
+      }
+    ];
+  }
+
+  /**
+   * Give write access to the Bucket.
+   * @private
+   */
+  private getS3BucketWriteAccess(
     s3Bucket: s3.S3Bucket
   ): iam.DataAwsIamPolicyDocumentStatement {
     return {
-      actions: ['s3:GetObject*', 's3:PutObject*', 's3:ListBucket*'],
+      actions: [
+        's3:GetObject*',
+        's3:PutObject*',
+        's3:ListBucket*',
+        's3:GetBucketLocation',
+        's3:AbortMultipartUpload',
+      ],
       resources: [s3Bucket.arn, `${s3Bucket.arn}/*`],
       effect: 'Allow',
     };
