@@ -1,10 +1,9 @@
+import scipy.special
 from prefect import Flow, task
 
-from utils import config
-from utils.flow import get_flow_name, get_interval_schedule
 from api_clients.pocket_publisher_database_execute import PocketPublisherDatabaseExecute
 from api_clients.pocket_publisher_database_query import PocketPublisherDatabaseQuery
-import scipy.special
+from utils.flow import get_flow_name, get_interval_schedule
 
 '''
 Load and update the content quality score in the publisher database
@@ -100,7 +99,7 @@ fav_var = 5
 share_var = 7
 
 
-@task()
+@task(timeout=5*60)
 def while_loop():
     counter = 0
 
