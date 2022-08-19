@@ -38,6 +38,7 @@ JOIN content as c
   ON c.content_id = s.content_id
 WHERE s.TOPIC = 'CORONAVIRUS'
   AND s.scheduled_surface_id = 'NEW_TAB_EN_US'
+  AND s.scheduled_corpus_item_scheduled_at  BETWEEN (current_date - 7) AND current_date  
 ORDER BY s.scheduled_corpus_item_scheduled_at DESC
 LIMIT 60
 """
