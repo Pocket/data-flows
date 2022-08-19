@@ -1,15 +1,12 @@
-import datetime
-
 from prefect import Flow
 from prefect.tasks.dbt import dbt
 from prefect.tasks.prefect import create_flow_run, wait_for_flow_run
 from prefect.executors import LocalDaskExecutor
-from prefect.schedules import IntervalSchedule
 from utils import config
 
 from flows.braze import update_flow as braze_update_flow
 from flows.prospecting import prereview_engagement_feature_store_flow, postreview_engagement_feature_store_flow
-from utils.flow import get_flow_name
+from utils.flow import get_flow_name, get_interval_schedule
 
 FLOW_NAME = get_flow_name(__file__)
 DBT_CLOUD_JOB_ID = 52822
@@ -17,18 +14,12 @@ DBT_CLOUD_JOB_ID = 52822
 
 # List of flow names that will be run after the Dbt job run has finished successfully.
 DBT_DOWNSTREAM_FLOW_NAMES = [
-    # braze_update_flow.FLOW_NAME,  # Enable this and set production/braze_update_flow/last_loaded_at on April 13th.
+    braze_update_flow.FLOW_NAME,
     prereview_engagement_feature_store_flow.FLOW_NAME,
     postreview_engagement_feature_store_flow.FLOW_NAME,
 ]
 
-# Schedule to run every 5 minutes
-if config.ENVIRONMENT == config.ENV_PROD:
-    schedule = IntervalSchedule(interval=datetime.timedelta(minutes=10))
-else:
-    schedule = None
-
-with Flow(FLOW_NAME, schedule=schedule, executor=LocalDaskExecutor()) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=10), executor=LocalDaskExecutor()) as flow:
 
     dbt_run_result = dbt.DbtCloudRunJob()(cause=FLOW_NAME, job_id=DBT_CLOUD_JOB_ID, wait_for_job_run_completion=True)
 

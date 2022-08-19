@@ -10,7 +10,6 @@ import {
 import {
   AwsProvider,
   datasources,
-  ecr,
   iam,
   kms,
   s3,
@@ -28,13 +27,13 @@ class DataFlows extends TerraformStack {
   constructor(scope: Construct, name: string) {
     super(scope, name);
 
-    new AwsProvider(this, 'aws', { region: 'us-east-1' });
+    new AwsProvider(this, 'aws', { region: config.awsRegion });
     new NullProvider(this, 'null', {});
     new LocalProvider(this, 'local', {});
 
     new RemoteBackend(this, {
       hostname: 'app.terraform.io',
-      organization: 'Pocket',
+      organization: config.terraform.organization,
       workspaces: [{ prefix: `${config.name}-` }],
     });
 
@@ -50,14 +49,17 @@ class DataFlows extends TerraformStack {
       pocketVPC
     );
 
-    // Create a bucket with Prefect Results.
+    // Create a bucket with Prefect Results. @see https://docs.prefect.io/core/concepts/results.html#result-objects
     const resultsBucket = this.createResultsBucket();
+    // Create a bucket to store Athena query results.
+    const athenaQueryOutputBucket = this.createBucket('athena-query-results', false);
 
     // Create task role for ECS tasks that execute flows.
     const flowTaskRole = new FlowTaskRole(
       this,
       'flow-task-role',
-      resultsBucket
+      resultsBucket,
+      athenaQueryOutputBucket
     );
 
     // Create the Prefect agent in ECS.
@@ -71,7 +73,7 @@ class DataFlows extends TerraformStack {
       flowTaskRole,
     });
 
-    const ecrRepository = this.getPrefectEcrRepository(prefectAgentApp);
+    const ecrRepository = prefectAgentApp.ecsService.ecrRepos[0];
     const imageUri = `${ecrRepository.repositoryUrl}:latest`;
 
     // Create task definition for ECS tasks that execute flows.
@@ -81,6 +83,7 @@ class DataFlows extends TerraformStack {
       imageUri,
       taskRole: flowTaskRole.iamRole,
       resultsBucket: resultsBucket,
+      athenaQueryOutputBucket,
     });
 
     // Create a CodePipeline that deploys the Prefect Agent and registers the Prefect Flows with Prefect Cloud.
@@ -88,22 +91,8 @@ class DataFlows extends TerraformStack {
       region,
       caller,
       flowTaskDefinitionArn: flowTaskDefinition.taskDefinition.arn,
-    });
-  }
-
-  /**
-   * Gets the Prefect Agent ECR repository created by PocketALBApplication.
-   * Terraform-Modules doesn't make this repository available, so we have to get it using DataAwsEcrRepository.
-   * @param application
-   * @private
-   */
-  private getPrefectEcrRepository(
-    application: PocketALBApplication
-  ): ecr.DataAwsEcrRepository {
-    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
-      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
-      // The ECS repository is created in PocketALBApplication.ecsService, so we have a dependency on that.
-      dependsOn: [application.ecsService],
+      prefectImageRepository: ecrRepository,
+      prefectImageRepositoryUri: imageUri,
     });
   }
 
@@ -113,7 +102,7 @@ class DataFlows extends TerraformStack {
    */
   private getCodeDeploySnsTopic() {
     return new sns.DataAwsSnsTopic(this, 'data_products_notifications', {
-      name: `DataAndLearning-${config.environment}-ChatBot`,
+      name: config.codePipeline.codeDeploySnsTopicName,
     });
   }
 
@@ -155,8 +144,7 @@ class DataFlows extends TerraformStack {
   private createBucket(name: string, preventDestroy = true): s3.S3Bucket {
     return new s3.S3Bucket(this, `prefect-${name.toLowerCase()}-bucket`, {
       bucket:
-        `pocket-${config.name}-${name}-${config.environment}`.toLowerCase(),
-      acl: 'private',
+        `${config.s3BucketPrefix}-${config.name}-${name}-${config.environment}`.toLowerCase(),
       forceDestroy: !preventDestroy, // Allow the bucket to be deleted even if it's not empty.
       lifecycle: {
         preventDestroy: preventDestroy,
@@ -245,13 +233,12 @@ class DataFlows extends TerraformStack {
       },
     };
 
-    const content = Fn.yamlencode(runTaskKwargs);
-
     return new s3.S3BucketObject(this, 'run-task-kwargs-object', {
       bucket,
       key: 'run_task_kwargs.yml',
-      content,
-      etag: Fn.md5(content),
+      content: Fn.yamlencode(runTaskKwargs),
+      // cdktf 0.9.0 introduces a bug that prevents variables set to Fn from being reused.
+      etag: Fn.md5(Fn.yamlencode(runTaskKwargs)),
     });
   }
 
@@ -277,6 +264,7 @@ class DataFlows extends TerraformStack {
       internal: true,
       prefix: config.prefix,
       alb6CharacterPrefix: config.shortName,
+      region: config.awsRegion,
       tags: config.tags,
       cdn: false,
       domain: config.domain,

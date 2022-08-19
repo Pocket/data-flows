@@ -14,8 +14,6 @@ import { DataFlowsARN } from './DataFlowsARN';
 export class DataFlowsCodePipeline extends Resource {
   private readonly pocketEcsCodePipeline: PocketECSCodePipeline;
   private readonly flowRegistrationCodeBuildProject: codebuild.CodebuildProject;
-  private readonly prefectImageRepository: ecr.DataAwsEcrRepository;
-  private readonly prefectImageUri: string;
 
   constructor(
     scope: Construct,
@@ -24,12 +22,11 @@ export class DataFlowsCodePipeline extends Resource {
       region: datasources.DataAwsRegion;
       caller: datasources.DataAwsCallerIdentity;
       flowTaskDefinitionArn: string;
+      prefectImageRepository: ecr.EcrRepository;
+      prefectImageRepositoryUri: string;
     }
   ) {
     super(scope, name);
-
-    this.prefectImageRepository = this.getPrefectEcrRepository();
-    this.prefectImageUri = `${this.prefectImageRepository.repositoryUrl}:latest`;
 
     this.flowRegistrationCodeBuildProject =
       this.createFlowRegistrationCodeBuildProject();
@@ -40,6 +37,7 @@ export class DataFlowsCodePipeline extends Resource {
   private createCodePipeline(): PocketECSCodePipeline {
     return new PocketECSCodePipeline(this, 'code-pipeline', {
       prefix: config.prefix,
+      artifactBucketPrefix: config.codePipeline.artifactBucketPrefix,
       source: {
         codeStarConnectionArn: config.codePipeline.githubConnectionArn,
         repository: config.codePipeline.repository,
@@ -91,7 +89,7 @@ export class DataFlowsCodePipeline extends Resource {
       cache: { type: 'NO_CACHE' },
       environment: {
         computeType: 'BUILD_GENERAL1_SMALL',
-        image: this.prefectImageUri,
+        image: this.dependencies.prefectImageRepositoryUri,
         type: 'LINUX_CONTAINER',
         imagePullCredentialsType: 'SERVICE_ROLE',
         environmentVariable: [
@@ -128,7 +126,7 @@ export class DataFlowsCodePipeline extends Resource {
     const caller = this.dependencies.caller;
     // This matches the SourceOutput S3 object ARN. I believe the bucket is created by CodePipeline, but we could
     // specify one ourselves in Terraform-Modules. I couldn't find how to get this value dynamically so I'm using `-*`.
-    const sourceArtifactObjectArn = `arn:aws:s3:::pocket-codepipeline-*/${config.prefix}-*`;
+    const sourceArtifactObjectArn = `arn:aws:s3:::${config.codePipeline.artifactBucketPrefix}-*/${config.prefix}-*`;
 
     const dataCodebuildAssume = new iam.DataAwsIamPolicyDocument(
       this,
@@ -183,7 +181,7 @@ export class DataFlowsCodePipeline extends Resource {
               'ecr:BatchGetImage',
               'ecr:BatchCheckLayerAvailability',
             ],
-            resources: [this.prefectImageRepository.arn],
+            resources: [this.dependencies.prefectImageRepository.arn],
             effect: 'Allow',
           },
           {
@@ -221,12 +219,5 @@ export class DataFlowsCodePipeline extends Resource {
     });
 
     return codeBuildRole;
-  }
-
-  private getPrefectEcrRepository(): ecr.DataAwsEcrRepository {
-    return new ecr.DataAwsEcrRepository(this, 'prefect-ecr-image', {
-      // TODO: If Terraform-Modules would expose the ECR repository that it creates, we could reference the repo name.
-      name: `${config.prefix}-${config.prefect.agentContainerName}`.toLowerCase(),
-    });
   }
 }

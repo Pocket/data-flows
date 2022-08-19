@@ -1,8 +1,9 @@
 const name = 'DataFlows';
 const domainPrefix = 'data-flows';
+const s3BucketPrefix = 'pocket';
 const isDev = process.env.NODE_ENV === 'development';
 const environment = isDev ? 'Dev' : 'Prod';
-const fullEnvironment = isDev ? 'development' : 'production'
+const fullEnvironment = isDev ? 'development' : 'production';
 const domain = isDev
   ? `${domainPrefix}.getpocket.dev`
   : `${domainPrefix}.readitlater.com`;
@@ -42,6 +43,21 @@ const prefect = {
       'GCE_KEY',
       'BRAZE_API_KEY',
       'BRAZE_REST_ENDPOINT',
+      'SNOWFLAKE_DATA_RETENTION_ROLE',
+      'SNOWFLAKE_DATA_RETENTION_WAREHOUSE',
+      'SNOWFLAKE_DATA_RETENTION_DB',
+      'SNOWFLAKE_DATA_RETENTION_SCHEMA',
+      'SNOWFLAKE_SNOWPLOW_DB',
+      'SNOWFLAKE_SNOWPLOW_SCHEMA',
+      'SNOWFLAKE_RAWDATA_DB',
+      'SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA',
+      'SNOWFLAKE_SNAPSHOT_DB',
+      'SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA',
+      'POCKET_PUBLISHER_DATABASE_HOST',
+      'POCKET_PUBLISHER_DATABASE_PORT',
+      'POCKET_PUBLISHER_DATABASE_DBNAME',
+      'POCKET_PUBLISHER_DATABASE_USER',
+      'POCKET_PUBLISHER_DATABASE_PASSWORD',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
@@ -53,16 +69,23 @@ export const config = {
   name,
   isDev,
   prefix: `${name}-${environment}`,
+  awsRegion: 'us-east-1',
+  s3BucketPrefix,
   circleCIPrefix: `/${name}/CircleCI/${environment}`,
   shortName: 'DATAFL',
   environment,
   fullEnvironment,
   domain,
   prefect,
+  terraform: {
+    organization: 'Pocket',
+  },
   codePipeline: {
+    artifactBucketPrefix: `${s3BucketPrefix}-codepipeline`,
     githubConnectionArn,
     repository: 'pocket/data-flows',
     branch,
+    codeDeploySnsTopicName: `DataAndLearning-${environment}-ChatBot`,
   },
   graphqlVariant,
   healthCheck: {
