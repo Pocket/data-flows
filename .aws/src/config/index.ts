@@ -53,6 +53,11 @@ const prefect = {
       'SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA',
       'SNOWFLAKE_SNAPSHOT_DB',
       'SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA',
+      'POCKET_PUBLISHER_DATABASE_HOST',
+      'POCKET_PUBLISHER_DATABASE_PORT',
+      'POCKET_PUBLISHER_DATABASE_DBNAME',
+      'POCKET_PUBLISHER_DATABASE_USER',
+      'POCKET_PUBLISHER_DATABASE_PASSWORD',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
