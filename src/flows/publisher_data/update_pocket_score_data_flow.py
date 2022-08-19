@@ -102,12 +102,14 @@ share_var = 7
 @task(timeout=5*60)
 def while_loop():
     counter = 0
+    query = PocketPublisherDatabaseQuery()
+    execute = PocketPublisherDatabaseExecute()
 
     # loop through array of publisher_ids
 
     while True:
         # query for data needed to calculate score
-        data = PocketPublisherDatabaseQuery().run(
+        data = query.run(
             query=DATA_FOR_SCORE_CALCULATION_SQL,
             fetch='all'
         )
@@ -130,11 +132,11 @@ def while_loop():
                 if save_cnt > 0 or open_cnt > 0 or favorite_cnt > 0 or share_cnt > 0:
 
                     if content_id > max_content_id:
-                        PocketPublisherDatabaseExecute().run(
+                        execute.run(
                             query=INSERT_TO_CONTENT_V2_SQL.format(publisher_id=publisher_id, content_id=content_id)
                         )
                     else:
-                        PocketPublisherDatabaseExecute().run(
+                        execute.run(
                             query=INSERT_TO_CONTENT_V1_SQL.format(
                                 publisher_id=publisher_id, content_id=content_id)
                         )
@@ -162,15 +164,11 @@ def while_loop():
                                    'total_score': total_score, 'publisher_id': publisher_id, 'content_id': content_id}
 
                     if content_id > max_content_id:
-                        PocketPublisherDatabaseExecute().run(
-                            query=UPDATE_CONTENT_V2_SQL.format(**update_vars)
-                        )
+                        execute.run(query=UPDATE_CONTENT_V2_SQL.format(**update_vars))
                     else:
-                        PocketPublisherDatabaseExecute().run(
-                            query=UPDATE_CONTENT_V1_SQL.format(**update_vars)
-                        )
+                        execute.run(query=UPDATE_CONTENT_V1_SQL.format(**update_vars))
 
-            PocketPublisherDatabaseExecute().run(
+            execute.run(
                 query=DELETE_BETA_QUEUE_SQL.format(publisher_id=publisher_id, content_id=content_id)
             )
 
