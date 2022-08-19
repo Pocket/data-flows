@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple
 
 import scipy.special
 from prefect import Flow, task
@@ -34,9 +34,8 @@ SELECT
     bq.publisher_id, bq.content_id, pcl.save_cnt, pcl.open_cnt, pcl.favorite_cnt, pcl.share_cnt 
     from `readitla_pub`.content_quality_score_beta_queue bq 
     left join `readitla_pub`.publisher_content_lifetime pcl on bq.content_id = pcl.content_id 
-          and bq.publisher_id = pcl.publisher_id limit 1000
+          and bq.publisher_id = pcl.publisher_id limit 10000
 """
-# TODO: Up limit to 10k or similar large value
 
 INSERT_TO_CONTENT_V1_SQL = """
 INSERT IGNORE 
@@ -102,6 +101,7 @@ open_var = 1
 fav_var = 5
 share_var = 7
 
+
 @task()
 def transform(rows) -> [dict[str, Union[float, int]]]:
     result = []
@@ -141,21 +141,15 @@ def transform(rows) -> [dict[str, Union[float, int]]]:
     return result
 
 
-@task(timeout=10*60)
-def load(rows: [dict[str, Union[float, int]]]):
-    # TODO: Handle values less than max_content_id
-    execute_many = PocketMySQLExecuteMany(MYSQL_PUBLISHER_CONNECTION_DICT)
-
-    two_dict = [x for x in rows if x['content_id'] > max_content_id]
-
-    two_insert_args = [(
+def insert_args(rows: [dict[str, Union[float, int]]]) -> [Tuple[int, int]]:
+    return [(
         x['publisher_id'],
         x['content_id']
-    ) for x in two_dict]
+    ) for x in rows]
 
-    execute_many(query=INSERT_TO_CONTENT_V2_SQL, args=two_insert_args)
 
-    two_update_args = [(
+def update_args(rows: [dict[str, Union[float, int]]]) -> [Tuple]:
+    return [(
         x['save_cnt'],
         x['open_uv'],
         x['open_dv'],
@@ -169,9 +163,22 @@ def load(rows: [dict[str, Union[float, int]]]):
         x['total_score'],
         x['publisher_id'],
         x['content_id']
-    ) for x in two_dict]
+    ) for x in rows]
 
-    execute_many(query=UPDATE_CONTENT_V2_SQL, args=two_update_args)
+
+@task(timeout=10 * 60)
+def load(rows: [dict[str, Union[float, int]]]):
+    # TODO: Handle values less than max_content_id
+    execute_many = PocketMySQLExecuteMany(MYSQL_PUBLISHER_CONNECTION_DICT)
+
+    one_dict = [x for x in rows if x['content_id'] <= max_content_id]
+    two_dict = [x for x in rows if x['content_id'] > max_content_id]
+
+    execute_many(query=INSERT_TO_CONTENT_V1_SQL, args=insert_args(one_dict))
+    execute_many(query=INSERT_TO_CONTENT_V2_SQL, args=insert_args(two_dict))
+
+    execute_many(query=UPDATE_CONTENT_V1_SQL, args=update_args(one_dict))
+    execute_many(query=UPDATE_CONTENT_V2_SQL, args=update_args(two_dict))
 
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
@@ -184,7 +191,8 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
         upstream_tasks=[move_to_beta_queue_task]
     )
 
-    extract_result = fetch(query=DATA_FOR_SCORE_CALCULATION_SQL, fetch='all', upstream_tasks=[truncate_content_quality_task])
+    extract_result = fetch(query=DATA_FOR_SCORE_CALCULATION_SQL, fetch='all',
+                           upstream_tasks=[truncate_content_quality_task])
     transform_result = transform(extract_result)
     load(transform_result)
 
