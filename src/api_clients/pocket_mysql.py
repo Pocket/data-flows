@@ -14,7 +14,6 @@ class PocketMySQLExecuteMany(MySQLExecute):
         "host",
         "port",
         "query",
-        "commit",
         "charset",
         "ssl",
     )
@@ -27,7 +26,7 @@ class PocketMySQLExecuteMany(MySQLExecute):
             port: int = None,
             query: str = None,
             args: Union[tuple, list, dict] = None,
-            commit: bool = None,
+            commit: bool = True,
             charset: str = None,
             ssl: dict = None,
     ) -> int:
@@ -72,7 +71,7 @@ class PocketMySQLExecuteMany(MySQLExecute):
 
         try:
             with conn.cursor() as cursor:
-                executed = cursor.executemany(query)
+                executed = cursor.executemany(query, args)
                 if commit:
                     conn.commit()
 

@@ -1,3 +1,4 @@
+import logging
 from typing import Union, Tuple
 
 import scipy.special
@@ -15,8 +16,8 @@ Note: This was lifted from the Web repo and modified for Prefect
 # Setting flow variables
 FLOW_NAME = get_flow_name(__file__)
 
-# move articles to beta queue
-MOVE_TO_BETA_QUEUE_SQL = """
+# move articles to the queue to be processed
+MOVE_TO_PROCESSING_QUEUE_SQL = """
 INSERT IGNORE 
     INTO content_quality_score_beta_queue (publisher_id, content_id) 
         SELECT q.publisher_id, q.content_id 
@@ -25,6 +26,7 @@ INSERT IGNORE
                   AND q.publisher_id = c.publisher_id
 """
 
+# Drop all records that were moved to our processing queue.
 TRUNCATE_CONTENT_QUALITY_SQL = """
 TRUNCATE TABLE content_quality_score_queue
 """
@@ -83,10 +85,10 @@ UPDATE `readitla_pub`.content_quality_score_v2
               and content_id = %s
 """
 
-DELETE_BETA_QUEUE_SQL = """
+DELETE_PROCESS_QUEUE_SQL = """
 DELETE FROM `readitla_pub`.content_quality_score_beta_queue 
-    where publisher_id = {publisher_id} 
-    and content_id = {content_id}
+    where publisher_id = %s
+    and content_id = %s
 """
 
 # max signed int
@@ -147,6 +149,11 @@ def insert_args(rows: [dict[str, Union[float, int]]]) -> [Tuple[int, int]]:
         x['content_id']
     ) for x in rows]
 
+def delete_args(rows: [dict[str, Union[float, int]]]) -> [Tuple[int, int]]:
+    return [(
+        x['publisher_id'],
+        x['content_id']
+    ) for x in rows]
 
 def update_args(rows: [dict[str, Union[float, int]]]) -> [Tuple]:
     return [(
@@ -168,33 +175,47 @@ def update_args(rows: [dict[str, Union[float, int]]]) -> [Tuple]:
 
 @task(timeout=10 * 60)
 def load(rows: [dict[str, Union[float, int]]]):
-    # TODO: Handle values less than max_content_id
-    execute_many = PocketMySQLExecuteMany(MYSQL_PUBLISHER_CONNECTION_DICT)
+    execute_many = PocketMySQLExecuteMany(**MYSQL_PUBLISHER_CONNECTION_DICT)
 
     one_dict = [x for x in rows if x['content_id'] <= max_content_id]
     two_dict = [x for x in rows if x['content_id'] > max_content_id]
 
-    execute_many(query=INSERT_TO_CONTENT_V1_SQL, args=insert_args(one_dict))
-    execute_many(query=INSERT_TO_CONTENT_V2_SQL, args=insert_args(two_dict))
+    if len(one_dict) > 0:
+        execute_many.run(query=INSERT_TO_CONTENT_V1_SQL, args=insert_args(one_dict))
+        execute_many.run(query=UPDATE_CONTENT_V1_SQL, args=update_args(one_dict))
+        execute_many.run(query=DELETE_PROCESS_QUEUE_SQL, args=delete_args(one_dict))
+    else:
+        logging.info('No publisher records to process for the V1 process')
 
-    execute_many(query=UPDATE_CONTENT_V1_SQL, args=update_args(one_dict))
-    execute_many(query=UPDATE_CONTENT_V2_SQL, args=update_args(two_dict))
+    if len(two_dict) > 0:
+        execute_many.run(query=INSERT_TO_CONTENT_V2_SQL, args=insert_args(two_dict))
+        execute_many.run(query=UPDATE_CONTENT_V2_SQL, args=update_args(two_dict))
+        execute_many.run(query=DELETE_PROCESS_QUEUE_SQL, args=delete_args(two_dict))
+    else:
+        logging.info('No publisher records to process for the V2 process')
 
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
-    fetch = MySQLFetch(MYSQL_PUBLISHER_CONNECTION_DICT)
-    execute = MySQLExecute(MYSQL_PUBLISHER_CONNECTION_DICT)
+    fetch = MySQLFetch(**MYSQL_PUBLISHER_CONNECTION_DICT)
+    execute = MySQLExecute(**MYSQL_PUBLISHER_CONNECTION_DICT, commit=True)
 
-    move_to_beta_queue_task = execute(query=MOVE_TO_BETA_QUEUE_SQL)
+    # move articles to the queue to be processed from their original holding queue
+    move_to_beta_queue_task = execute(query=MOVE_TO_PROCESSING_QUEUE_SQL)
+
+    # Drop all articles from the holding queue since we moved them to our processing queue.
     truncate_content_quality_task = execute(
         query=TRUNCATE_CONTENT_QUALITY_SQL,
         upstream_tasks=[move_to_beta_queue_task]
     )
 
+    # Take the articles from our processing queue and get the data
     extract_result = fetch(query=DATA_FOR_SCORE_CALCULATION_SQL, fetch='all',
                            upstream_tasks=[truncate_content_quality_task])
+    # Transform the articles we grabbed to have our new data
     transform_result = transform(extract_result)
-    load(transform_result)
+
+    # Load the processed data back into MySQL with a content score!
+    load(rows=transform_result)
 
 if __name__ == "__main__":
     flow.run()
