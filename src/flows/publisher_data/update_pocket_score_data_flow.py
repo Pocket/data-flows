@@ -36,7 +36,7 @@ SELECT
     bq.publisher_id, bq.content_id, pcl.save_cnt, pcl.open_cnt, pcl.favorite_cnt, pcl.share_cnt 
     from `readitla_pub`.content_quality_score_beta_queue bq 
     left join `readitla_pub`.publisher_content_lifetime pcl on bq.content_id = pcl.content_id 
-          and bq.publisher_id = pcl.publisher_id limit 10000
+          and bq.publisher_id = pcl.publisher_id limit 100000
 """
 
 INSERT_TO_CONTENT_V1_SQL = """
