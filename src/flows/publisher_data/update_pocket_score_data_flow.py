@@ -195,7 +195,7 @@ def load(rows: [dict[str, Union[float, int]]]):
         logging.info('No publisher records to process for the V2 process')
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=10)) as flow:
     fetch = MySQLFetch(**MYSQL_PUBLISHER_CONNECTION_DICT)
     execute = MySQLExecute(**MYSQL_PUBLISHER_CONNECTION_DICT, commit=True)
 
