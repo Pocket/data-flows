@@ -110,7 +110,8 @@ def put_results(candidate_set_id: str,
         raise AssertionError(f"Invalid expiry set: {expires_in_s=}")
 
     message = json.dumps(candidate_set.dict())
-    sqs = boto3.resource('sqs')
+    boto3_session = boto3.session.Session()  # Each thread needs its own boto3 session
+    sqs = boto3_session.resource('sqs')
     queue = sqs.get_queue_by_name(QueueName=sqs_queue_name)
     logger.info(f'Sent {len(candidates)} candidates from {candidate_set_id}')
     sqs_result = queue.send_message(MessageBody=message)
