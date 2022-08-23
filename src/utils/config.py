@@ -1,5 +1,5 @@
-import os
 import base64
+import os
 
 ENV_LOCAL = "local"
 ENV_DEV = "development"
@@ -38,6 +38,16 @@ SNOWFLAKE_DATA_RETENTION_CONNECTION_DICT = {
     "role": os.getenv("SNOWFLAKE_DATA_RETENTION_ROLE"),
     "database": os.getenv('SNOWFLAKE_DATA_RETENTION_DB'),
     "schema": os.getenv('SNOWFLAKE_DATA_RETENTION_SCHEMA')
+}
+
+
+_MYSQL_PUBLISHER_PORT = os.getenv("POCKET_PUBLISHER_DATABASE_PORT")
+MYSQL_PUBLISHER_CONNECTION_DICT = {
+    "host": os.getenv("POCKET_PUBLISHER_DATABASE_HOST"),
+    "user": os.getenv("POCKET_PUBLISHER_DATABASE_USER"),
+    "db_name": os.getenv("POCKET_PUBLISHER_DATABASE_DBNAME"),
+    "port": int(_MYSQL_PUBLISHER_PORT) if _MYSQL_PUBLISHER_PORT else 3306,
+    "password": os.getenv('POCKET_PUBLISHER_DATABASE_PASSWORD'),
 }
 
 SNOWFLAKE_SNOWPLOW_DB = os.getenv('SNOWFLAKE_SNOWPLOW_DB')
