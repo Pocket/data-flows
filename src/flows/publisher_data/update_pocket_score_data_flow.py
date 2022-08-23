@@ -8,7 +8,7 @@ from prefect.tasks.mysql import MySQLExecute, MySQLFetch
 
 from api_clients.pocket_mysql import PocketMySQLExecuteMany
 from utils.config import MYSQL_PUBLISHER_CONNECTION_DICT
-from utils.flow import get_flow_name, get_interval_schedule
+from utils.flow import get_flow_name, get_interval_schedule, get_s3_result
 
 '''
 Load and update the content quality score in the publisher database
@@ -200,7 +200,7 @@ def load(rows: [dict[str, Union[float, int]]]):
         logging.info('No publisher records to process for the V2 process')
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=20)) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=20), result=get_s3_result()) as flow:
     fetch = MySQLFetch(**MYSQL_PUBLISHER_CONNECTION_DICT)
     execute = MySQLExecute(**MYSQL_PUBLISHER_CONNECTION_DICT, commit=True)
 
