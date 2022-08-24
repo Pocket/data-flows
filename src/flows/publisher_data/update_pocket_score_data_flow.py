@@ -1,7 +1,7 @@
-import logging
 from datetime import timedelta
 from typing import Union, Tuple
 
+import prefect
 import scipy.special
 from prefect import Flow, task
 from prefect.tasks.mysql import MySQLExecute, MySQLFetch
@@ -174,30 +174,32 @@ def update_args(rows: [dict[str, Union[float, int]]]) -> [Tuple]:
     ) for x in rows]
 
 
-@task(timeout=10 * 60, max_retries=3, retry_delay=timedelta(seconds=60))
+@task(timeout=10 * 60, max_retries=6, retry_delay=timedelta(seconds=30))
 def load(rows: [dict[str, Union[float, int]]]):
+    logger = prefect.context.get("logger")
+
     execute_many = PocketMySQLExecuteMany(**MYSQL_PUBLISHER_CONNECTION_DICT)
 
     one_dict = [x for x in rows if x['content_id'] <= max_content_id]
     two_dict = [x for x in rows if x['content_id'] > max_content_id]
 
     if len(one_dict) > 0:
-        logging.info('V1 dictionary length %s', len(one_dict))
+        logger.info('V1 dictionary length %s', len(one_dict))
         inserts = execute_many.run(query=INSERT_TO_CONTENT_V1_SQL, args=insert_args(one_dict))
         updates = execute_many.run(query=UPDATE_CONTENT_V1_SQL, args=update_args(one_dict))
         deletes = execute_many.run(query=DELETE_PROCESS_QUEUE_SQL, args=delete_args(one_dict))
-        logging.info('V1 inserts: %s, updates: %s, deletes: %s', inserts, updates, deletes)
+        logger.info('V1 inserts: %s, updates: %s, deletes: %s', inserts, updates, deletes)
     else:
-        logging.info('No publisher records to process for the V1 process')
+        logger.info('No publisher records to process for the V1 process')
 
     if len(two_dict) > 0:
-        logging.info('V2 dictionary length %s', len(two_dict))
+        logger.info('V2 dictionary length %s', len(two_dict))
         inserts = execute_many.run(query=INSERT_TO_CONTENT_V2_SQL, args=insert_args(two_dict))
         updates = execute_many.run(query=UPDATE_CONTENT_V2_SQL, args=update_args(two_dict))
         deletes = execute_many.run(query=DELETE_PROCESS_QUEUE_SQL, args=delete_args(two_dict))
-        logging.info('V2 inserts: %s, updates: %s, deletes: %s', inserts, updates, deletes)
+        logger.info('V2 inserts: %s, updates: %s, deletes: %s', inserts, updates, deletes)
     else:
-        logging.info('No publisher records to process for the V2 process')
+        logger.info('No publisher records to process for the V2 process')
 
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=20), result=get_s3_result()) as flow:
