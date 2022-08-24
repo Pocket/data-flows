@@ -27,8 +27,8 @@ const prefect = {
   flowTask: {
     // See the documentation below for valid values for CPU and memory:
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
-    cpu: 4096, // 4096 = 4 vCPU
-    memory: 30720, // 30720 = 30GB
+    cpu: 1024, // 1024 = 1vCPU, 4096 = 4 vCPU
+    memory: 8192, // available memory in MB
     dataLearningBucketName: isDev
       ? 'pocket-data-learning-dev'
       : 'pocket-data-learning',
