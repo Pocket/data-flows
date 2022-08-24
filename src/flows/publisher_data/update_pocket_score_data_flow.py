@@ -174,7 +174,7 @@ def update_args(rows: [dict[str, Union[float, int]]]) -> [Tuple]:
     ) for x in rows]
 
 
-@task(timeout=10 * 60, max_retries=6, retry_delay=timedelta(seconds=30))
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def load(rows: [dict[str, Union[float, int]]]):
     logger = prefect.context.get("logger")
 
