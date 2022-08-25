@@ -18,7 +18,7 @@ WITH prep AS (
     a.HASHED_USER_ID,
     a.CONTENT_ID,
     c.RESOLVED_ID,
-    current_date - a.HAPPENED_AT_DAY as first_impression_age,
+    current_date - a.FIRST_IMPRESSED_DATE as first_impression_age,
     MIN(a.IMPRESSION_AGE) as last_impression_age,
     SUM(a.IMPRESSION_COUNT) as total_impressions,
     MAX(a.HAPPENED_AT_DAY) as last_impressed_date
