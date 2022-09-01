@@ -34,11 +34,11 @@ LIMIT 90
 """
 
 @task()
-def transform_to_candidates(records: dict, feed_id: NewTabFeedID) -> List[RecommendationCandidate]:
+def transform_to_candidates(records: dict, feed_id: int) -> List[RecommendationCandidate]:
     return [RecommendationCandidate(
         item_id=rec["ID"],
         publisher=rec["PUBLISHER"],
-        feed_id=int(feed_id)
+        feed_id=feed_id
     ) for rec in records]
 
 
@@ -53,7 +53,7 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     set_params = [{"LANG": "EN", "CANDIDATE_SET_ID": CURATED_LONGREADS_CANDIDATE_SET_ID_EN,
                    "FEED_ID": int(NewTabFeedID.en_US)},
                   {"LANG": "DE", "CANDIDATE_SET_ID": CURATED_LONGREADS_CANDIDATE_SET_ID_DE,
-                   "FEED_ID": NewTabFeedID.de_DE}]
+                   "FEED_ID": int(NewTabFeedID.de_DE)}]
 
     # Fetch the most recent curated longreads per langauge
     longreads_candidate_items = query.map(data=set_params, query=unmapped(EXPORT_LONGREADS_ITEMS_SQL))
