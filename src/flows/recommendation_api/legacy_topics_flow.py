@@ -21,7 +21,8 @@ JOIN "ANALYTICS"."DBT".content as c ON c.content_id = a.content_id
 WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD('day', -90, current_timestamp())
 AND a.TOPIC = %(CORPUS_TOPIC_ID)s
 AND a.LANGUAGE = 'EN'
-order by REVIEWED_CORPUS_ITEM_UPDATED_AT desc
+AND a.CORPUS_REVIEW_STATUS = 'recommendation'
+order by a.REVIEWED_CORPUS_ITEM_UPDATED_AT desc
 limit 45
 """
 
