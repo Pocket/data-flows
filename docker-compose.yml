@@ -18,6 +18,7 @@ services:
       - ./src:/src
       - .docker/app/entrypoint.sh:/usr/local/bin/entrypoint.sh
       - ~/.aws:/root/.aws
+      - /home/mathijs/recit-ralph/data/latest/:/model/
     env_file:
       - .env
     environment:
