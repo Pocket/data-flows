@@ -13,7 +13,7 @@ from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 FLOW_NAME = get_flow_name(__file__)
 
-CURATED_SHORTREADS_CANDIDATE_SET_ID_EN = "626397d3-fa4e-4299-8d07-cbeaa269ebc1"
+CURATED_SHORTREADS_CANDIDATE_SET_ID_EN = "7ef90242-ff7a-44ac-8a32-53193e4a23eb"
 CURATED_SHORTREADS_CANDIDATE_SET_ID_DE = "57e4d3d1-9b4a-4a35-82f4-e577d88f6521"
 
 # Export approved corpus items by language and recency
