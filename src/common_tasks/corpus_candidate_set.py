@@ -29,7 +29,7 @@ def validate_candidate_items(corpus_items: List[Dict]):
     expected_keys = ['ID', 'PUBLISHER']
 
     assert len(corpus_items) >= min_item_count
-    assert all(list(corpus_item.keys()) == expected_keys for corpus_item in corpus_items)
+    assert all(set(expected_keys).difference(set(corpus_item.keys())) == set() for corpus_item in corpus_items)
     assert all(isinstance(corpus_item['ID'], int) and corpus_item['ID'] != None for corpus_item in corpus_items)
     assert all(isinstance(corpus_item['PUBLISHER'], str) and corpus_item['PUBLISHER'] != '' for corpus_item in corpus_items)
 
