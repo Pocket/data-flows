@@ -14,6 +14,7 @@ pydantic = "*"
 scipy = "*"
 pymysql = "*"
 gensim = "==3.8.3"
+aioboto3 = "*"
 
 [dev-packages]
 graphviz = "==0.19.1"
