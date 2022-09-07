@@ -19,7 +19,7 @@ DBT_DOWNSTREAM_FLOW_NAMES = [
     postreview_engagement_feature_store_flow.FLOW_NAME,
 ]
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=10), executor=LocalDaskExecutor()) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30), executor=LocalDaskExecutor(), timeout=15 * 60) as flow:
 
     dbt_run_result = dbt.DbtCloudRunJob()(cause=FLOW_NAME, job_id=DBT_CLOUD_JOB_ID, wait_for_job_run_completion=True)
 
