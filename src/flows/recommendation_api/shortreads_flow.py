@@ -2,13 +2,7 @@ from typing import List
 from prefect import Flow, task, unmapped
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
-from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID
-from common_tasks.corpus_candidate_set import (
-    create_corpus_candidate_set_record,
-    load_feature_record,
-    feature_group,
-    validate_candidate_items,
-)
+from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID, validate_candidate_items
 from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 FLOW_NAME = get_flow_name(__file__)
@@ -17,7 +11,7 @@ CURATED_SHORTREADS_CANDIDATE_SET_ID_EN = "7ef90242-ff7a-44ac-8a32-53193e4a23eb"
 CURATED_SHORTREADS_CANDIDATE_SET_ID_DE = "57e4d3d1-9b4a-4a35-82f4-e577d88f6521"
 
 # Export approved corpus items by language and recency
-EXPORT_LONGREADS_ITEMS_SQL = """
+EXPORT_SHORTREADS_ITEMS_SQL = """
 SELECT 
     a.resolved_id as "ID", 
     c.top_domain_name as "PUBLISHER"
@@ -57,7 +51,7 @@ with Flow(FLOW_NAME) as flow:
                    "FEED_ID": int(NewTabFeedID.de_DE)}]
 
     # Fetch the most recent curated shortreads per langauge
-    shortreads_candidate_items = query.map(data=set_params, query=unmapped(EXPORT_LONGREADS_ITEMS_SQL))
+    shortreads_candidate_items = query.map(data=set_params, query=unmapped(EXPORT_SHORTREADS_ITEMS_SQL))
 
     valid_shortreads_candidate_items = validate_candidate_items.map(shortreads_candidate_items)
 

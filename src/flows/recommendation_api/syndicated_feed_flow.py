@@ -2,8 +2,7 @@ from typing import List
 from prefect import Flow, task
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
-from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID
-from common_tasks.corpus_candidate_set import validate_candidate_items
+from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID, validate_candidate_items
 from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 FLOW_NAME = get_flow_name(__file__)
