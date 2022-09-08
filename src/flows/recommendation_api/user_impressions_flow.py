@@ -15,27 +15,26 @@ FLOW_NAME = get_flow_name(__file__)
 BASE_QUERY = """
 WITH prep AS (
   SELECT
-    a.HASHED_USER_ID,
-    a.CONTENT_ID,
-    c.RESOLVED_ID,
-    current_date - a.FIRST_IMPRESSED_DATE as first_impression_age,
-    MIN(a.IMPRESSION_AGE) as last_impression_age,
-    SUM(a.IMPRESSION_COUNT) as total_impressions,
-    MAX(a.HAPPENED_AT_DAY) as last_impressed_date
-  FROM ANALYTICS.DBT.FIRST_IMPRESSED_AGE as a
-  JOIN ANALYTICS.DBT.CONTENT AS c
-    ON c.CONTENT_ID = a.CONTENT_ID
-  WHERE CURRENT_DATE - %(AGG_WINDOW_DAYS)s <= a.TIME_ADDED  -- all imprs in the last 3 weeks
-  GROUP BY 1, 2, 3, 4
-  )
-  
-SELECT
-    p.HASHED_USER_ID,
-    current_date AS UPDATED_AT,
-    ('[' || LISTAGG(DISTINCT p.RESOLVED_ID, ',') || ']') AS RESOLVED_IDS
-FROM prep as p
-WHERE ((p.first_impression_age > %(MAX_IMPR_AGE)s) OR (p.total_impressions > %(MAX_IMPRS)s))  -- filter based on time since 1st impr
-GROUP BY 1, 2                                                                                 -- or total imprs
+      r.HASHED_USER_ID,
+      r.CORPUS_ITEM_ID,
+      COUNT(*) as impression_count,
+      MIN(i.happened_at) as first_impression_time
+  FROM "ANALYTICS"."DBT"."IMPRESSIONS" i
+  JOIN "ANALYTICS"."DBT_STAGING"."STG_CORPUS_SLATE_RECOMMENDATIONS" r on i.CORPUS_RECOMMENDATION_ID = r.CORPUS_RECOMMENDATION_ID
+  WHERE i.HAPPENED_AT > CURRENT_DATE - %(AGG_WINDOW_DAYS)s
+  GROUP BY 1,2
+  ORDER BY impression_count DESC
+)
+
+SELECT 
+    HASHED_USER_ID,
+    current_date as UPDATED_AT,
+    ('[' || LISTAGG(DISTINCT CORPUS_ITEM_ID, ',') || ']') AS CORPUS_IDS
+FROM 
+    (SELECT * FROM prep WHERE impression_count > %(MAX_IMPRS)s
+     UNION 
+     SELECT * FROM prep WHERE first_impression_time < CURRENT_DATE - %(MAX_IMPR_AGE)s )
+GROUP BY 1,2
 """
 
 
@@ -63,11 +62,11 @@ else:
 with Flow(FLOW_NAME, schedule=schedule) as flow:
     feature_group = Parameter("feature group", default=f"{config.ENVIRONMENT}-user-impressions-v1")
     max_impr_age = Parameter("max impression age", default=6)
-    max_impr_count = Parameter("max impression count", default=12)
+    max_impr_count = Parameter("max impression count", default=9)
 
     snowflake_result = PocketSnowflakeQuery()(
         query=BASE_QUERY,
-        data={"MAX_IMPR_AGE": max_impr_age, "MAX_IMPRS": max_impr_count, "AGG_WINDOW_DAYS": 21}
+        data={"MAX_IMPR_AGE": max_impr_age, "MAX_IMPRS": max_impr_count, "AGG_WINDOW_DAYS": 29}
     )
 
     transformed_df = transform_user_impressions_df(snowflake_result)
