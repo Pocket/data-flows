@@ -45,8 +45,7 @@ def transform_to_candidates(records: dict) -> List[RecommendationCandidate]:
         feed_id=int(NewTabFeedID.en_US)
     ) for rec in records]
 
-#with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30), executor=LocalDaskExecutor()) as flow:
-with Flow(FLOW_NAME) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30), executor=LocalDaskExecutor()) as flow:
     query = PocketSnowflakeQuery(
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
