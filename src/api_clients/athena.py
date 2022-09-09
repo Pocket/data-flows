@@ -1,9 +1,11 @@
 import os
+from time import sleep
 
 import boto3
 import pandas as pd
-from time import sleep
-from prefect import task, context
+import prefect
+from prefect import task
+
 from utils import config
 
 
@@ -15,7 +17,7 @@ def athena_query(query: str):
     Returns: query result as Pandas DataFrame
     """
 
-    logger = context.get("logger")
+    logger = prefect.context.get("logger")
     athena = boto3.client('athena')
 
     # Submit Athena query for execution

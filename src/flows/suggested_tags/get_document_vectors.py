@@ -25,8 +25,6 @@ FLOW_NAME = get_flow_name(__file__)
 s3_bucket_source = 'pocket-data-learning-dev'
 s3_bucket_key='analytics-modeled-data/parquet/dbt/web_explore_impressions_clicks_by_item_hour/data_0_0_0.snappy.parquet'
 
-doc2vec = load_dir('/model')
-
 
 @task()
 def list_files(uri):
@@ -68,40 +66,47 @@ def get_resolved_ids(s3_uri) -> List[int]:
     return [int(i.as_py()) for i in dataset.read()['RESOLVED_ID'] if i.as_py() is not None]
 
 
-async def process_resolved_id(resolved_id: int, s3_client, featurestore, logger):
+async def process_resolved_id(resolved_id: int, s3_client, featurestore, logger, doc2vec):
     article_text = await download_article_text(s3_client, resolved_id)
-    if not article_text:
-        logger.warning(f'No article text found for resolved_id {resolved_id}')
-        return
 
-    try:
-        document_vector = doc2vec.infer(article_text)
-    except ValueError as e:
-        logger.info(e)
-        return
+    document_vector = None
+    if article_text:
+        try:
+            document_vector = doc2vec.infer(article_text)
+        except ValueError as e:
+            # logger.info(e)
+            pass
 
     record = create_feature_record(resolved_id=resolved_id, document_vector=document_vector)
     await featurestore.put_record(FeatureGroupName=f"{ENVIRONMENT}-resolved-item-vectors-v1", Record=record)
 
-    logger.info(f"Created and stored vector for {resolved_id}")
+    # logger.info(f"Created and stored vector for {resolved_id}")
 
 
-async def async_process_resolved_ids(resolved_ids: Sequence[int], logger):
+async def async_process_resolved_ids(resolved_ids: Sequence[int], logger, doc2vec):
     boto_session = aioboto3.Session()
     async with boto_session.client('s3') as s3_client:
         async with boto_session.client('sagemaker-featurestore-runtime') as featurestore:
-            await asyncio.gather(*(process_resolved_id(r, s3_client, featurestore, logger) for r in resolved_ids))
+            await asyncio.gather(*(process_resolved_id(
+                resolved_id,
+                s3_client=s3_client,
+                featurestore=featurestore,
+                logger=logger,
+                doc2vec=doc2vec
+            ) for resolved_id in resolved_ids))
 
 
 @task()
 def process_file(s3_uri, processed_resolved_ids: set[int]):
+    doc2vec = load_dir('/model')
+
     logger = prefect.context.get("logger")
 
     unprocessed_resolved_ids = list(set(get_resolved_ids(s3_uri)).difference(processed_resolved_ids))
     resolved_id_chunks = list(chunks(unprocessed_resolved_ids, 100))
     for index, chunk in enumerate(resolved_id_chunks):
         logger.info(f'Starting chunk {index}/{len(resolved_id_chunks)}')
-        asyncio.run(async_process_resolved_ids(chunk, logger=logger))
+        asyncio.run(async_process_resolved_ids(chunk, logger=logger, doc2vec=doc2vec))
 
 
 @task()
@@ -109,7 +114,7 @@ def transform_resolved_id_df_to_set(df: pd.DataFrame, column_name: str) -> set:
     return set(df[column_name].astype('int64').to_list())
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes", num_workers=8)) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes", num_workers=10)) as flow:
     processed_resolved_ids = athena_query(
         query='SELECT resolved_id '
               'FROM "sagemaker_featurestore"."production-resolved-item-vectors-v1-1661546849"'
