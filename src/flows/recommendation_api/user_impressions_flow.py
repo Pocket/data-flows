@@ -62,7 +62,7 @@ else:
 with Flow(FLOW_NAME, schedule=schedule) as flow:
     feature_group = Parameter("feature group", default=f"{config.ENVIRONMENT}-user-impressions-v1")
     max_impr_age = Parameter("max impression age", default=6)
-    max_impr_count = Parameter("max impression count", default=12)
+    max_impr_count = Parameter("max impression count", default=9)
 
     snowflake_result = PocketSnowflakeQuery()(
         query=BASE_QUERY,
