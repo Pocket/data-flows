@@ -5,13 +5,16 @@ import gzip
 from typing import Optional, List, Sequence, Dict
 
 import aioboto3
+import pyarrow as pa
 import pyarrow.parquet as pq
 import msgpack
 import s3fs
 import prefect
-from prefect import Flow, Parameter, task
+import pandas as pd
+from prefect import Flow, Parameter, task, unmapped
 from prefect.executors import LocalDaskExecutor
 
+from api_clients.athena import athena_query
 from api_clients.models import load_dir
 from utils.config import ENVIRONMENT
 from utils.flow import get_flow_name
@@ -61,7 +64,8 @@ def get_resolved_ids(s3_uri) -> List[int]:
     dataset = pq.ParquetDataset(
         s3_uri,
         filesystem=s3)
-    return dataset.read()['RESOLVED_ID'].to_pylist()
+
+    return [int(i.as_py()) for i in dataset.read()['RESOLVED_ID'] if i.as_py() is not None]
 
 
 async def process_resolved_id(resolved_id: int, s3_client, featurestore, logger):
@@ -90,23 +94,37 @@ async def async_process_resolved_ids(resolved_ids: Sequence[int], logger):
 
 
 @task()
-def process_file(s3_uri):
+def process_file(s3_uri, processed_resolved_ids: set[int]):
     logger = prefect.context.get("logger")
 
-    resolved_id_chunks = list(chunks(get_resolved_ids(s3_uri), 100))
+    unprocessed_resolved_ids = list(set(get_resolved_ids(s3_uri)).difference(processed_resolved_ids))
+    resolved_id_chunks = list(chunks(unprocessed_resolved_ids, 100))
     for index, chunk in enumerate(resolved_id_chunks):
         logger.info(f'Starting chunk {index}/{len(resolved_id_chunks)}')
         asyncio.run(async_process_resolved_ids(chunk, logger=logger))
 
 
+@task()
+def transform_resolved_id_df_to_set(df: pd.DataFrame, column_name: str) -> set:
+    return set(df[column_name].astype('int64').to_list())
+
+
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes", num_workers=8)) as flow:
+    processed_resolved_ids = athena_query(
+        query='SELECT resolved_id '
+              'FROM "sagemaker_featurestore"."production-resolved-item-vectors-v1-1661546849"'
+              'WHERE resolved_id IS NOT NULL',
+    )
+
+    processed_resolved_ids_set = transform_resolved_id_df_to_set(processed_resolved_ids, 'resolved_id')
+
     suggested_tag_s3_uri = Parameter(
         'suggested_tag_s3_uri',
         default='s3://pocket-data-learning/analytics-modeled-data/parquet/suggested_tags/tagged_items')
 
     s3_uris = list_files(suggested_tag_s3_uri)
 
-    process_file.map(s3_uris)
+    process_file.map(s3_uris, unmapped(processed_resolved_ids_set))
 
 if __name__ == "__main__":
     flow.run()

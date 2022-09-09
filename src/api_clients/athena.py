@@ -1,8 +1,11 @@
+import os
+
 import boto3
 import pandas as pd
 from time import sleep
 from prefect import task, context
 from utils import config
+
 
 @task()
 def athena_query(query: str):
@@ -13,11 +16,11 @@ def athena_query(query: str):
     """
 
     logger = context.get("logger")
-    client = boto3.client('athena')
+    athena = boto3.client('athena')
 
     # Submit Athena query for execution
     # The result sent to S3 location (config.ATHENA_S3_OUTPUT)
-    response = client.start_query_execution(
+    response = athena.start_query_execution(
         QueryString=query,
         ResultConfiguration={
             'OutputLocation': config.ATHENA_S3_OUTPUT,
@@ -28,41 +31,21 @@ def athena_query(query: str):
     # Wait until successful query completion
     query_status = None
     while query_status == 'QUEUED' or query_status == 'RUNNING' or query_status is None:
-        query_status = client.get_query_execution(
-            QueryExecutionId=QueryExecutionId
-        )['QueryExecution']['Status']['State']
-        if query_status == 'FAILED' or query_status == 'CANCELLED':
-            raise Exception('Athena query "{}" failed or was cancelled'.format(query))
         sleep(1)
-
-    next_token_param = {}
-    has_next_token = True
-    is_first_iteration = True
-    rows = []
-    columns = []
-    while has_next_token:
-
-        # Get query results
-        response = client.get_query_results(
-            QueryExecutionId=QueryExecutionId,
-            MaxResults=1000,
-            **next_token_param
+        query_execution = athena.get_query_execution(
+            QueryExecutionId=QueryExecutionId
         )
 
-        data_rows_start_index = 1 if is_first_iteration else 0
-        result_rows = response['ResultSet']['Rows']
+        query_execution_id = query_execution['QueryExecution']['QueryExecutionId']
+        query_status = query_execution['QueryExecution']['Status']['State']
+        if query_status == 'FAILED':
+            athena_error = query_execution['QueryExecution']['Status']['AthenaError']
+            raise Exception(f'Athena query {query_execution_id} failed {athena_error}: {query}')
+        elif query_status == 'CANCELLED':
+            raise Exception(f'Athena query {query_execution_id} was cancelled: {query}')
 
-        if is_first_iteration:
-            columns = [col.get('VarCharValue') for col in result_rows[0]['Data']]
-        # This code probably doesn't scale very well with large data sets. With Prefect 2.0 we can have circular graphs,
-        # where we yield each result set of 1000 rows independently, and loop until we're done.
-        rows += [[data.get('VarCharValue') for data in row['Data']] for row in result_rows[data_rows_start_index:]]
-
-        next_token = response.get('NextToken')
-        has_next_token = next_token is not None
-        next_token_param = {'NextToken': next_token}
-        is_first_iteration = False
-
-    df = pd.DataFrame(rows, columns=columns)
-    logger.info(f'Athena Row Count: {len(df)}')
+    logger.info(f'Athena query {query_execution_id} completed successfully')
+    df = pd.read_csv(os.path.join(config.ATHENA_S3_OUTPUT, f'{query_execution_id}.csv'))
+    logger.info(f'Athena query {query_execution_id} produced {len(df)} rows')
     return df
+
