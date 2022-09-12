@@ -132,6 +132,7 @@ def load(keys: [str]):
 @task()
 def cleanup(bucket: str, keys: [str]):
     s3 = boto3.resource('s3')
+    # TODO Can we do many delete commands at one and await the result?
     for key in keys:
         s3.Object(bucket, key).delete()
 
