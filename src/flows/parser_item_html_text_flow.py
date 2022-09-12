@@ -97,7 +97,7 @@ def stage(dfs: List[pd.dataframe]):
     s3_prefix = get_stage_prefix()
     df = pd.concat(dfs, sort=False)
     chunks = [df[i:i + chunk_rows] for i in range(0, df.shape[0], chunk_rows)]
-    return [write_df_to_s3(bucket, f"{s3_prefix}/{i}", df) for i, df in chunks]
+    return [write_df_to_s3(bucket, f"{s3_prefix}/{i}.csv.gz", df) for i, df in chunks]
 
 
 #TODO Fix SQL and stage all files to a unique prefext so that we can load all files with one command.
