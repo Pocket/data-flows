@@ -1,5 +1,7 @@
+import datetime
 from typing import List
 from prefect import Flow, task, unmapped
+from prefect.schedules import IntervalSchedule
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID, validate_candidate_items
@@ -43,7 +45,13 @@ def transform_to_candidates(records: dict, feed_id: int, filter_synd: bool) -> L
         ) for rec in records]
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
+# Schedule to run every hour
+if config.ENVIRONMENT == config.ENV_PROD:
+    schedule = IntervalSchedule(interval=datetime.timedelta(minutes=60))
+else:
+    schedule = None
+
+with Flow(FLOW_NAME, schedule=schedule) as flow:
 
     query = PocketSnowflakeQuery(
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,

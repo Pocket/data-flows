@@ -1,10 +1,12 @@
+import datetime
 from typing import List
 from prefect import Flow, task, unmapped
+from prefect.schedules import IntervalSchedule
 
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID, validate_candidate_items
 from utils import config
-from utils.flow import get_flow_name, get_interval_schedule
+from utils.flow import get_flow_name
 FLOW_NAME = get_flow_name(__file__)
 
 CURATED_LONGREADS_CANDIDATE_SET_ID_EN = "dacc55ea-db8d-4858-a51d-e1c78298337e"
@@ -36,7 +38,13 @@ def transform_to_candidates(records: dict, feed_id: int) -> List[RecommendationC
     ) for rec in records]
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
+# Schedule to run every three hours
+if config.ENVIRONMENT == config.ENV_PROD:
+        schedule = IntervalSchedule(interval=datetime.timedelta(minutes=180))
+else:
+    schedule = None
+
+with Flow(FLOW_NAME, schedule=schedule) as flow:
 
     query = PocketSnowflakeQuery(
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
