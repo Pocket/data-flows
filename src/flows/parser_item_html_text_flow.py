@@ -120,7 +120,7 @@ def cleanup(bucket: str, key: str):
     s3.Object(bucket, key).delete()
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(), schedule=get_interval_schedule(hours=24)) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(), schedule=get_interval_schedule(minutes=1440)) as flow:
     source_keys_results = get_source_keys()
 
     transform_results = extract_transform.map(source_keys_results)
