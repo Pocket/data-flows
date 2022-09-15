@@ -14,8 +14,6 @@ from common_tasks.transform_data import get_text_from_html
 from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 
-'''
-'''
 
 # Setting flow variables
 FLOW_NAME = get_flow_name(__file__)
@@ -27,6 +25,7 @@ SNOWFLAKE_STAGE='raw.item.article_content_html'
 SNOWFLAKE_TABLE='raw.item.article_content_html'
 CHUNK_ROWS = 10000
 
+# Import from S3 to Snowflake
 IMPORT_SQL = f"""
     copy into {SNOWFLAKE_TABLE}(event)
     from (
@@ -40,6 +39,9 @@ REFRESH_STAGE = f'alter stage {SNOWFLAKE_STAGE} refresh;'
 
 @task()
 def get_source_keys() -> [str]:
+    """
+    :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
+    """
     file_list = S3List().run(bucket=S3_BUCKET, prefix=SOURCE_PREFIX)
     if len(file_list) == 0:
         raise Exception(f'No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}')
@@ -47,6 +49,12 @@ def get_source_keys() -> [str]:
 
 @task()
 def extract_transform(key: str) -> pd.DataFrame:
+    """
+    - Extracts data from the S3_BUCKET for the {key}
+    - Transforms the html content field for each row to text
+    - Adds the transformed text data as a new field to the Dataframe
+    :return: Transformed Dataframe
+    """
     logger = prefect.context.get("logger")
     logger.info(f"Extracting and Transforming file: {str(key)}")
     contents = S3Download().run(bucket=S3_BUCKET, key=key, compression='gzip')
@@ -57,27 +65,30 @@ def extract_transform(key: str) -> pd.DataFrame:
     return df
 
 def write_df_to_s3(bucket: str, key: str, df: pd.DataFrame) -> str:
+    """
+    Writes Dataframe records to S3
+    """
     json_buffer = StringIO()
     df.to_json(json_buffer, compression='gzip', orient='records', lines=True)
     s3 = boto3.resource('s3')
     s3.Object(bucket, key).put(Body=json_buffer.getvalue())
     return key
 
-def get_stage_prefix():
+def get_stage_prefix() -> str:
+    """
+    The stage prefix is the destination for the transformed stage files used for Snowflake load
+    :return: S3 Stage prefix for each run instance.
+    """
     s3_prefix = STAGE_PREFIX
     flow_run_id = prefect.context.get('flow_run_id')
     return f"{s3_prefix}{flow_run_id}"
 
 @task()
-def stage(dfs: List[pd.DataFrame]):
-    bucket = S3_BUCKET
-    s3_prefix = get_stage_prefix()
-    df = pd.concat(dfs, sort=False)
-    chunks = [(i, df[i:i + CHUNK_ROWS]) for i in range(0, df.shape[0], CHUNK_ROWS)]
-    return [write_df_to_s3(bucket, f"{s3_prefix}/{i}.json.gz", df) for i, df in chunks]
-
-@task()
-def chunk_transform(dfs: List[pd.DataFrame]):
+def chunk_transform(dfs: List[pd.DataFrame]) -> List[(int, pd.DataFrame)]:
+    """
+    Create chunks for size CHUNK_ROWS for the rows in the Dataframe
+    :return: List of Dataframes chunks with a chunk identifier as a tuple
+    """
     if len(dfs) == 0:
         raise Exception(f'No records available in source: s3://{S3_BUCKET}/{SOURCE_PREFIX}')
     df = pd.concat(dfs, sort=False)
@@ -85,6 +96,10 @@ def chunk_transform(dfs: List[pd.DataFrame]):
 
 @task()
 def stage_and_load(chunk: (int, pd.DataFrame)):
+    """
+    Stage files in S3 and Load to Snowflake
+    :return: S3 Stage file key
+    """
     logger = prefect.context.get("logger")
     bucket = S3_BUCKET
     s3_prefix = get_stage_prefix()
@@ -110,6 +125,9 @@ def stage_and_load(chunk: (int, pd.DataFrame)):
 
 @task()
 def combine(source_keys: [str], stage_keys: [str]):
+    """
+    :return: Combine the S3 Source keys and Stage keys to spawn cleanup
+    """
     return source_keys + stage_keys
 
 @task()
