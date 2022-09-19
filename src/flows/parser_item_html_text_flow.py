@@ -49,7 +49,7 @@ def get_source_keys() -> [str]:
     if len(file_list) == 0:
         raise Exception(
             f'No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}. Ensure the firehose delivery stream delivering S3 files is writing objects.')
-    return file_list[0:1]  # TODO: Remove limiting array size
+    return file_list
 
 
 @task()
