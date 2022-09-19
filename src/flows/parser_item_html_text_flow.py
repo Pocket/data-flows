@@ -1,41 +1,44 @@
+import gzip
 import json
-from io import StringIO
+from io import StringIO, BytesIO
 from typing import Union, Tuple, List, Dict
 
 import boto3
 import pandas as pd
 import prefect
-from prefect import Flow, task, unmapped
+from prefect import Flow, task, unmapped, flatten
 from prefect.tasks.aws import S3List, S3Download, S3Upload
 from prefect.executors import LocalDaskExecutor
+from prefect.tasks.snowflake import SnowflakeQuery
+
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 from common_tasks.transform_data import get_text_from_html
 
 from utils import config
+from utils.config import SNOWFLAKE_DEFAULT_DICT
 from utils.flow import get_flow_name, get_interval_schedule
-
 
 # Setting flow variables
 FLOW_NAME = get_flow_name(__file__)
 
+# This bucket was created by another process. We may have to revisit using this bucket.
 S3_BUCKET = 'pocket-data-items'
 SOURCE_PREFIX = 'article/streaming-html/'
 STAGE_PREFIX = 'article/streaming-html-stage/'
-SNOWFLAKE_STAGE='raw.item.article_content_html'
-SNOWFLAKE_TABLE='raw.item.article_content_html'
-CHUNK_ROWS = 10000
+# Maximum number rows to include in a staging file. This is optimized for prefect import performance.
+CHUNK_ROWS = 50000  # 3486 rows = 10MB
 
 # Import from S3 to Snowflake
+# 3.5k rows = 2 seconds on xsmall warehouse
 IMPORT_SQL = f"""
-    copy into {SNOWFLAKE_TABLE}(event)
-    from (
-      select $1
-      from %(snowflake_stage_uri)s
-    )
-    file_format = (type = 'JSON')
-    on_error=skip_file;
+copy into raw.item.article_content_v2
+(resolved_id, html, text)
+from %(uri)s
+storage_integration = aws_integration_readonly_prod
+file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
+on_error=ABORT_STATEMENT;
 """
-REFRESH_STAGE = f'alter stage {SNOWFLAKE_STAGE} refresh;'
+
 
 @task()
 def get_source_keys() -> [str]:
@@ -44,11 +47,13 @@ def get_source_keys() -> [str]:
     """
     file_list = S3List().run(bucket=S3_BUCKET, prefix=SOURCE_PREFIX)
     if len(file_list) == 0:
-        raise Exception(f'No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}')
-    return file_list
+        raise Exception(
+            f'No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}. Ensure the firehose delivery stream delivering S3 files is writing objects.')
+    return file_list[0:1]  # TODO: Remove limiting array size
+
 
 @task()
-def extract_transform(key: str) -> pd.DataFrame:
+def extract(key: str) -> pd.DataFrame:
     """
     - Extracts data from the S3_BUCKET for the {key}
     - Transforms the html content field for each row to text
@@ -56,23 +61,18 @@ def extract_transform(key: str) -> pd.DataFrame:
     :return: Transformed Dataframe
     """
     logger = prefect.context.get("logger")
-    logger.info(f"Extracting and Transforming file: {str(key)}")
+    logger.info(f"Extracting file: {str(key)}")
     contents = S3Download().run(bucket=S3_BUCKET, key=key, compression='gzip')
-    content_list = [json.loads(l) for l in contents.splitlines()]
-    df = pd.DataFrame.from_records(content_list[1:5])
+    dicts = [json.loads(l) for l in contents.splitlines()]
+    return pd.DataFrame.from_records(dicts)
+
+
+@task()
+def transform(df: pd.DataFrame) -> pd.DataFrame:
     df.rename(columns={"article": "html"}, inplace=True)
-    df['text'] = [get_text_from_html(article_html) for article_html in df['html']]
+    df['text'] = [get_text_from_html(html) for html in df['html']]
     return df
 
-def write_df_to_s3(bucket: str, key: str, df: pd.DataFrame) -> str:
-    """
-    Writes Dataframe records to S3
-    """
-    json_buffer = StringIO()
-    df.to_json(json_buffer, compression='gzip', orient='records', lines=True)
-    s3 = boto3.resource('s3')
-    s3.Object(bucket, key).put(Body=json_buffer.getvalue())
-    return key
 
 def get_stage_prefix() -> str:
     """
@@ -83,72 +83,65 @@ def get_stage_prefix() -> str:
     flow_run_id = prefect.context.get('flow_run_id')
     return f"{s3_prefix}{flow_run_id}"
 
-@task()
-def chunk_transform(dfs: List[pd.DataFrame]) -> List[(int, pd.DataFrame)]:
-    """
-    Create chunks for size CHUNK_ROWS for the rows in the Dataframe
-    :return: List of Dataframes chunks with a chunk identifier as a tuple
-    """
-    if len(dfs) == 0:
-        raise Exception(f'No records available in source: s3://{S3_BUCKET}/{SOURCE_PREFIX}')
-    df = pd.concat(dfs, sort=False)
-    return [(i, df[i:i + CHUNK_ROWS]) for i in range(0, df.shape[0], CHUNK_ROWS)]
 
-@task()
-def stage_and_load(chunk: (int, pd.DataFrame)):
-    """
-    Stage files in S3 and Load to Snowflake
-    :return: S3 Stage file key
-    """
-    logger = prefect.context.get("logger")
+def stage_chunk(index: int, df: pd.DataFrame) -> str:
     bucket = S3_BUCKET
     s3_prefix = get_stage_prefix()
-    (i, df) = chunk
-    key = f"{s3_prefix}/{i}.json.gz"
-    write_df_to_s3(bucket, key, df)
+    key = f"{s3_prefix}/{index}.csv.gz"
 
-    PocketSnowflakeQuery(
-        database=config.SNOWFLAKE_ANALYTICS_DATABASE,
-        schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
-        output_type = OutputType.DICT
-    ).run(query=REFRESH_STAGE)
+    csv_buffer = BytesIO()
+    with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
+        df.to_csv(gz_file, index=False)
 
-    path = key[28:] ## Strip prefix "article/streaming-html-stage"
-    logger.info(f"Snowflake loading from: {str(key)}")
-    PocketSnowflakeQuery(
-        database=config.SNOWFLAKE_ANALYTICS_DATABASE,
-        schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
-        output_type=OutputType.DICT
-    ).run(data={'snowflake_stage_uri': f'@{SNOWFLAKE_STAGE}{path}'}, query=IMPORT_SQL)
-
+    s3 = boto3.resource('s3')
+    s3.Object(bucket, key).put(Body=csv_buffer.getvalue())
     return key
 
-@task()
-def combine(source_keys: [str], stage_keys: [str]):
-    """
-    :return: Combine the S3 Source keys and Stage keys to spawn cleanup
-    """
-    return source_keys + stage_keys
 
 @task()
-def cleanup(bucket: str, key: str):
+def stage(dfs: List[pd.DataFrame]) -> List[str]:
+    """
+    Stage files in S3 with a file size optimized for import.
+    :return: S3 Stage file key.
+    """
     logger = prefect.context.get("logger")
-    logger.info(f"Cleanup file: {str(key)}")
+    logger.info(f"Staging dataframes count: {len(dfs)}")
+
+    if len(dfs) == 0:
+        raise Exception(f'No dataframes to stage.')
+
+    df = pd.concat(dfs, sort=False)
+    chunks = [(i, df[i:i + CHUNK_ROWS]) for i in range(0, df.shape[0], CHUNK_ROWS)]
+    logger.info(f"Number of chunks created: {len(chunks)}.")
+    keys = [stage_chunk(i, chunk) for i, chunk in chunks]
+    logger.info(f"Staged keys: {*keys,}")
+    return keys
+
+
+@task()
+def load(key: str):
+    uri = f"s3://{S3_BUCKET}/{key}"
+    logger = prefect.context.get("logger")
+    logger.info(f"Snowflake loading key: {uri}")
+    return SnowflakeQuery(**SNOWFLAKE_DEFAULT_DICT).run(data={'uri': uri}, query=IMPORT_SQL)
+
+
+@task()
+def cleanup(key: str):
+    bucket = S3_BUCKET
+    logger = prefect.context.get("logger")
+    logger.info(f"deleting file: {str(key)}")
     s3 = boto3.resource('s3')
     s3.Object(bucket, key).delete()
 
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(), schedule=get_interval_schedule(minutes=1440)) as flow:
     source_keys_results = get_source_keys()
-
-    transform_results = extract_transform.map(source_keys_results)
-
-    chunk_results = chunk_transform(transform_results)
-    stage_key_results = stage_and_load.map(chunk_results)
-
-    combine_keys = combine(source_keys_results, stage_key_results)
-    cleanup.map(unmapped(S3_BUCKET), combine_keys)
-
+    extract_results = extract.map(source_keys_results)
+    transform_results = transform.map(extract_results)
+    stage_results = stage(transform_results)
+    load_results = load.map(stage_results)
+    cleanup.map(flatten([source_keys_results, stage_results])).set_upstream(load_results)
 
 if __name__ == "__main__":
     flow.run()
