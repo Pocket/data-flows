@@ -27,6 +27,7 @@ SOURCE_PREFIX = 'article/streaming-html/'
 STAGE_PREFIX = 'article/streaming-html-stage/'
 # Maximum number rows to include in a staging file. This is optimized for prefect import performance.
 CHUNK_ROWS = 50000  # 3486 rows = 10MB
+NUM_FILES_PER_RUN = 50
 
 # Import from S3 to Snowflake
 # 3.5k rows = 2 seconds on xsmall warehouse
@@ -45,11 +46,18 @@ def get_source_keys() -> [str]:
     """
     :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
     """
+    logger = prefect.context.get("logger")
+
     file_list = S3List().run(bucket=S3_BUCKET, prefix=SOURCE_PREFIX)
     if len(file_list) == 0:
         raise Exception(
             f'No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}. Ensure the firehose delivery stream delivering S3 files is writing objects.')
-    return file_list
+
+    if len(file_list) > NUM_FILES_PER_RUN:
+        logger.warn(f"Number of files is greater than the number a worker can process in a single run. Found {len(file_list)} files, processing {NUM_FILES_PER_RUN}.")
+        return file_list[0:NUM_FILES_PER_RUN]
+    else:
+        return file_list
 
 
 @task()
