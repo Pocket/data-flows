@@ -34,6 +34,8 @@ _BASE64_SNOWFLAKE_PRIVATE_KEY = os.getenv("SNOWFLAKE_PRIVATE_KEY")
 SNOWFLAKE_DEFAULT_DICT = {
     "account": os.getenv("SNOWFLAKE_ACCOUNT"),
     "user": os.getenv("SNOWFLAKE_USER"),
+    "role": os.getenv("SNOWFLAKE_ROLE"),
+    "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
     "private_key": base64.b64decode(_BASE64_SNOWFLAKE_PRIVATE_KEY) if _BASE64_SNOWFLAKE_PRIVATE_KEY else None,
 }
 
