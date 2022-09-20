@@ -9,7 +9,7 @@ FLOW_NAME = get_flow_name(__file__)
 S3_BUCKET = 'pocket-snowflake-staging-manual'
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(), schedule=get_interval_schedule(minutes=1440)) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     key = Parameter('key')
     flow.logger.info(f"Processing key: {key}")
 

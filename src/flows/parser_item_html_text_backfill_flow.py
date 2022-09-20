@@ -49,7 +49,7 @@ def get_source_keys() -> [str]:
 def map_keys(keys: [str]):
     return [{"key": key} for key in keys]
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(), schedule=get_interval_schedule(minutes=1440)) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     source_keys_results = get_source_keys()
     map_keys_results = map_keys(source_keys_results)
 
