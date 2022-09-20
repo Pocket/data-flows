@@ -2,6 +2,7 @@ import gzip
 import base64
 import zlib
 from io import BytesIO
+from typing import List
 
 import boto3
 import pandas as pd
@@ -34,15 +35,15 @@ on_error=ABORT_STATEMENT;
 """
 
 @task()
-def extract(key: str) -> pd.DataFrame:
+def extract(key: str) -> List[pd.DataFrame]:
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
     bucket = SOURCE_S3_BUCKET
     s3 = boto3.resource('s3')
     response = s3.Object(bucket, key).get()
-    df = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0,1],
+    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0,1], chunksize=100000,
                      names=['resolved_id', 'compressed_html'])
-    return df
+    return [chunk for chunk in df_iterator]
 
 
 @task()
@@ -78,8 +79,9 @@ def stage_chunk(index: int, df: pd.DataFrame) -> str:
 
 
 @task()
-def stage(df: pd.DataFrame) -> [str]:
+def stage(dfs: List[pd.DataFrame]) -> [str]:
     logger = prefect.context.get("logger")
+    df = pd.concat(dfs)
     chunks = [(i, df[i:i + STAGE_CHUNK_ROWS]) for i in range(0, df.shape[0], STAGE_CHUNK_ROWS)]
     logger.info(f"Number of chunks created: {len(chunks)}.")
     keys = [stage_chunk(i, chunk) for i, chunk in chunks]
@@ -102,17 +104,11 @@ def cleanup(key: str):
     s3 = boto3.resource('s3')
     s3.Object(bucket, key).delete()
 
-@task
-def print_results(param_name, param_value):
-    print(f'{param_name}: {param_value}')
-
-
 with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     key = Parameter('key')
-    print_results('Processing key', key, task_args=dict(name="print_parameter_key"))
 
     extract_result = extract(key)
-    transform_result = transform(extract_result)
+    transform_result = transform.map(extract_result)
     stage_result = stage(transform_result)
     load_result = load.map(stage_result)
     cleanup.map(load_result)
