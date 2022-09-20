@@ -61,7 +61,7 @@ const prefect = {
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
-    existingPolicies: isDev ? [] : ['PocketDataProductReadOnly'],
+    existingPolicies: isDev ? [] : ['PocketDataProductWriteAccess'],
   },
 };
 
