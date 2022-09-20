@@ -151,5 +151,6 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), schedule=get_interval_schedul
     load_results = load.map(stage_results)
     cleanup.map(flatten([source_keys_results, stage_results])).set_upstream(load_results)
 
+
 if __name__ == "__main__":
     flow.run()
