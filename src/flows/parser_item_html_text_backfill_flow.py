@@ -24,7 +24,7 @@ from flows import parser_item_html_text_backfill_file_flow as file_flow
 FLOW_NAME = get_flow_name(__file__)
 
 # This bucket was created by another process. We may have to revisit using this bucket.
-S3_BUCKET = file_flow.S3_BUCKET
+S3_BUCKET = file_flow.SOURCE_S3_BUCKET
 SOURCE_PREFIX = 'aurora/textparser-prod-content-snapshot-2022091408-cluster/content/'
 NUM_FILES_PER_RUN = 1000
 
