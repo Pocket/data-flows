@@ -1,5 +1,6 @@
 import gzip
-import json
+import base64
+import zlib
 from io import BytesIO
 
 import boto3
@@ -36,13 +37,18 @@ on_error=ABORT_STATEMENT;
 def extract(key: str) -> pd.DataFrame:
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
-    contents = S3Download().run(bucket=SOURCE_S3_BUCKET, key=key, compression='gzip')
-    dicts = [json.loads(l) for l in contents.splitlines()]
-    return pd.DataFrame.from_records(dicts)
+    bucket = SOURCE_S3_BUCKET
+    s3 = boto3.resource('s3')
+    response = s3.Object(bucket, key).get()
+    df = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0,1],
+                     names=['resolved_id', 'compressed_html'])
+    return df
+
 
 @task()
 def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df.rename(columns={"article": "html"}, inplace=True)
+    df['html'] = [zlib.decompress(base64.b64decode(compressed_html)).decode() for compressed_html in df['compressed_html']]
+    df.drop(columns=['compressed_html'], inplace=True)
     df['text'] = [get_text_from_html(html) for html in df['html']]
     return df
 
@@ -96,10 +102,14 @@ def cleanup(key: str):
     s3 = boto3.resource('s3')
     s3.Object(bucket, key).delete()
 
+@task
+def print_results(param_name, param_value):
+    print(f'{param_name}: {param_value}')
+
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     key = Parameter('key')
-    flow.logger.info(f"Processing key: {key}")
+    print_results('Processing key', key, task_args=dict(name="print_parameter_key"))
 
     extract_result = extract(key)
     transform_result = transform(extract_result)
@@ -109,4 +119,4 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
 
 
 if __name__ == "__main__":
-    flow.run()
+    flow.run(parameters={'key': 'aurora/textparser-prod-content-snapshot-2022091408-cluster/content-peek/small.part_00000'})
