@@ -1,6 +1,5 @@
 import gzip
 import json
-import uuid
 from io import StringIO, BytesIO
 from typing import Union, Tuple, List, Dict
 
@@ -27,7 +26,8 @@ S3_BUCKET = 'pocket-data-items'
 SOURCE_PREFIX = 'article/streaming-html/'
 STAGE_PREFIX = 'article/streaming-html-stage/'
 # Maximum number rows to include in a staging file. This is optimized for prefect import performance.
-CHUNK_FILES = 10
+CHUNK_ROWS = 50000  # 3486 rows = 10MB
+NUM_FILES_PER_RUN = 50
 
 # Import from S3 to Snowflake
 # 3.5k rows = 2 seconds on xsmall warehouse
@@ -42,39 +42,26 @@ on_error=ABORT_STATEMENT;
 
 
 @task()
-def source_keys() -> [str]:
+def get_source_keys() -> [str]:
     """
     :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
     """
     logger = prefect.context.get("logger")
 
-    keys = S3List().run(bucket=S3_BUCKET, prefix=SOURCE_PREFIX)
-    if len(keys) == 0:
+    file_list = S3List().run(bucket=S3_BUCKET, prefix=SOURCE_PREFIX)
+    if len(file_list) == 0:
         raise Exception(
             f'No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}. Ensure the firehose delivery stream delivering S3 files is writing objects.')
 
-    logger.info(f'Found {len(keys)} files')
-    return keys
+    if len(file_list) > NUM_FILES_PER_RUN:
+        logger.warn(f"Number of files is greater than the number a worker can process in a single run. Found {len(file_list)} files, processing {NUM_FILES_PER_RUN}.")
+        return file_list[0:NUM_FILES_PER_RUN]
+    else:
+        return file_list
 
 
 @task()
-def chunk_source_keys(keys: [str]) -> List[List[str]]:
-    logger = prefect.context.get("logger")
-    chunks = [keys[i:i + CHUNK_FILES] for i in range(0, len(keys), CHUNK_FILES)]
-    logger.info(f'Processing {len(chunks)} chunks.')
-    return chunks
-
-
-def key_to_dataframe(key) -> pd.DataFrame:
-    logger = prefect.context.get("logger")
-    logger.info(f"Extracting file: {str(key)}")
-    contents = S3Download().run(bucket=S3_BUCKET, key=key, compression='gzip')
-    dicts = [json.loads(l) for l in contents.splitlines()]
-    return pd.DataFrame.from_records(dicts)
-
-
-@task()
-def extract(keys: [str]) -> pd.DataFrame:
+def extract(key: str) -> pd.DataFrame:
     """
     - Extracts data from the S3_BUCKET for the {key}
     - Transforms the html content field for each row to text
@@ -82,8 +69,10 @@ def extract(keys: [str]) -> pd.DataFrame:
     :return: Transformed Dataframe
     """
     logger = prefect.context.get("logger")
-    logger.info(f"Extracting chunk: {*keys,}")
-    return pd.concat([key_to_dataframe(key) for key in keys], sort=False)
+    logger.info(f"Extracting file: {str(key)}")
+    contents = S3Download().run(bucket=S3_BUCKET, key=key, compression='gzip')
+    dicts = [json.loads(l) for l in contents.splitlines()]
+    return pd.DataFrame.from_records(dicts)
 
 
 @task()
@@ -103,11 +92,10 @@ def get_stage_prefix() -> str:
     return f"{s3_prefix}{flow_run_id}"
 
 
-def stage_dataframe(df: pd.DataFrame) -> str:
-    file_name = uuid.uuid1()
+def stage_chunk(index: int, df: pd.DataFrame) -> str:
     bucket = S3_BUCKET
     s3_prefix = get_stage_prefix()
-    key = f"{s3_prefix}/{file_name}.csv.gz"
+    key = f"{s3_prefix}/{index}.csv.gz"
 
     csv_buffer = BytesIO()
     with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
@@ -119,12 +107,23 @@ def stage_dataframe(df: pd.DataFrame) -> str:
 
 
 @task()
-def stage(df: pd.DataFrame) -> str:
+def stage(dfs: List[pd.DataFrame]) -> List[str]:
     """
     Stage files in S3 with a file size optimized for import.
     :return: S3 Stage file key.
     """
-    return stage_dataframe(df)
+    logger = prefect.context.get("logger")
+    logger.info(f"Staging dataframes count: {len(dfs)}")
+
+    if len(dfs) == 0:
+        raise Exception(f'No dataframes to stage.')
+
+    df = pd.concat(dfs, sort=False)
+    chunks = [(i, df[i:i + CHUNK_ROWS]) for i in range(0, df.shape[0], CHUNK_ROWS)]
+    logger.info(f"Number of chunks created: {len(chunks)}.")
+    keys = [stage_chunk(i, chunk) for i, chunk in chunks]
+    logger.info(f"Staged keys: {*keys,}")
+    return keys
 
 
 @task()
@@ -145,11 +144,10 @@ def cleanup(key: str):
 
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(), schedule=get_interval_schedule(minutes=1440)) as flow:
-    source_keys_results = source_keys()
-    chunk_keys_results = chunk_source_keys(source_keys_results)
-    extract_results = extract.map(chunk_keys_results)
+    source_keys_results = get_source_keys()
+    extract_results = extract.map(source_keys_results)
     transform_results = transform.map(extract_results)
-    stage_results = stage.map(transform_results)
+    stage_results = stage(transform_results)
     load_results = load.map(stage_results)
     cleanup.map(flatten([source_keys_results, stage_results])).set_upstream(load_results)
 
