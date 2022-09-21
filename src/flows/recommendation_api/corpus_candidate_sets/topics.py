@@ -34,7 +34,7 @@ FROM analytics.dbt.static_corpus_candidate_set_topics
 def get_candidate_set_ids(topics):
     return [i['CURATED_CORPUS_CANDIDATE_SET_ID'] for i in topics]
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30), executor=LocalDaskExecutor()) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     query = PocketSnowflakeQuery(
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,

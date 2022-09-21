@@ -85,7 +85,7 @@ WHERE APPROVED_CORPUS_ITEM_EXTERNAL_ID IN ({",".join(f"'{corpus_id}'" for corpus
 """
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
+with Flow(FLOW_NAME) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_CORPUS_ITEMS_SQL,
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,

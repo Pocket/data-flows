@@ -35,7 +35,7 @@ def transform_to_corpus_items(records: dict) -> List[dict]:
         for rec in records]
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
+with Flow(FLOW_NAME) as flow:
 
     # query snowflake for items from lifehacks topic set
     records = PocketSnowflakeQuery()(

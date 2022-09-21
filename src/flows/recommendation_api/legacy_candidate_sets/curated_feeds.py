@@ -43,7 +43,7 @@ def transform_to_candidates(records: dict, feed_id: int, filter_synd: bool) -> L
         ) for rec in records]
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
+with Flow(FLOW_NAME) as flow:
 
     query = PocketSnowflakeQuery(
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,

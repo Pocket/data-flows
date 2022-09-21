@@ -26,7 +26,7 @@ AND LANGUAGE = 'EN'
 ORDER BY REVIEWED_CORPUS_ITEM_UPDATED_AT desc
 """
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
+with Flow(FLOW_NAME) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_COLLECTIONS_CANDIDATE_SET_SQL,
         data={"MAX_AGE_DAYS": -60},

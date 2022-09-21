@@ -26,7 +26,7 @@ ORDER BY REVIEWED_CORPUS_ITEM_UPDATED_AT desc
 LIMIT 2000 -- max feature value size / corpus item size ~= 350KB / 100 bytes ~= 3,500 max corpus items 
 """
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
+with Flow(FLOW_NAME) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_RECOMMENDED_CANDIDATE_SET_SQL,
         data={"MAX_AGE_DAYS": -14},

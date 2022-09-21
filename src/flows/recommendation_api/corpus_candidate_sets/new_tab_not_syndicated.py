@@ -26,7 +26,7 @@ QUALIFY row_number() OVER (PARTITION BY APPROVED_CORPUS_ITEM_EXTERNAL_ID ORDER B
 ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC
 """
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
+with Flow(FLOW_NAME) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_NEW_TAB_EN_US_NOT_SYNDICATED_CANDIDATE_SET_SQL,
         data={"MAX_AGE_DAYS": -3, "SURFACE_GUID": "NEW_TAB_EN_US"},

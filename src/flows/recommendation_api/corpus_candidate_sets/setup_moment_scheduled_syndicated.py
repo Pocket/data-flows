@@ -28,7 +28,7 @@ ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC
 LIMIT 500;
 """
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30)) as flow:
+with Flow(FLOW_NAME) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_CORPUS_ITEMS_SQL,
         data={
