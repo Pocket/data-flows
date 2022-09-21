@@ -1,5 +1,5 @@
-import gzip
 import base64
+import gzip
 import zlib
 from io import BytesIO
 from typing import List
@@ -7,14 +7,14 @@ from typing import List
 import boto3
 import pandas as pd
 import prefect
-from prefect import Flow, task, unmapped, flatten, Parameter
+from prefect import Flow, task, Parameter
 from prefect.executors import LocalDaskExecutor
-from prefect.tasks.aws import S3Download
 from prefect.tasks.snowflake import SnowflakeQuery
+from dask.system import CPU_COUNT
 
 from common_tasks.transform_data import get_text_from_html
-from utils.config import SNOWFLAKE_DEFAULT_DICT
-from utils.flow import get_flow_name, get_interval_schedule
+from utils import config
+from utils.flow import get_flow_name
 
 # Setting flow variables
 FLOW_NAME = get_flow_name(__file__)
@@ -34,6 +34,7 @@ file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
 on_error=ABORT_STATEMENT;
 """
 
+
 @task()
 def extract(key: str) -> List[pd.DataFrame]:
     logger = prefect.context.get("logger")
@@ -41,18 +42,18 @@ def extract(key: str) -> List[pd.DataFrame]:
     bucket = SOURCE_S3_BUCKET
     s3 = boto3.resource('s3')
     response = s3.Object(bucket, key).get()
-    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0,1], chunksize=100000,
-                     names=['resolved_id', 'compressed_html'])
+    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=100000,
+                              names=['resolved_id', 'compressed_html'])
     return [chunk for chunk in df_iterator]
 
 
 @task()
 def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df['html'] = [zlib.decompress(base64.b64decode(compressed_html)).decode() for compressed_html in df['compressed_html']]
+    df['html'] = [zlib.decompress(base64.b64decode(compressed_html)).decode() for compressed_html in
+                  df['compressed_html']]
     df.drop(columns=['compressed_html'], inplace=True)
     df['text'] = [get_text_from_html(html) for html in df['html']]
     return df
-
 
 
 def get_stage_prefix() -> str:
@@ -63,6 +64,7 @@ def get_stage_prefix() -> str:
     s3_prefix = STAGE_S3_PREFIX
     flow_run_id = prefect.context.get('flow_run_id')
     return f"{s3_prefix}{flow_run_id}"
+
 
 def stage_chunk(index: int, df: pd.DataFrame) -> str:
     bucket = STAGE_S3_BUCKET
@@ -88,13 +90,15 @@ def stage(dfs: List[pd.DataFrame]) -> [str]:
     logger.info(f"Staged keys: {*keys,}")
     return keys
 
+
 @task()
 def load(key: str) -> str:
     uri = f"s3://{STAGE_S3_BUCKET}/{key}"
     logger = prefect.context.get("logger")
     logger.info(f"Snowflake loading key: {uri}")
-    SnowflakeQuery(**SNOWFLAKE_DEFAULT_DICT).run(data={'uri': uri}, query=LOAD_SQL)
+    SnowflakeQuery(**config.SNOWFLAKE_DEFAULT_DICT).run(data={'uri': uri}, query=LOAD_SQL)
     return key
+
 
 @task()
 def cleanup(key: str):
@@ -104,8 +108,10 @@ def cleanup(key: str):
     s3 = boto3.resource('s3')
     s3.Object(bucket, key).delete()
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
-    key = Parameter('key')
+
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(num_workers=config.DASK_WORKERS)) as flow:
+    key = Parameter('key', required=True)
+    flow.logger.info(f'Processing with {CPU_COUNT} CPUs')
 
     extract_result = extract(key)
     transform_result = transform.map(extract_result)
@@ -113,6 +119,6 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor()) as flow:
     load_result = load.map(stage_result)
     cleanup.map(load_result)
 
-
 if __name__ == "__main__":
-    flow.run(parameters={'key': 'aurora/textparser-prod-content-snapshot-2022091408-cluster/content-peek/small.part_00000'})
+    flow.run(
+        parameters={'key': 'aurora/textparser-prod-content-snapshot-2022091408-cluster/content-peek/small.part_00000'})
