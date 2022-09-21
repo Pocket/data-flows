@@ -27,7 +27,7 @@ SOURCE_PREFIX = 'article/streaming-html/'
 STAGE_PREFIX = 'article/streaming-html-stage/'
 # Maximum number rows to include in a staging file. This is optimized for prefect import performance.
 CHUNK_ROWS = 50000  # 3486 rows = 10MB
-NUM_FILES_PER_RUN = 50
+NUM_FILES_PER_RUN = 1000
 
 # Import from S3 to Snowflake
 # 3.5k rows = 2 seconds on xsmall warehouse
