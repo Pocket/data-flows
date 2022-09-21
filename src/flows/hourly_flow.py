@@ -1,4 +1,4 @@
-from prefect import Flow, task
+from prefect import Flow, task, unmapped
 from prefect.tasks.dbt import dbt
 from prefect.tasks.prefect import create_flow_run, wait_for_flow_run
 from prefect.executors import LocalDaskExecutor
@@ -6,18 +6,28 @@ from utils import config
 
 from flows.braze import update_flow as braze_update_flow
 from flows.prospecting import prereview_engagement_feature_store_flow, postreview_engagement_feature_store_flow
+from flows import dbt_hourly_flow
 from utils.flow import get_flow_name, get_interval_schedule
 
 FLOW_NAME = get_flow_name(__file__)
 DBT_CLOUD_JOB_ID = 52822
 
 # List of flow names that will be run after the Dbt job run has finished successfully.
-DBT_DOWNSTREAM_FLOW_NAMES = [
+EXTRACT_FLOWS = [
+]
+
+PRE_ENRICH_FLOWS = [
+]
+
+TRANSFORM_FLOWS = [
+    flows.dbt_hourly_flow,
+]
+
+LOAD_FLOWS = [
     braze_update_flow.FLOW_NAME,
     prereview_engagement_feature_store_flow.FLOW_NAME,
     postreview_engagement_feature_store_flow.FLOW_NAME,
 ]
-
 
 @task(timeout=15 * 60)
 def transform():
@@ -27,20 +37,16 @@ def transform():
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30), executor=LocalDaskExecutor()) as flow:
     dbt_run_result = transform()
 
-    # Create and wait for all flows that should be run downstream of the above Dbt job run.
-    for downstream_flow_name in DBT_DOWNSTREAM_FLOW_NAMES:
-        flow_id = create_flow_run(
-            flow_name=downstream_flow_name,
-            project_name=config.PREFECT_PROJECT_NAME,
-            task_args=dict(name=f"create_flow_run({downstream_flow_name})"),
-            upstream_tasks=[dbt_run_result],
-        )
+    load_results = create_flow_run.map(
+        flow_name=LOAD_FLOWS,
+        project_name=unmapped(config.PREFECT_PROJECT_NAME),
+        upstream_tasks=[dbt_run_result],
+    )
 
-        wait_for_flow_run(
-            flow_id,
-            raise_final_state=True,
-            task_args=dict(name=f"wait_for_flow_run({downstream_flow_name})"),
-        )
+    wait_for_flow_run.map(
+        load_results,
+        raise_final_state=unmapped(True),
+    )
 
 # for execution in development only
 if __name__ == "__main__":
