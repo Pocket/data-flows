@@ -1,3 +1,4 @@
+from datetime import timedelta
 import base64
 import gzip
 import zlib
@@ -35,7 +36,7 @@ on_error=ABORT_STATEMENT;
 """
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def extract(key: str) -> List[pd.DataFrame]:
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
@@ -47,7 +48,7 @@ def extract(key: str) -> List[pd.DataFrame]:
     return [chunk for chunk in df_iterator]
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df['html'] = [zlib.decompress(base64.b64decode(compressed_html)).decode() for compressed_html in
                   df['compressed_html']]
@@ -80,7 +81,7 @@ def stage_chunk(index: int, df: pd.DataFrame) -> str:
     return key
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def stage(dfs: List[pd.DataFrame]) -> [str]:
     logger = prefect.context.get("logger")
     df = pd.concat(dfs)
@@ -91,7 +92,7 @@ def stage(dfs: List[pd.DataFrame]) -> [str]:
     return keys
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def load(key: str) -> str:
     uri = f"s3://{STAGE_S3_BUCKET}/{key}"
     logger = prefect.context.get("logger")
@@ -100,7 +101,7 @@ def load(key: str) -> str:
     return key
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def cleanup(key: str):
     bucket = STAGE_S3_BUCKET
     logger = prefect.context.get("logger")

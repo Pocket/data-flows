@@ -1,3 +1,4 @@
+from datetime import timedelta
 import gzip
 import json
 from io import StringIO, BytesIO
@@ -41,7 +42,7 @@ on_error=ABORT_STATEMENT;
 """
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def get_source_keys() -> [str]:
     """
     :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
@@ -60,7 +61,7 @@ def get_source_keys() -> [str]:
         return file_list
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def extract(key: str) -> pd.DataFrame:
     """
     - Extracts data from the S3_BUCKET for the {key}
@@ -75,7 +76,7 @@ def extract(key: str) -> pd.DataFrame:
     return pd.DataFrame.from_records(dicts)
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df.rename(columns={"article": "html"}, inplace=True)
     df['text'] = [get_text_from_html(html) for html in df['html']]
@@ -106,7 +107,7 @@ def stage_chunk(index: int, df: pd.DataFrame) -> str:
     return key
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def stage(dfs: List[pd.DataFrame]) -> List[str]:
     """
     Stage files in S3 with a file size optimized for import.
@@ -126,7 +127,7 @@ def stage(dfs: List[pd.DataFrame]) -> List[str]:
     return keys
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def load(key: str):
     uri = f"s3://{S3_BUCKET}/{key}"
     logger = prefect.context.get("logger")
@@ -134,7 +135,7 @@ def load(key: str):
     return SnowflakeQuery(**SNOWFLAKE_DEFAULT_DICT).run(data={'uri': uri}, query=IMPORT_SQL)
 
 
-@task()
+@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
 def cleanup(key: str):
     bucket = S3_BUCKET
     logger = prefect.context.get("logger")
