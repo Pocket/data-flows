@@ -1,6 +1,5 @@
 import base64
 import gzip
-import itertools
 import zlib
 from datetime import timedelta
 from io import BytesIO
@@ -12,10 +11,7 @@ import prefect
 from prefect import Flow, task, Parameter, flatten
 from prefect.tasks.aws import S3List, S3Download, S3Upload
 from prefect.executors import LocalDaskExecutor
-from prefect.tasks.snowflake import SnowflakeQuery
-from dask.system import CPU_COUNT
 
-from common_tasks.transform_data import get_text_from_html
 from utils import config
 from utils.flow import get_flow_name
 
