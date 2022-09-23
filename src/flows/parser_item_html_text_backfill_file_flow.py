@@ -111,7 +111,7 @@ def cleanup(key: str):
     s3.Object(bucket, key).delete()
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes")) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
     key = Parameter('key', required=True)
     extract_result = extract(key)
     transform_result = transform.map(extract_result)

@@ -103,7 +103,7 @@ def split_files_process() -> [str]:
     return keys
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes")) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
     split_files_process()
 
 
