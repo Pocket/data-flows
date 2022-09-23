@@ -27,7 +27,6 @@ STAGE_CHUNK_ROWS = 10000
 NUM_FILES_PER_RUN = 1000
 
 
-@task()
 def get_source_keys() -> [str]:
     """
     :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
@@ -45,19 +44,6 @@ def get_source_keys() -> [str]:
         return keys
 
 
-@task()
-def extract(key: str) -> List[pd.DataFrame]:
-    logger = prefect.context.get("logger")
-    logger.info(f"Extracting file: {str(key)}")
-    bucket = SOURCE_S3_BUCKET
-    s3 = boto3.resource('s3')
-    response = s3.Object(bucket, key).get()
-    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=100000,
-                              names=['resolved_id', 'compressed_html'])
-    return [chunk for chunk in df_iterator]
-
-
-@task()
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df['html'] = [base64.b64encode(zlib.decompress(base64.b64decode(compressed_html))).decode() for compressed_html in
                   df['compressed_html']]
@@ -65,33 +51,57 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def stage_chunk(index: int, df: pd.DataFrame) -> str:
+def extract_transform(key: str) -> (str, List[pd.DataFrame]):
+    logger = prefect.context.get("logger")
+    logger.info(f"Extracting file: {str(key)}")
+    bucket = SOURCE_S3_BUCKET
+    s3 = boto3.resource('s3')
+    response = s3.Object(bucket, key).get()
+    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=100000,
+                              names=['resolved_id', 'compressed_html'])
+    return (key, [transform(df) for df in df_iterator])
+
+
+def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
+    logger = prefect.context.get("logger")
     bucket = STAGE_S3_BUCKET
     s3_prefix = STAGE_S3_PREFIX
-    key = f"{s3_prefix}{index}.csv.gz"
+    file_prefix = key[key.startswith(SOURCE_PREFIX) and len(SOURCE_PREFIX):]
+    stage_key = f"{s3_prefix}{file_prefix}{index}.csv.gz"
+    logger.info(f"stage_key: {stage_key}.")
     csv_buffer = BytesIO()
     with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
         df.to_csv(gz_file, index=False)
     s3 = boto3.resource('s3')
-    s3.Object(bucket, key).put(Body=csv_buffer.getvalue())
-    return key
+    s3.Object(bucket, stage_key).put(Body=csv_buffer.getvalue())
+    return stage_key
 
 
-@task()
-def stage(df: pd.DataFrame) -> [str]:
+def stage(key_dfs: (str, List[pd.DataFrame])) -> [str]:
     logger = prefect.context.get("logger")
+    key, dfs = key_dfs
+    logger.info(f"Number of dfs: {len(dfs)}.")
+    df = pd.concat(dfs)
     chunks = [(i, df[i:i + STAGE_CHUNK_ROWS]) for i in range(0, df.shape[0], STAGE_CHUNK_ROWS)]
     logger.info(f"Number of chunks created: {len(chunks)}.")
-    keys = [stage_chunk(i, chunk) for i, chunk in chunks]
+    keys = [stage_chunk(key, i, chunk) for i, chunk in chunks]
     logger.info(f"Staged keys: {*keys,}")
+    return keys
+
+@task()
+def split_files_process() -> [str]:
+    """
+    Split S3 files into smaller stage files
+    """
+    keys = get_source_keys()
+    for key in keys:
+        extract_transform_dfs = extract_transform(key)
+        stage_results = stage(extract_transform_dfs)
     return keys
 
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(num_workers=config.DASK_WORKERS)) as flow:
-    source_keys_results = get_source_keys()
-    extract_results = extract.map(source_keys_results)
-    transform_results = transform.map(flatten(extract_results))
-    stage_results = stage.map(transform_results)
+    split_files_process()
 
 
 if __name__ == "__main__":
