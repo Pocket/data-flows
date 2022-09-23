@@ -9,6 +9,8 @@ import boto3
 import pandas as pd
 import prefect
 from prefect import Flow, task, Parameter, flatten
+from prefect.engine.results import LocalResult
+from prefect.engine.serializers import PandasSerializer
 from prefect.tasks.aws import S3List, S3Download, S3Upload
 from prefect.executors import LocalDaskExecutor
 
@@ -26,6 +28,7 @@ STAGE_S3_PREFIX = 'article/backfill-html-filesplit/'
 STAGE_CHUNK_ROWS = 10000
 NUM_FILES_PER_RUN = 1000
 
+result = LocalResult(serializer=PandasSerializer(file_type="pickle"))
 
 def get_source_keys() -> [str]:
     """
@@ -88,7 +91,7 @@ def stage(key_dfs: (str, List[pd.DataFrame])) -> [str]:
     logger.info(f"Staged keys: {*keys,}")
     return keys
 
-@task()
+@task(result=result)
 def split_files_process() -> [str]:
     """
     Split S3 files into smaller stage files
@@ -100,7 +103,7 @@ def split_files_process() -> [str]:
     return keys
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(num_workers=config.DASK_WORKERS)) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes")) as flow:
     split_files_process()
 
 
