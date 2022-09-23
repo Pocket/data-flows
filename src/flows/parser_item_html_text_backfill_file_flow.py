@@ -37,7 +37,7 @@ on_error=ABORT_STATEMENT;
 """
 
 
-@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
+@task()
 def extract(key: str) -> List[pd.DataFrame]:
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
@@ -48,7 +48,7 @@ def extract(key: str) -> List[pd.DataFrame]:
     return [chunk for chunk in df_iterator]
 
 
-@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
+@task()
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df['html'] = [base64.b64decode(html).decode() for html in df['html']]
     df['text'] = [get_text_from_html(html) for html in df['html']]
@@ -79,7 +79,7 @@ def stage_chunk(index: int, df: pd.DataFrame) -> str:
     return key
 
 
-@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
+@task()
 def stage(dfs: List[pd.DataFrame]) -> [str]:
     logger = prefect.context.get("logger")
     df = pd.concat(dfs)
@@ -90,7 +90,7 @@ def stage(dfs: List[pd.DataFrame]) -> [str]:
     return keys
 
 
-@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
+@task()
 def load(key: str) -> str:
     uri = f"s3://{STAGE_S3_BUCKET}/{key}"
     logger = prefect.context.get("logger")
@@ -99,7 +99,7 @@ def load(key: str) -> str:
     return key
 
 
-@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
+@task()
 def cleanup(key: str):
     bucket = STAGE_S3_BUCKET
     logger = prefect.context.get("logger")

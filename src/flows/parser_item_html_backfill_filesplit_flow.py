@@ -45,7 +45,7 @@ def get_source_keys() -> [str]:
         return keys
 
 
-@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
+@task()
 def extract(key: str) -> List[pd.DataFrame]:
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
@@ -57,7 +57,7 @@ def extract(key: str) -> List[pd.DataFrame]:
     return [chunk for chunk in df_iterator]
 
 
-@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
+@task()
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df['html'] = [base64.b64encode(zlib.decompress(base64.b64decode(compressed_html))).decode() for compressed_html in
                   df['compressed_html']]
@@ -77,7 +77,7 @@ def stage_chunk(index: int, df: pd.DataFrame) -> str:
     return key
 
 
-@task(timeout=10 * 60, max_retries=18, retry_delay=timedelta(seconds=10))
+@task()
 def stage(df: pd.DataFrame) -> [str]:
     logger = prefect.context.get("logger")
     chunks = [(i, df[i:i + STAGE_CHUNK_ROWS]) for i in range(0, df.shape[0], STAGE_CHUNK_ROWS)]
