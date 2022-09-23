@@ -1,13 +1,14 @@
 import base64
 import gzip
 import zlib
+from datetime import timedelta
 from io import BytesIO
 from typing import List
 
 import boto3
 import pandas as pd
 import prefect
-from prefect import Flow, task, Parameter
+from prefect import Flow, task, Parameter, flatten
 from prefect.engine.results import LocalResult
 from prefect.engine.serializers import PandasSerializer
 from prefect.executors import LocalDaskExecutor
@@ -22,7 +23,8 @@ from utils.flow import get_flow_name
 FLOW_NAME = get_flow_name(__file__)
 
 # This bucket was created by another process. We may have to revisit using this bucket.
-SOURCE_S3_BUCKET = 'pocket-snowflake-staging-manual'
+SOURCE_S3_BUCKET = 'pocket-data-items'
+SOURCE_S3_PREFIX = 'article/backfill-html-filesplit/'
 STAGE_S3_BUCKET = 'pocket-data-items'
 STAGE_S3_PREFIX = 'article/backfill-html-stage/'
 STAGE_CHUNK_ROWS = 10000
@@ -45,16 +47,13 @@ def extract(key: str) -> List[pd.DataFrame]:
     bucket = SOURCE_S3_BUCKET
     s3 = boto3.resource('s3')
     response = s3.Object(bucket, key).get()
-    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=10000,
-                              names=['resolved_id', 'compressed_html'])
+    df_iterator = pd.read_csv(response['Body'], compression='gzip', chunksize=100000)
     return [chunk for chunk in df_iterator]
 
 
 @task(result=result)
 def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df['html'] = [zlib.decompress(base64.b64decode(compressed_html)).decode() for compressed_html in
-                  df['compressed_html']]
-    df.drop(columns=['compressed_html'], inplace=True)
+    df['html'] = [base64.b64decode(html).decode() for html in df['html']]
     df['text'] = [get_text_from_html(html) for html in df['html']]
     return df
 
@@ -118,11 +117,11 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes")) as flow:
     transform_result = transform.map(extract_result)
     stage_result = stage(transform_result)
     load_result = load.map(stage_result)
-    cleanup.map(load_result)
+    cleanup.map(flatten([load_result, [key]]))
 
 if config.ENVIRONMENT == 'production':
     flow.run_config = ECSRun(cpu='16 vcpu', memory='32 GB')
 
 if __name__ == "__main__":
     flow.run(
-        parameters={'key': 'aurora/textparser-prod-content-snapshot-2022091408-cluster/content-peek/small.part_00000'})
+        parameters={'key': f'{SOURCE_S3_PREFIX}0.csv.gz'})
