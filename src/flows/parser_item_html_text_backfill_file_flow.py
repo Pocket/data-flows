@@ -8,9 +8,11 @@ import boto3
 import pandas as pd
 import prefect
 from prefect import Flow, task, Parameter
+from prefect.engine.results import LocalResult
+from prefect.engine.serializers import PandasSerializer
 from prefect.executors import LocalDaskExecutor
+from prefect.run_configs import ECSRun
 from prefect.tasks.snowflake import SnowflakeQuery
-from dask.system import CPU_COUNT
 
 from common_tasks.transform_data import get_text_from_html
 from utils import config
@@ -34,20 +36,21 @@ file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
 on_error=ABORT_STATEMENT;
 """
 
+result = LocalResult(serializer=PandasSerializer(file_type="pickle"))
 
-@task()
+@task(result=result)
 def extract(key: str) -> List[pd.DataFrame]:
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
     bucket = SOURCE_S3_BUCKET
     s3 = boto3.resource('s3')
     response = s3.Object(bucket, key).get()
-    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=100000,
+    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=10000,
                               names=['resolved_id', 'compressed_html'])
     return [chunk for chunk in df_iterator]
 
 
-@task()
+@task(result=result)
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df['html'] = [zlib.decompress(base64.b64decode(compressed_html)).decode() for compressed_html in
                   df['compressed_html']]
@@ -109,15 +112,16 @@ def cleanup(key: str):
     s3.Object(bucket, key).delete()
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(num_workers=config.DASK_WORKERS)) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes")) as flow:
     key = Parameter('key', required=True)
-    flow.logger.info(f'Processing with {CPU_COUNT} CPUs')
-
     extract_result = extract(key)
     transform_result = transform.map(extract_result)
     stage_result = stage(transform_result)
     load_result = load.map(stage_result)
     cleanup.map(load_result)
+
+if config.ENVIRONMENT == 'production':
+    flow.run_config = ECSRun(cpu='16 vcpu', memory='32 GB')
 
 if __name__ == "__main__":
     flow.run(
