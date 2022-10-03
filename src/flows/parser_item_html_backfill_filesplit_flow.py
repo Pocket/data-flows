@@ -93,21 +93,18 @@ def stage(key_dfs: (str, List[pd.DataFrame])) -> [str]:
     return keys
 
 @task(result=result)
-def split_files_process() -> [str]:
+def split_files_process(key: str):
     """
     Split S3 files into smaller stage files
     """
+    for index, df in enumerate(split_file(key)):
+        df_transformed = transform(df)
+        stage_chunk(key=key, index=index, df=df_transformed)
+
+
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes", num_workers=50)) as flow:
     keys = get_source_keys()
-    for key in keys:
-        for index, df in enumerate(split_file(key)):
-            df_transformed = transform(df)
-            stage_chunk(key=key, index=index, df=df_transformed)
-            
-    return keys
-
-
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
-    split_files_process()
+    split_files_process.map(keys)
 
 
 if __name__ == "__main__":
