@@ -1,5 +1,6 @@
 import base64
 import gzip
+import hashlib
 import zlib
 from datetime import timedelta
 from io import BytesIO
@@ -31,7 +32,7 @@ STAGE_CHUNK_ROWS = 10000
 
 LOAD_SQL = f"""
 copy into snapshot.item.article_content_v2
-(resolved_id, html, text)
+(resolved_id, html, text, text_md5)
 from %(uri)s
 storage_integration = aws_integration_readonly_prod
 file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
@@ -55,6 +56,7 @@ def extract(key: str) -> List[pd.DataFrame]:
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df['html'] = [base64.b64decode(html).decode() for html in df['html']]
     df['text'] = [get_text_from_html(html) for html in df['html']]
+    df['text_md5'] = [hashlib.md5(t.encode('utf-8')).hexdigest() for t in df['text']]
     return df
 
 

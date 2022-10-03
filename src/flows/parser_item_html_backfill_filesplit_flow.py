@@ -70,7 +70,7 @@ def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
     bucket = STAGE_S3_BUCKET
     s3_prefix = STAGE_S3_PREFIX
     file_prefix = key[key.startswith(SOURCE_PREFIX) and len(SOURCE_PREFIX):]
-    stage_key = f"{s3_prefix}{file_prefix}{index}.csv.gz"
+    stage_key = f"{s3_prefix}{file_prefix}_{index}_{index + STAGE_CHUNK_ROWS - 1}.csv.gz"
     logger.info(f"stage_key: {stage_key}.")
     csv_buffer = BytesIO()
     with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
