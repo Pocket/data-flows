@@ -1,22 +1,10 @@
-import gzip
-import json
-from io import StringIO, BytesIO
-from typing import Union, Tuple, List, Dict
-
-import boto3
-import pandas as pd
 import prefect
 from prefect import Flow, task, unmapped, flatten
 from prefect.tasks.aws import S3List, S3Download, S3Upload
 from prefect.executors import LocalDaskExecutor
 from prefect.tasks.prefect import create_flow_run
-from prefect.tasks.snowflake import SnowflakeQuery
-
-from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
-from common_tasks.transform_data import get_text_from_html
 
 from utils import config
-from utils.config import SNOWFLAKE_DEFAULT_DICT
 from utils.flow import get_flow_name, get_interval_schedule
 from flows import parser_item_html_text_backfill_file_flow as file_flow
 
@@ -25,7 +13,7 @@ FLOW_NAME = get_flow_name(__file__)
 
 # This bucket was created by another process. We may have to revisit using this bucket.
 S3_BUCKET = file_flow.SOURCE_S3_BUCKET
-SOURCE_PREFIX = 'aurora/textparser-prod-content-snapshot-2022091408-cluster/content/'
+SOURCE_PREFIX = file_flow.SOURCE_S3_PREFIX
 NUM_FILES_PER_RUN = 1000
 
 @task()
