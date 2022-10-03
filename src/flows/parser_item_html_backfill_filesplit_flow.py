@@ -28,8 +28,6 @@ STAGE_S3_PREFIX = 'article/backfill-html-filesplit/'
 STAGE_CHUNK_ROWS = 10000
 NUM_FILES_PER_RUN = 1000
 
-result = LocalResult(serializer=PandasSerializer(file_type="pickle"))
-
 def get_source_keys() -> [str]:
     """
     :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
@@ -92,7 +90,7 @@ def stage(key_dfs: (str, List[pd.DataFrame])) -> [str]:
     logger.info(f"Staged keys: {*keys,}")
     return keys
 
-@task(result=result)
+@task()
 def split_files_process(key: str):
     """
     Split S3 files into smaller stage files
