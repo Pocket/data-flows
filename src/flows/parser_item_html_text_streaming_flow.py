@@ -1,6 +1,6 @@
 import gzip
 import json
-from hashlib import md5
+import hashlib
 from io import StringIO, BytesIO
 from typing import Union, Tuple, List, Dict
 
@@ -80,7 +80,7 @@ def extract(key: str) -> pd.DataFrame:
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df.rename(columns={"article": "html"}, inplace=True)
     df['text'] = [get_text_from_html(html) for html in df['html']]
-    df['text_md5'] = [md5(text) for text in df['text']]
+    df['text_md5'] = [hashlib.md5(t.encode('utf-8')).hexdigest() for t in df['text']]
     return df
 
 
