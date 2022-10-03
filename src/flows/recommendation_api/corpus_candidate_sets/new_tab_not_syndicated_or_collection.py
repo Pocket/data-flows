@@ -12,9 +12,9 @@ from utils.flow import get_flow_name, get_interval_schedule
 
 FLOW_NAME = get_flow_name(__file__)
 
-NEW_TAB_EN_US_NOT_SYNDICATED_CANDIDATE_SET_ID = "5f0dae93-a5a8-439a-a2e2-5d418c04bc98"
+CANDIDATE_SET_ID = "5f0dae93-a5a8-439a-a2e2-5d418c04bc98"
 
-EXPORT_NEW_TAB_EN_US_NOT_SYNDICATED_CANDIDATE_SET_SQL = """
+CANDIDATE_SET_SQL = """
 SELECT
     APPROVED_CORPUS_ITEM_EXTERNAL_ID as "ID",
     TOPIC as "TOPIC"
@@ -29,7 +29,7 @@ ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     corpus_items = PocketSnowflakeQuery()(
-        query=EXPORT_NEW_TAB_EN_US_NOT_SYNDICATED_CANDIDATE_SET_SQL,
+        query=CANDIDATE_SET_SQL,
         data={"MAX_AGE_DAYS": -3, "SURFACE_GUID": "NEW_TAB_EN_US"},
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
@@ -40,7 +40,7 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     corpus_items = validate_corpus_items(corpus_items)
 
     feature_group_record = create_corpus_candidate_set_record(
-        id=NEW_TAB_EN_US_NOT_SYNDICATED_CANDIDATE_SET_ID,
+        id=CANDIDATE_SET_ID,
         corpus_items=corpus_items
     )
 
