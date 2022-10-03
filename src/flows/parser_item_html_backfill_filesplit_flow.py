@@ -54,15 +54,16 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def extract_transform(key: str) -> (str, List[pd.DataFrame]):
+def split_file(key: str) -> (str, List[pd.DataFrame]):
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
     bucket = SOURCE_S3_BUCKET
     s3 = boto3.resource('s3')
     response = s3.Object(bucket, key).get()
-    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=100000,
-                              names=['resolved_id', 'compressed_html'])
-    return (key, [transform(df) for df in df_iterator])
+    df_iterator = pd.read_csv(
+        response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=STAGE_CHUNK_ROWS,
+        names=['resolved_id', 'compressed_html'])
+    return df_iterator
 
 
 def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
@@ -70,7 +71,7 @@ def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
     bucket = STAGE_S3_BUCKET
     s3_prefix = STAGE_S3_PREFIX
     file_prefix = key[key.startswith(SOURCE_PREFIX) and len(SOURCE_PREFIX):]
-    stage_key = f"{s3_prefix}{file_prefix}_{index}_{index + STAGE_CHUNK_ROWS - 1}.csv.gz"
+    stage_key = f"{s3_prefix}{file_prefix}_{index}.csv.gz"
     logger.info(f"stage_key: {stage_key}.")
     csv_buffer = BytesIO()
     with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
@@ -98,8 +99,10 @@ def split_files_process() -> [str]:
     """
     keys = get_source_keys()
     for key in keys:
-        extract_transform_dfs = extract_transform(key)
-        stage_results = stage(extract_transform_dfs)
+        for index, df in enumerate(split_file(key)):
+            df_transformed = transform(df)
+            stage_chunk(key=key, index=index, df=df_transformed)
+            
     return keys
 
 
