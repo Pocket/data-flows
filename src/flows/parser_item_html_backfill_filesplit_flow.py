@@ -32,7 +32,8 @@ def get_source_keys() -> [str]:
     """
     logger = prefect.context.get("logger")
 
-    keys = S3List().run(bucket=SOURCE_S3_BUCKET, prefix=SOURCE_PREFIX).reverse()
+    keys = S3List().run(bucket=SOURCE_S3_BUCKET, prefix=SOURCE_PREFIX)
+    keys.reverse()
     if len(keys) == 0:
         raise Exception(f'No files to process for s3://{SOURCE_S3_BUCKET}/{SOURCE_PREFIX}.')
 
