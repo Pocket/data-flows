@@ -8,7 +8,6 @@ import boto3
 import pandas as pd
 import prefect
 from prefect import Flow, task
-from prefect.executors import LocalDaskExecutor
 from prefect.tasks.aws import S3List
 
 from utils.flow import get_flow_name
