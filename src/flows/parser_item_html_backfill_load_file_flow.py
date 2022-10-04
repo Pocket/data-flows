@@ -8,6 +8,7 @@ import boto3
 import pandas as pd
 import prefect
 from prefect import Flow, task, flatten, Parameter
+from prefect.executors import LocalDaskExecutor
 from prefect.tasks.aws import S3Download
 from prefect.tasks.snowflake import SnowflakeQuery
 
@@ -48,7 +49,7 @@ def extract(key: str) -> pd.DataFrame:
     logger.info(f"Extracting file: {str(key)}")
     contents = S3Download().run(bucket=S3_BUCKET, key=key, compression='gzip')
     df = pd.read_csv(StringIO(contents))
-    df['html'] = [base64.b64decode(html) for html in df['html']]
+    df['html'] = [base64.b64decode(html).decode() for html in df['html']]
     return df
 
 
@@ -114,16 +115,20 @@ def cleanup(key: str):
     s3 = boto3.resource('s3')
     s3.Object(bucket, key).delete()
 
+@task()
+def extract_keys(keys: str):
+    return [k.strip() for k in keys.split(',')]
 
-with Flow(FLOW_NAME) as flow:
-    key = Parameter('key')
-    extract_results = extract(key)
-    transform_results = transform(extract_results)
-    stage_results = stage(transform_results)
+
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
+    keys = Parameter('keys')
+    extract_results = extract.map(keys)
+    transform_results = transform.map(extract_results)
+    stage_results = stage.map(transform_results)
     load_results = load.map(stage_results)
-    cleanup(key).set_upstream(load_results)
+    cleanup.map(keys).set_upstream(load_results)
     cleanup.map(stage_results).set_upstream(load_results)
 
 
 if __name__ == "__main__":
-    flow.run(parameters=dict(key="article/backfill-html-filesplit/2022091408.part_00149_0.csv.gz"))
+    flow.run(parameters=dict(keys=["article/backfill-html-filesplit/2022091408.part_00149_0.csv.gz"]))
