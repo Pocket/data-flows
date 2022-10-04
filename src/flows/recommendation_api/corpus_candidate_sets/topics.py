@@ -21,6 +21,7 @@ WITH prep as (
         MAX(reviewed_corpus_item_updated_at) as "REVIEW_TIME" 
     FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS" 
     WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD('day', -90, current_timestamp())
+    AND CORPUS_REVIEW_STATUS = 'recommendation'
     AND TOPIC = %(CORPUS_TOPIC_ID)s
     AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
     GROUP BY 1, 2
