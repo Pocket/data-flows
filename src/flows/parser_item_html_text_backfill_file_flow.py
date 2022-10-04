@@ -121,9 +121,6 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
     load_result = load.map(stage_result)
     cleanup.map(flatten([load_result, [key]]))
 
-if config.ENVIRONMENT == 'production':
-    flow.run_config = ECSRun(cpu='16 vcpu', memory='32 GB')
-
 if __name__ == "__main__":
     flow.run(
         parameters={'key': f'{SOURCE_S3_PREFIX}0.csv.gz'})
