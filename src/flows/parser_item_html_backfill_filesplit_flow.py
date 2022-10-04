@@ -32,7 +32,7 @@ def get_source_keys() -> [str]:
     """
     logger = prefect.context.get("logger")
 
-    keys = S3List().run(bucket=SOURCE_S3_BUCKET, prefix=SOURCE_PREFIX)
+    keys = S3List().run(bucket=SOURCE_S3_BUCKET, prefix=SOURCE_PREFIX).reverse()
     if len(keys) == 0:
         raise Exception(f'No files to process for s3://{SOURCE_S3_BUCKET}/{SOURCE_PREFIX}.')
 
@@ -100,8 +100,8 @@ def split_files_process(key: str):
         stage_chunk(key=key, index=index, df=df_transformed)
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes")) as flow:
-    keys = get_source_keys().reverse()
+with Flow(FLOW_NAME) as flow:
+    keys = get_source_keys()
     split_files_process.map(keys)
 
 if __name__ == "__main__":
