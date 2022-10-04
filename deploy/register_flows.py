@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import json
 import os
+import re
 from os import environ
 from typing import Callable
 
@@ -128,12 +129,16 @@ if __name__ == "__main__":
 
     FLOWS_PATH = os.path.join(environ['DATA_FLOWS_SOURCE_DIR'], 'flows/')
 
+    # remove the task definition version and it will always point at latest. This addresses an issue where the registered
+    # flows point to a task version which is no longer active and the task is prevented from running.
+    task_definition_arn_latest = re.sub(r':\d{,4}$', '', PREFECT_TASK_DEFINITION_ARN)
+
     FlowDeployment(
         project_name=PREFECT_PROJECT_NAME,
         storage_factory=create_local_storage,
         run_config=ECSRun(
             labels=[PREFECT_PROJECT_NAME],
-            task_definition_arn=PREFECT_TASK_DEFINITION_ARN,
+            task_definition_arn=task_definition_arn_latest,
             env={'ENVIRONMENT': ENVIRONMENT, 'PREFECT_PROJECT_NAME': PREFECT_PROJECT_NAME},
         ),
         build=False,  # The flows are included in the Docker image, so don't need to be built by Prefect.
