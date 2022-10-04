@@ -14,14 +14,37 @@ FLOW_NAME = get_flow_name(__file__)
 
 # Export approved corpus items by language and recency
 EXPORT_CORPUS_ITEMS_SQL = """
-SELECT 
-    approved_corpus_item_external_id as "ID", 
-    topic as "TOPIC"
-FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS"
-WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD('day', -90, current_timestamp())
-AND TOPIC = %(CORPUS_TOPIC_ID)s
-AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
-ORDER BY REVIEWED_CORPUS_ITEM_UPDATED_AT DESC
+WITH prep as (
+    SELECT 
+        approved_corpus_item_external_id as "ID", 
+        topic as "TOPIC",
+        MAX(reviewed_corpus_item_updated_at) as "REVIEW_TIME" 
+    FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS" 
+    WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD('day', -90, current_timestamp())
+    AND TOPIC = %(CORPUS_TOPIC_ID)s
+    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    GROUP BY 1, 2
+    
+    UNION
+    
+    SELECT 
+        approved_corpus_item_external_id as "ID", 
+        topic as "TOPIC",
+        MAX(scheduled_corpus_item_scheduled_at) as "REVIEW_TIME"
+    FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
+    WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT BETWEEN DATEADD('day', -90, current_timestamp()) AND current_timestamp()
+    AND CORPUS_ITEM_LOADED_FROM = 'MANUAL'
+    AND TOPIC = %(CORPUS_TOPIC_ID)s
+    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    GROUP BY 1, 2
+    
+    )
+
+SELECT
+    ID,
+    TOPIC
+FROM PREP
+ORDER BY REVIEW_TIME DESC
 """
 
 GET_TOPICS_SQL = """
