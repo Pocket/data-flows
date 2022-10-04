@@ -28,8 +28,6 @@ STAGE_S3_PREFIX = 'article/backfill-html-filesplit/'
 STAGE_CHUNK_ROWS = 10000
 NUM_FILES_PER_RUN = 1000
 
-result = LocalResult(serializer=PandasSerializer(file_type="pickle"))
-
 def get_source_keys() -> [str]:
     """
     :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
@@ -54,15 +52,16 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def extract_transform(key: str) -> (str, List[pd.DataFrame]):
+def split_file(key: str) -> (str, List[pd.DataFrame]):
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
     bucket = SOURCE_S3_BUCKET
     s3 = boto3.resource('s3')
     response = s3.Object(bucket, key).get()
-    df_iterator = pd.read_csv(response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=100000,
-                              names=['resolved_id', 'compressed_html'])
-    return (key, [transform(df) for df in df_iterator])
+    df_iterator = pd.read_csv(
+        response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=STAGE_CHUNK_ROWS,
+        names=['resolved_id', 'compressed_html'])
+    return df_iterator
 
 
 def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
@@ -70,7 +69,7 @@ def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
     bucket = STAGE_S3_BUCKET
     s3_prefix = STAGE_S3_PREFIX
     file_prefix = key[key.startswith(SOURCE_PREFIX) and len(SOURCE_PREFIX):]
-    stage_key = f"{s3_prefix}{file_prefix}{index}.csv.gz"
+    stage_key = f"{s3_prefix}{file_prefix}_{index}.csv.gz"
     logger.info(f"stage_key: {stage_key}.")
     csv_buffer = BytesIO()
     with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
@@ -91,20 +90,19 @@ def stage(key_dfs: (str, List[pd.DataFrame])) -> [str]:
     logger.info(f"Staged keys: {*keys,}")
     return keys
 
-@task(result=result)
-def split_files_process() -> [str]:
+@task()
+def split_files_process(key: str):
     """
     Split S3 files into smaller stage files
     """
+    for index, df in enumerate(split_file(key)):
+        df_transformed = transform(df)
+        stage_chunk(key=key, index=index, df=df_transformed)
+
+
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes", num_workers=50)) as flow:
     keys = get_source_keys()
-    for key in keys:
-        extract_transform_dfs = extract_transform(key)
-        stage_results = stage(extract_transform_dfs)
-    return keys
-
-
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
-    split_files_process()
+    split_files_process.map(keys)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import gzip
 import json
+import hashlib
 from io import StringIO, BytesIO
 from typing import Union, Tuple, List, Dict
 
@@ -33,7 +34,7 @@ NUM_FILES_PER_RUN = 1000
 # 3.5k rows = 2 seconds on xsmall warehouse
 IMPORT_SQL = f"""
 copy into raw.item.article_content_v2
-(resolved_id, html, text)
+(resolved_id, html, text, text_md5)
 from %(uri)s
 storage_integration = aws_integration_readonly_prod
 file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
@@ -79,6 +80,7 @@ def extract(key: str) -> pd.DataFrame:
 def transform(df: pd.DataFrame) -> pd.DataFrame:
     df.rename(columns={"article": "html"}, inplace=True)
     df['text'] = [get_text_from_html(html) for html in df['html']]
+    df['text_md5'] = [hashlib.md5(t.encode('utf-8')).hexdigest() for t in df['text']]
     return df
 
 
