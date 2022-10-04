@@ -25,6 +25,7 @@ STAGE_CHUNK_ROWS = 100000
 NUM_FILES_PER_RUN = 1000
 
 
+@task()
 def get_source_keys() -> [str]:
     """
     :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
