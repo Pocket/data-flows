@@ -1,20 +1,16 @@
 import base64
 import gzip
 import zlib
-from datetime import timedelta
 from io import BytesIO
 from typing import List
 
 import boto3
 import pandas as pd
 import prefect
-from prefect import Flow, task, Parameter, flatten
-from prefect.engine.results import LocalResult
-from prefect.engine.serializers import PandasSerializer
-from prefect.tasks.aws import S3List, S3Download, S3Upload
+from prefect import Flow, task
 from prefect.executors import LocalDaskExecutor
+from prefect.tasks.aws import S3List
 
-from utils import config
 from utils.flow import get_flow_name
 
 # Setting flow variables
@@ -25,8 +21,9 @@ SOURCE_S3_BUCKET = 'pocket-snowflake-staging-manual'
 SOURCE_PREFIX = 'aurora/textparser-prod-content-snapshot-2022091408-cluster/content/'
 STAGE_S3_BUCKET = 'pocket-data-items'
 STAGE_S3_PREFIX = 'article/backfill-html-filesplit/'
-STAGE_CHUNK_ROWS = 10000
+STAGE_CHUNK_ROWS = 100000
 NUM_FILES_PER_RUN = 1000
+
 
 def get_source_keys() -> [str]:
     """
@@ -39,7 +36,8 @@ def get_source_keys() -> [str]:
         raise Exception(f'No files to process for s3://{SOURCE_S3_BUCKET}/{SOURCE_PREFIX}.')
 
     if len(keys) > NUM_FILES_PER_RUN:
-        logger.warn(f"Number of files is greater than the number a worker can process in a single run. Found {len(keys)} files, processing {NUM_FILES_PER_RUN}.")
+        logger.warn(
+            f"Number of files is greater than the number a worker can process in a single run. Found {len(keys)} files, processing {NUM_FILES_PER_RUN}.")
         return keys[0:NUM_FILES_PER_RUN]
     else:
         return keys
@@ -90,6 +88,7 @@ def stage(key_dfs: (str, List[pd.DataFrame])) -> [str]:
     logger.info(f"Staged keys: {*keys,}")
     return keys
 
+
 @task()
 def split_files_process(key: str):
     """
@@ -100,10 +99,9 @@ def split_files_process(key: str):
         stage_chunk(key=key, index=index, df=df_transformed)
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes", num_workers=50)) as flow:
-    keys = get_source_keys()
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="processes")) as flow:
+    keys = get_source_keys().reverse()
     split_files_process.map(keys)
-
 
 if __name__ == "__main__":
     flow.run()
