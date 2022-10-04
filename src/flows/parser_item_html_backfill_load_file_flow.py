@@ -27,14 +27,13 @@ CHUNK_ROWS = 50000  # 3486 rows = 10MB
 # Import from S3 to Snowflake
 # 3.5k rows = 2 seconds on xsmall warehouse
 IMPORT_SQL = f"""
-copy into raw.item.article_content_v2
+copy into snapshot.item.article_content_v2
 (resolved_id, html, text, text_md5)
 from %(uri)s
 storage_integration = aws_integration_readonly_prod
 file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
 on_error=ABORT_STATEMENT;
 """
-
 
 
 @task()
@@ -122,7 +121,7 @@ with Flow(FLOW_NAME) as flow:
     transform_results = transform(extract_results)
     stage_results = stage(transform_results)
     load_results = load.map(stage_results)
-    cleanup.map(key).set_upstream(load_results)
+    cleanup(key).set_upstream(load_results)
     cleanup.map(stage_results).set_upstream(load_results)
 
 
