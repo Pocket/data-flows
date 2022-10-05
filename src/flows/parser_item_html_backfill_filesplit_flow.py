@@ -1,5 +1,6 @@
 import base64
 import gzip
+import os
 import tempfile
 import zlib
 from io import BytesIO
@@ -65,7 +66,6 @@ def split_file(key: str):
                                  chunksize=STAGE_CHUNK_ROWS,
                                  names=['resolved_id', 'compressed_html']):
             yield chunk
-
 
 def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
     logger = prefect.context.get("logger")
