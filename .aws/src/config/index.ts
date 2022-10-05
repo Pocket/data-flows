@@ -29,10 +29,8 @@ const prefect = {
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
     cpu: 4096,
     memory: 30720,
-    ephemeralStorage: {
-      // For queuing large files to disk... https://docs.amazonaws.cn/en_us/AmazonECS/latest/userguide/fargate-task-defs.html#fargate-tasks-storage
-      sizeInGiB: 200,
-    },
+    // For queuing large files to disk... https://docs.amazonaws.cn/en_us/AmazonECS/latest/userguide/fargate-task-defs.html#fargate-tasks-storage
+    ephemeralStorageSizeInGB: 200,
     dataLearningBucketName: isDev
       ? 'pocket-data-learning-dev'
       : 'pocket-data-learning',
