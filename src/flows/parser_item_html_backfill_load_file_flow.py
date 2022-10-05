@@ -126,11 +126,11 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers
     extract_results = extract.map(keys)
     transform_results = transform.map(extract_results)
     stage_results = stage.map(transform_results)
-    load_results = load.map(stage_results)
+    load_results = load.map(flatten(stage_results))
     # TODO: Uncomment cleanup once we have confidence that our import is working the way we desire.
     # TODO: Truncate `snapshot.item.article_content_v2` before cleaning up source files.
     # cleanup.map(keys).set_upstream(load_results)
-    cleanup.map(stage_results).set_upstream(load_results)
+    cleanup.map(flatten(stage_results)).set_upstream(load_results)
 
 if __name__ == "__main__":
-    flow.run(parameters=dict(keys=["article/backfill-html-filesplit/2022091408.part_00149_0.csv.gz"]))
+    flow.run(parameters=dict(keys=["article/backfill-html-filesplit/2022091408.part_00149_1.csv.gz"]))

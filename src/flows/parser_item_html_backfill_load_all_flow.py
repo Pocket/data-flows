@@ -39,8 +39,7 @@ def get_source_keys(num_files: int) -> [str]:
 @task()
 def process(keys, num_workers: int):
     logger = prefect.context.get("logger")
-    files_per_worker = math.ceil(len(keys) / num_workers)
-    for keys in np.array_split(keys, files_per_worker):
+    for keys in np.array_split(keys, num_workers):
         logger.info(f"Queuing worker for keys: {*keys,}.")
         create_flow_run.run(flow_name=file_flow_name, project_name=config.PREFECT_PROJECT_NAME,
                             parameters={"keys": keys.tolist()})
