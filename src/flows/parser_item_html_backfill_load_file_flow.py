@@ -115,20 +115,22 @@ def cleanup(key: str):
     s3 = boto3.resource('s3')
     s3.Object(bucket, key).delete()
 
+
 @task()
 def extract_keys(keys: str):
     return [k.strip() for k in keys.split(',')]
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=5)) as flow:
     keys = Parameter('keys')
     extract_results = extract.map(keys)
     transform_results = transform.map(extract_results)
     stage_results = stage.map(transform_results)
     load_results = load.map(stage_results)
-    cleanup.map(keys).set_upstream(load_results)
+    # TODO: Uncomment cleanup once we have confidence that our import is working the way we desire.
+    # TODO: Truncate `snapshot.item.article_content_v2` before cleaning up source files.
+    # cleanup.map(keys).set_upstream(load_results)
     cleanup.map(stage_results).set_upstream(load_results)
-
 
 if __name__ == "__main__":
     flow.run(parameters=dict(keys=["article/backfill-html-filesplit/2022091408.part_00149_0.csv.gz"]))

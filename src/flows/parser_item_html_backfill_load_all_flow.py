@@ -15,7 +15,7 @@ FLOW_NAME = get_flow_name(__file__)
 S3_BUCKET = 'pocket-data-items'
 SOURCE_PREFIX = 'article/backfill-html-filesplit/'
 NUM_FILES_PER_RUN = 1000
-NUM_WORKERS = 10
+NUM_WORKERS = 5
 
 
 @task()
