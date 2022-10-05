@@ -2,7 +2,7 @@ import base64
 import gzip
 import hashlib
 from io import StringIO, BytesIO
-from typing import List
+from typing import List, Union
 
 import boto3
 import pandas as pd
@@ -70,41 +70,51 @@ def get_stage_prefix() -> str:
     return f"{s3_prefix}{flow_run_id}"
 
 
-def stage_chunk(index: int, df: pd.DataFrame) -> str:
-    bucket = S3_BUCKET
-    s3_prefix = get_stage_prefix()
-    key = f"{s3_prefix}/{index}.csv.gz"
-
+def df_to_gip_bytes(df: pd.DataFrame) -> BytesIO:
     csv_buffer = BytesIO()
     with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
         df.to_csv(gz_file, index=False)
 
-    s3 = boto3.resource('s3')
-    s3.Object(bucket, key).put(Body=csv_buffer.getvalue())
-    return key
+    return csv_buffer
 
 
-@task()
-def stage(df: pd.DataFrame) -> List[str]:
+def s3_keys(df: pd.DataFrame) -> List[str]:
     """
     Stage files in S3 with a file size optimized for import.
     :return: S3 Stage file key.
     """
+    bucket = S3_BUCKET
+    chunk_rows = CHUNK_ROWS
+    s3 = boto3.resource('s3')
     logger = prefect.context.get("logger")
     logger.info(f"Staging dataframes")
-    chunks = [(i, df[i:i + CHUNK_ROWS]) for i in range(0, df.shape[0], CHUNK_ROWS)]
-    logger.info(f"Number of chunks created: {len(chunks)}.")
-    keys = [stage_chunk(i, chunk) for i, chunk in chunks]
-    logger.info(f"Staged keys: {*keys,}")
-    return keys
+    for index, chunk in [(i, df[i:i + chunk_rows]) for i in range(0, df.shape[0], chunk_rows)]:
+        key = f"{get_stage_prefix()}/{index}.csv.gz"
+        obj = s3.Object(bucket, key)
+
+        logger.info(f"Creating csv and compressing {key}")
+        csv_buffer = df_to_gip_bytes(chunk)
+
+        logger.info(f"Putting {key}")
+        obj.put(Body=csv_buffer.getvalue())
+        # TODO: handle yield exceptions and delete the key anyway
+        yield key
+        logger.info(f"Deleting {key}")
+        obj.delete()
 
 
 @task()
-def load(key: str):
-    uri = f"s3://{S3_BUCKET}/{key}"
+def load(df: pd.DataFrame):
     logger = prefect.context.get("logger")
-    logger.info(f"Snowflake loading key: {uri}")
-    return SnowflakeQuery(**SNOWFLAKE_DEFAULT_DICT).run(data={'uri': uri}, query=IMPORT_SQL)
+    for key in s3_keys(df):
+        uri = f"s3://{S3_BUCKET}/{key}"
+        logger.info(f"Snowflake loading key: {uri}")
+        return SnowflakeQuery(**SNOWFLAKE_DEFAULT_DICT).run(data={'uri': uri}, query=IMPORT_SQL)
+
+
+@task()
+def extract_keys(keys: str):
+    return [k.strip() for k in keys.split(',')]
 
 
 @task()
@@ -116,21 +126,12 @@ def cleanup(key: str):
     s3.Object(bucket, key).delete()
 
 
-@task()
-def extract_keys(keys: str):
-    return [k.strip() for k in keys.split(',')]
-
-
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=5)) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=8)) as flow:
     keys = Parameter('keys')
     extract_results = extract.map(keys)
     transform_results = transform.map(extract_results)
-    stage_results = stage.map(transform_results)
-    load_results = load.map(flatten(stage_results))
-    # TODO: Uncomment cleanup once we have confidence that our import is working the way we desire.
-    # TODO: Truncate `snapshot.item.article_content_v2` before cleaning up source files.
-    # cleanup.map(keys).set_upstream(load_results)
-    cleanup.map(flatten(stage_results)).set_upstream(load_results)
+    load_results = load.map(transform_results)
+    cleanup.map(keys).set_upstream(load_results)
 
 if __name__ == "__main__":
     flow.run(parameters=dict(keys=["article/backfill-html-filesplit/2022091408.part_00149_1.csv.gz"]))
