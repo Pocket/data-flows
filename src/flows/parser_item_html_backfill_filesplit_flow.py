@@ -106,7 +106,7 @@ def split_files_process(key: str):
         stage_chunk(key=key, index=index, df=df_transformed)
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=8)) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=3)) as flow:
     keys = get_source_keys()
     split_files_process.map(keys)
 
