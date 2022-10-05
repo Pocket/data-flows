@@ -1,5 +1,6 @@
 import base64
 import gzip
+import tempfile
 import zlib
 from io import BytesIO
 from typing import List
@@ -8,6 +9,7 @@ import boto3
 import pandas as pd
 import prefect
 from prefect import Flow, task
+from prefect.executors import LocalDaskExecutor
 from prefect.tasks.aws import S3List
 
 from utils.flow import get_flow_name
@@ -51,17 +53,18 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def split_file(key: str) -> (str, List[pd.DataFrame]):
+def split_file(key: str):
+    bucket = SOURCE_S3_BUCKET
     logger = prefect.context.get("logger")
     logger.info(f"Extracting file: {str(key)}")
-    bucket = SOURCE_S3_BUCKET
-    s3 = boto3.resource('s3')
-    response = s3.Object(bucket, key).get()
-    df_iterator = pd.read_csv(
-        response['Body'], escapechar='\\', sep="|", header=None, usecols=[0, 1], chunksize=STAGE_CHUNK_ROWS,
-        names=['resolved_id', 'compressed_html'])
-    return df_iterator
-
+    s3 = boto3.client('s3')
+    with tempfile.TemporaryFile() as f:
+        s3.download_fileobj(bucket, key, f)
+        f.seek(0)
+        for chunk in pd.read_csv(f, escapechar='\\', sep="|", header=None, usecols=[0, 1],
+                                 chunksize=STAGE_CHUNK_ROWS,
+                                 names=['resolved_id', 'compressed_html']):
+            yield chunk
 
 def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
     logger = prefect.context.get("logger")
@@ -95,12 +98,14 @@ def split_files_process(key: str):
     """
     Split S3 files into smaller stage files
     """
-    for index, df in enumerate(split_file(key)):
+    index = 0
+    for df in split_file(key):
+        index += 1
         df_transformed = transform(df)
         stage_chunk(key=key, index=index, df=df_transformed)
 
 
-with Flow(FLOW_NAME) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=5)) as flow:
     keys = get_source_keys()
     split_files_process.map(keys)
 

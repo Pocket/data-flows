@@ -15,7 +15,7 @@ FLOW_NAME = get_flow_name(__file__)
 S3_BUCKET = 'pocket-data-items'
 SOURCE_PREFIX = 'article/backfill-html-filesplit/'
 NUM_FILES_PER_RUN = 1000
-NUM_WORKERS = 10
+NUM_WORKERS = 5
 
 
 @task()
@@ -39,11 +39,10 @@ def get_source_keys(num_files: int) -> [str]:
 @task()
 def process(keys, num_workers: int):
     logger = prefect.context.get("logger")
-    files_per_worker = math.ceil(len(keys) / num_workers)
-    for keys in np.array_split(keys, files_per_worker):
+    for keys in np.array_split(keys, num_workers):
         logger.info(f"Queuing worker for keys: {*keys,}.")
         create_flow_run.run(flow_name=file_flow_name, project_name=config.PREFECT_PROJECT_NAME,
-                            parameters={"keys": keys})
+                            parameters={"keys": keys.tolist()})
 
 
 with Flow(FLOW_NAME) as flow:
