@@ -43,7 +43,7 @@ def process(keys, num_workers: int):
     for keys in np.array_split(keys, files_per_worker):
         logger.info(f"Queuing worker for keys: {*keys,}.")
         create_flow_run.run(flow_name=file_flow_name, project_name=config.PREFECT_PROJECT_NAME,
-                            parameters={"keys": keys})
+                            parameters={"keys": keys.tolist()})
 
 
 with Flow(FLOW_NAME) as flow:
