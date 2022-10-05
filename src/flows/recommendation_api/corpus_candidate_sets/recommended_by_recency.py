@@ -14,15 +14,40 @@ FLOW_NAME = get_flow_name(__file__)
 
 RECENT_RECOMMENDED_CANDIDATE_SET_ID = "2066c835-a940-45ec-b1f7-267457d9e0a2"
 
+
 EXPORT_RECOMMENDED_CANDIDATE_SET_SQL = """
-SELECT 
-    approved_corpus_item_external_id as "ID", 
-    topic as "TOPIC"
-FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS"
-WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD("day", %(MAX_AGE_DAYS)s, current_timestamp())
-AND CORPUS_REVIEW_STATUS = 'recommendation'
-AND LANGUAGE = 'EN'
-ORDER BY REVIEWED_CORPUS_ITEM_UPDATED_AT desc
+WITH prep as (
+    SELECT 
+        approved_corpus_item_external_id as "ID", 
+        topic as "TOPIC",
+        reviewed_corpus_item_updated_at as "REVIEW_TIME" 
+    FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS" 
+    WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD('day', %(MAX_AGE_DAYS)s, current_timestamp())
+    AND CORPUS_REVIEW_STATUS = 'recommendation'
+    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    AND NOT is_syndicated
+    AND NOT is_collection
+    
+    UNION
+    
+    SELECT 
+        approved_corpus_item_external_id as "ID", 
+        topic as "TOPIC",
+        scheduled_corpus_item_scheduled_at as "REVIEW_TIME"
+    FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
+    WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT BETWEEN DATEADD('day', %(MAX_AGE_DAYS)s, current_timestamp()) AND current_timestamp()
+    AND CORPUS_ITEM_LOADED_FROM = 'MANUAL'  -- should this be removed?
+    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    AND NOT is_syndicated
+    AND NOT is_collection
+    
+    )
+
+SELECT
+    ID,
+    TOPIC
+FROM PREP
+QUALIFY row_number() OVER (PARTITION BY ID ORDER BY REVIEW_TIME DESC) = 1
 LIMIT 2000 -- max feature value size / corpus item size ~= 350KB / 100 bytes ~= 3,500 max corpus items 
 """
 
