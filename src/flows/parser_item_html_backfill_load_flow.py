@@ -87,7 +87,7 @@ def load(df: pd.DataFrame, key: str):
     obj.put(Body=csv_buffer.getvalue())
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=5)) as flow:
     source_prefix = Parameter('source_prefix', default=SOURCE_PREFIX)
     num_files = Parameter('num_files', default=NUM_FILES_PER_RUN)
 
