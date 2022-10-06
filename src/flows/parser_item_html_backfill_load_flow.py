@@ -9,7 +9,7 @@ import pandas as pd
 import prefect
 from prefect import Flow, task, Parameter
 from prefect.executors import LocalDaskExecutor
-from prefect.tasks.aws import S3Download
+from prefect.tasks.aws import S3Download, S3List
 
 from common_tasks.transform_data import get_text_from_html
 from utils.flow import get_flow_name
@@ -19,7 +19,33 @@ FLOW_NAME = get_flow_name(__file__)
 
 # This bucket was created by another process. We may have to revisit using this bucket.
 S3_BUCKET = 'pocket-data-items'
-STAGE_PREFIX = 'article/backfill-html-filesplit-stage'
+STAGE_PREFIX = 'article/backfill-html-backfill'
+SOURCE_PREFIX = 'article/backfill-html-filesplit/'
+NUM_FILES_PER_RUN = 10
+
+
+@task()
+def get_keys(source_prefix, num_files: int) -> [str]:
+    """
+    :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
+    """
+    logger = prefect.context.get("logger")
+
+    files = S3List().run(bucket=S3_BUCKET, prefix=source_prefix)
+
+    if len(files) == 0:
+        raise Exception(f'No files to process for s3://{S3_BUCKET}/{source_prefix}')
+
+    if len(files) > num_files:
+        logger.warn(f"Number of files is greater than the number a worker can process in a single run")
+
+    logger.info(f"Found {len(files)} files, processing {num_files}.")
+
+    files = files[:num_files]
+    files.reverse()
+
+    return files
+
 
 @task()
 def extract(key: str) -> pd.DataFrame:
@@ -57,7 +83,7 @@ def load(df: pd.DataFrame, key: str):
     s3 = boto3.resource('s3')
     logger = prefect.context.get("logger")
 
-    file_name = os.path.basename(key)
+    file_name = os.path.basename(key).replace('pickle', 'csv')
     key = f'{s3_prefix}/{file_name}'
     obj = s3.Object(bucket, key)
 
@@ -69,7 +95,10 @@ def load(df: pd.DataFrame, key: str):
 
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
-    keys = Parameter('keys')
+    source_prefix = Parameter('source_prefix', default=SOURCE_PREFIX)
+    num_files = Parameter('num_files', default=NUM_FILES_PER_RUN)
+
+    keys = get_keys(source_prefix, num_files)
     extract_results = extract.map(keys)
     transform_results = transform.map(extract_results)
     load_results = load.map(transform_results, keys)
