@@ -19,7 +19,7 @@ FLOW_NAME = get_flow_name(__file__)
 
 # This bucket was created by another process. We may have to revisit using this bucket.
 S3_BUCKET = 'pocket-data-items'
-STAGE_PREFIX = 'article/backfill-html-backfill'
+STAGE_PREFIX = 'article/backfill-html'
 SOURCE_PREFIX = 'article/backfill-html-filesplit/'
 NUM_FILES_PER_RUN = 10
 
@@ -27,7 +27,7 @@ NUM_FILES_PER_RUN = 10
 LOAD_SQL = """
 copy into snapshot.item.article_content_v2
 (resolved_id, html, text, text_md5)
-from 's3://pocket-data-items/article/backfill-html-filesplit-stage/'
+from 's3://pocket-data-items/article/backfill-html/'
 storage_integration = aws_integration_readonly_prod
 file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
 on_error=ABORT_STATEMENT;
@@ -63,7 +63,7 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
 
 def df_to_gip_bytes(df: pd.DataFrame) -> BytesIO:
     csv_buffer = BytesIO()
-    with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
+    with gzip.GzipFile(mode='w', fileobj=csv_buffer, compresslevel=1) as gz_file:
         df.to_csv(gz_file, index=False)
 
     return csv_buffer
