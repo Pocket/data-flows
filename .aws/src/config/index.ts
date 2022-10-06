@@ -27,8 +27,8 @@ const prefect = {
   flowTask: {
     // See the documentation below for valid values for CPU and memory:
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
-    cpu: 4096,
-    memory: 30720,
+    cpu: 8192,
+    memory: 61440,
     // For queuing large files to disk... https://docs.amazonaws.cn/en_us/AmazonECS/latest/userguide/fargate-task-defs.html#fargate-tasks-storage
     ephemeralStorageSizeInGB: 200,
     dataLearningBucketName: isDev

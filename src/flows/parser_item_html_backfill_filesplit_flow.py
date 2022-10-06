@@ -1,14 +1,13 @@
 import base64
-import gzip
+import os.path
 import tempfile
 import zlib
 from io import BytesIO
-from typing import List
 
 import boto3
 import pandas as pd
 import prefect
-from prefect import Flow, task
+from prefect import Flow, task, Parameter
 from prefect.executors import LocalDaskExecutor
 from prefect.tasks.aws import S3List
 
@@ -21,22 +20,22 @@ FLOW_NAME = get_flow_name(__file__)
 SOURCE_S3_BUCKET = 'pocket-snowflake-staging-manual'
 SOURCE_PREFIX = 'aurora/textparser-prod-content-snapshot-2022091408-cluster/content/'
 STAGE_S3_BUCKET = 'pocket-data-items'
-STAGE_S3_PREFIX = 'article/backfill-html-filesplit/'
-STAGE_CHUNK_ROWS = 100000
+STAGE_S3_PREFIX = 'article/backfill-html-filesplit'
+STAGE_CHUNK_ROWS = 50000
 NUM_FILES_PER_RUN = 1000
 
 
 @task()
-def get_source_keys() -> [str]:
+def get_source_keys(source_prefix: str) -> [str]:
     """
     :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
     """
     logger = prefect.context.get("logger")
 
-    keys = S3List().run(bucket=SOURCE_S3_BUCKET, prefix=SOURCE_PREFIX)
+    keys = S3List().run(bucket=SOURCE_S3_BUCKET, prefix=source_prefix)
     keys.reverse()
     if len(keys) == 0:
-        raise Exception(f'No files to process for s3://{SOURCE_S3_BUCKET}/{SOURCE_PREFIX}.')
+        raise Exception(f'No files to process for s3://{SOURCE_S3_BUCKET}/{source_prefix}.')
 
     if len(keys) > NUM_FILES_PER_RUN:
         logger.warn(
@@ -47,8 +46,7 @@ def get_source_keys() -> [str]:
 
 
 def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df['html'] = [base64.b64encode(zlib.decompress(base64.b64decode(compressed_html))).decode() for compressed_html in
-                  df['compressed_html']]
+    df['html'] = [zlib.decompress(base64.b64decode(compressed_html)) for compressed_html in df['compressed_html']]
     df.drop(columns=['compressed_html'], inplace=True)
     return df
 
@@ -66,31 +64,22 @@ def split_file(key: str):
                                  names=['resolved_id', 'compressed_html']):
             yield chunk
 
+
 def stage_chunk(key: str, index: int, df: pd.DataFrame) -> str:
     logger = prefect.context.get("logger")
     bucket = STAGE_S3_BUCKET
     s3_prefix = STAGE_S3_PREFIX
-    file_prefix = key[key.startswith(SOURCE_PREFIX) and len(SOURCE_PREFIX):]
-    stage_key = f"{s3_prefix}{file_prefix}_{index}.csv.gz"
-    logger.info(f"stage_key: {stage_key}.")
-    csv_buffer = BytesIO()
-    with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
-        df.to_csv(gz_file, index=False)
     s3 = boto3.resource('s3')
-    s3.Object(bucket, stage_key).put(Body=csv_buffer.getvalue())
+
+    file_name = os.path.basename(key)
+    stage_key = f"{s3_prefix}/{file_name}_{index}.pickle.gz"
+
+    logger.info(f"stage_key: {stage_key}.")
+    buffer = BytesIO()
+    df.to_pickle(buffer, compression='gzip')
+    s3.Object(bucket, stage_key).put(Body=buffer.getvalue())
+
     return stage_key
-
-
-def stage(key_dfs: (str, List[pd.DataFrame])) -> [str]:
-    logger = prefect.context.get("logger")
-    key, dfs = key_dfs
-    logger.info(f"Number of dfs: {len(dfs)}.")
-    df = pd.concat(dfs)
-    chunks = [(i, df[i:i + STAGE_CHUNK_ROWS]) for i in range(0, df.shape[0], STAGE_CHUNK_ROWS)]
-    logger.info(f"Number of chunks created: {len(chunks)}.")
-    keys = [stage_chunk(key, i, chunk) for i, chunk in chunks]
-    logger.info(f"Staged keys: {*keys,}")
-    return keys
 
 
 @task()
@@ -98,15 +87,15 @@ def split_files_process(key: str):
     """
     Split S3 files into smaller stage files
     """
-    index = 0
+    index = -1
     for df in split_file(key):
         index += 1
-        df_transformed = transform(df)
-        stage_chunk(key=key, index=index, df=df_transformed)
+        stage_chunk(key=key, index=index, df=transform(df))
 
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=5)) as flow:
-    keys = get_source_keys()
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
+    source_prefix = Parameter('source_prefix', default=SOURCE_PREFIX)
+    keys = get_source_keys(source_prefix)
     split_files_process.map(keys)
 
 if __name__ == "__main__":
