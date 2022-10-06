@@ -26,27 +26,14 @@ NUM_FILES_PER_RUN = 1000
 
 
 @task()
-def get_source_keys(source_prefix: str) -> [str]:
-    """
-    :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
-    """
-    logger = prefect.context.get("logger")
-
-    keys = S3List().run(bucket=SOURCE_S3_BUCKET, prefix=source_prefix)
+def get_source_keys(source_prefix: str, num_files: int) -> [str]:
+    keys = S3List().run(bucket=SOURCE_S3_BUCKET, prefix=source_prefix, max_items=num_files)
     keys.reverse()
-    if len(keys) == 0:
-        raise Exception(f'No files to process for s3://{SOURCE_S3_BUCKET}/{source_prefix}.')
-
-    if len(keys) > NUM_FILES_PER_RUN:
-        logger.warn(
-            f"Number of files is greater than the number a worker can process in a single run. Found {len(keys)} files, processing {NUM_FILES_PER_RUN}.")
-        return keys[0:NUM_FILES_PER_RUN]
-    else:
-        return keys
+    return keys
 
 
 def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df['html'] = [zlib.decompress(base64.b64decode(compressed_html)) for compressed_html in df['compressed_html']]
+    df['html'] = [zlib.decompress(base64.b64decode(compressed_html)).decode() for compressed_html in df['compressed_html']]
     df.drop(columns=['compressed_html'], inplace=True)
     return df
 
@@ -94,8 +81,9 @@ def split_files_process(key: str):
 
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
+    num_files = Parameter('num_files', default=NUM_FILES_PER_RUN)
     source_prefix = Parameter('source_prefix', default=SOURCE_PREFIX)
-    keys = get_source_keys(source_prefix)
+    keys = get_source_keys(source_prefix, num_files)
     split_files_process.map(keys)
 
 if __name__ == "__main__":

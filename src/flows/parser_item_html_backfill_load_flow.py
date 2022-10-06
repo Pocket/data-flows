@@ -23,27 +23,20 @@ STAGE_PREFIX = 'article/backfill-html-backfill'
 SOURCE_PREFIX = 'article/backfill-html-filesplit/'
 NUM_FILES_PER_RUN = 10
 
+# Run this later when all data proessed and available in s3.
+LOAD_SQL = """
+copy into snapshot.item.article_content_v2
+(resolved_id, html, text, text_md5)
+from 's3://pocket-data-items/article/backfill-html-filesplit-stage/'
+storage_integration = aws_integration_readonly_prod
+file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
+on_error=ABORT_STATEMENT;
+"""
 
 @task()
 def get_keys(source_prefix, num_files: int) -> [str]:
-    """
-    :return: List of S3 keys for the S3_BUCKET and SOURCE_PREFIX
-    """
-    logger = prefect.context.get("logger")
-
-    files = S3List().run(bucket=S3_BUCKET, prefix=source_prefix)
-
-    if len(files) == 0:
-        raise Exception(f'No files to process for s3://{S3_BUCKET}/{source_prefix}')
-
-    if len(files) > num_files:
-        logger.warn(f"Number of files is greater than the number a worker can process in a single run")
-
-    logger.info(f"Found {len(files)} files, processing {num_files}.")
-
-    files = files[:num_files]
+    files = S3List().run(bucket=S3_BUCKET, prefix=source_prefix, max_items=num_files)
     files.reverse()
-
     return files
 
 
@@ -104,4 +97,4 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads")) as flow:
     load_results = load.map(transform_results, keys)
 
 if __name__ == "__main__":
-    flow.run(parameters=dict(keys=["article/backfill-html-filesplit/2022091408.part_00149_1.csv.gz"]))
+    flow.run()
