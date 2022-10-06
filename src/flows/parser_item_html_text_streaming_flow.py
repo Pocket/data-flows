@@ -100,7 +100,7 @@ def stage_chunk(index: int, df: pd.DataFrame) -> str:
     key = f"{s3_prefix}/{index}.csv.gz"
 
     csv_buffer = BytesIO()
-    with gzip.GzipFile(mode='w', fileobj=csv_buffer) as gz_file:
+    with gzip.GzipFile(mode='w', fileobj=csv_buffer, compresslevel=1) as gz_file:
         df.to_csv(gz_file, index=False)
 
     s3 = boto3.resource('s3')
