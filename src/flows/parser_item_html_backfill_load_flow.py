@@ -102,8 +102,8 @@ def load(df: pd.DataFrame, key: str):
 @task()
 def process(key: str):
     df = extract(key)
-    df = transform(df, key)
-    load(df)
+    df = transform(df)
+    load(df, key)
 
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=8)) as flow:
