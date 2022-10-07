@@ -55,6 +55,8 @@ def extract(key: str) -> pd.DataFrame:
 
 
 def transform(df: pd.DataFrame) -> pd.DataFrame:
+    logger = prefect.context.get("logger")
+    logger.info("Transforming")
     h2t = HtmlToText()
     df['text'] = [h2t.get_text(html) for html in df['html']]
     df['text_md5'] = [hashlib.md5(t.encode('utf-8')).hexdigest() for t in df['text']]
@@ -79,14 +81,15 @@ def df_to_gip_bytes(df: pd.DataFrame) -> BytesIO:
     return gzip_buffer
 
 
-def load(df: pd.DataFrame):
+def load(df: pd.DataFrame, key: str):
     bucket = S3_BUCKET
     s3_prefix = STAGE_PREFIX
     s3 = boto3.resource('s3')
     logger = prefect.context.get("logger")
 
     # use the first resolved_id as the filename
-    file_name = f"{df['resolved_id'][0]}.csv.gz"
+    file_name = os.path.basename(key).replace('pickle.gz', 'csv.gz')
+    # file_name = f"{df['resolved_id'][0]}.csv.gz"
     key = f'{s3_prefix}/{file_name}'
     obj = s3.Object(bucket, key)
 
@@ -99,7 +102,7 @@ def load(df: pd.DataFrame):
 @task()
 def process(key: str):
     df = extract(key)
-    df = transform(df)
+    df = transform(df, key)
     load(df)
 
 
