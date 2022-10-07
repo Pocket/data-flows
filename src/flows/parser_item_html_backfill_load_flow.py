@@ -11,7 +11,7 @@ from prefect import Flow, task, Parameter
 from prefect.executors import LocalDaskExecutor
 from prefect.tasks.aws import S3Download, S3List
 
-from common_tasks.transform_data import get_text_from_html
+from common_tasks.transform_data import get_text_from_html, HtmlToText
 from utils.flow import get_flow_name
 
 # Setting flow variables
@@ -40,7 +40,7 @@ def get_keys(source_prefix, num_files: int) -> [str]:
     return files
 
 
-@task()
+
 def extract(key: str) -> pd.DataFrame:
     """
     - Extracts data from the S3_BUCKET for the {key}
@@ -54,29 +54,39 @@ def extract(key: str) -> pd.DataFrame:
     return pd.read_pickle(BytesIO(contents))
 
 
-@task()
 def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df['text'] = [get_text_from_html(html) for html in df['html']]
+    h2t = HtmlToText()
+    df['text'] = [h2t.get_text(html) for html in df['html']]
     df['text_md5'] = [hashlib.md5(t.encode('utf-8')).hexdigest() for t in df['text']]
     return df
 
 
 def df_to_gip_bytes(df: pd.DataFrame) -> BytesIO:
+    """
+    This is not memory efficient. The steps are broken up to get better insights into the performance. This function
+    takes 30 seconds on my laptop but takes 10 minutes on ECS and debugging is required.
+    """
+    logger = prefect.context.get("logger")
+    logger.info('Exporting CSV')
     csv_buffer = BytesIO()
-    with gzip.GzipFile(mode='w', fileobj=csv_buffer, compresslevel=1) as gz_file:
-        df.to_csv(gz_file, index=False)
+    df.to_csv(csv_buffer, index=False)
 
-    return csv_buffer
+    logger.info('Compressing CSV')
+    gzip_buffer = BytesIO()
+    with gzip.GzipFile(mode='w', fileobj=gzip_buffer, compresslevel=1) as gz_file:
+        gz_file.write(csv_buffer.getvalue())
+
+    return gzip_buffer
 
 
-@task()
-def load(df: pd.DataFrame, key: str):
+def load(df: pd.DataFrame):
     bucket = S3_BUCKET
     s3_prefix = STAGE_PREFIX
     s3 = boto3.resource('s3')
     logger = prefect.context.get("logger")
 
-    file_name = os.path.basename(key).replace('pickle', 'csv')
+    # use the first resolved_id as the filename
+    file_name = f"{df['resolved_id'][0]}.csv.gz"
     key = f'{s3_prefix}/{file_name}'
     obj = s3.Object(bucket, key)
 
@@ -86,15 +96,19 @@ def load(df: pd.DataFrame, key: str):
     logger.info(f"Putting {key}")
     obj.put(Body=csv_buffer.getvalue())
 
+@task()
+def process(key: str):
+    df = extract(key)
+    df = transform(df)
+    load(df)
 
-with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=5)) as flow:
+
+with Flow(FLOW_NAME, executor=LocalDaskExecutor(scheduler="threads", num_workers=8)) as flow:
     source_prefix = Parameter('source_prefix', default=SOURCE_PREFIX)
     num_files = Parameter('num_files', default=NUM_FILES_PER_RUN)
 
     keys = get_keys(source_prefix, num_files)
-    extract_results = extract.map(keys)
-    transform_results = transform.map(extract_results)
-    load_results = load.map(transform_results, keys)
+    process.map(keys)
 
 if __name__ == "__main__":
     flow.run()
