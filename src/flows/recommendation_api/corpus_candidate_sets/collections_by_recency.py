@@ -15,15 +15,30 @@ FLOW_NAME = get_flow_name(__file__)
 RECENT_COLLECTIONS_CANDIDATE_SET_ID = "92af3dae-25c9-46c3-bf05-18082aacc7e1"
 
 EXPORT_COLLECTIONS_CANDIDATE_SET_SQL = """
-SELECT 
+WITH recent_collections AS (
+  SELECT
+    IFNULL(s.SCHEDULED_CORPUS_ITEM_SCHEDULED_AT, a.REVIEWED_CORPUS_ITEM_CREATED_AT) as recency,
+    s.SCHEDULED_SURFACE_IANA_TIMEZONE,
+    a.*
+  FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS" a
+  LEFT JOIN "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS" s ON (
+    s.approved_corpus_item_external_id = a.approved_corpus_item_external_id
+    AND s.SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < current_timestamp()
+    AND s.SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+  )
+  WHERE a.IS_COLLECTION
+  AND a.CORPUS_REVIEW_STATUS = 'recommendation'
+  AND a.LANGUAGE = 'EN'
+  AND recency > DATEADD("day", %(MAX_AGE_DAYS)s, current_timestamp())
+  QUALIFY row_number() OVER (PARTITION BY a.APPROVED_CORPUS_ITEM_EXTERNAL_ID ORDER BY recency DESC) = 1
+  ORDER BY recency DESC
+)
+
+SELECT
     approved_corpus_item_external_id as "ID", 
     topic as "TOPIC"
-FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS"
-WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD("day", %(MAX_AGE_DAYS)s, current_timestamp())
-AND IS_COLLECTION
-AND CORPUS_REVIEW_STATUS = 'recommendation'
-AND LANGUAGE = 'EN'
-ORDER BY REVIEWED_CORPUS_ITEM_UPDATED_AT desc
+FROM recent_collections
+ORDER BY recency DESC
 """
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
