@@ -55,8 +55,8 @@ class UserAttributes(_UserIdentifier):
     email: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    #(date at which the user first used the app) String in ISO 8601 format or in yyyy-MM-dd'T'HH:mm:ss:SSSZ format.
-    #Also the pocket signed up at
+    # (date at which the user first used the app) String in ISO 8601 format or in yyyy-MM-dd'T'HH:mm:ss:SSSZ format.
+    # Also the pocket signed up at
     date_of_first_session: Optional[str] = None
     email_subscribe: Optional[str] = None
 
@@ -84,7 +84,6 @@ EventPropertyValueType = Union[
     str,  # length <= 255 string. Will be interpreted as a date if formatted as ISO-8601 or yyyy-MM-dd'T'HH:mm:ss:SSSZ
     List,  # Arrays cannot include datetimes.
 ]
-
 
 EventPropertiesType = Dict[str, EventPropertyValueType]
 
@@ -134,7 +133,8 @@ class Purchase(_UserIdentifier, _PurchaseRequiredFields):
     # purchases with quantity 1),
     quantity: Optional[int] = None
 
-    properties: Dict[str, EventPropertyValueType] = field(default_factory=dict)  # Key string length <= 255 characters, with no leading $ sign.
+    properties: Dict[str, EventPropertyValueType] = field(
+        default_factory=dict)  # Key string length <= 255 characters, with no leading $ sign.
 
     # Setting this flag to true will put the API in "Update Only" mode.
     # When using a "user_alias", "Update Only" defaults to true.
@@ -152,6 +152,7 @@ class TrackUsersInput:
 class UserDeleteInput:
     external_ids: Optional[List[str]] = None
     user_aliases: Optional[List[UserAlias]] = None
+    braze_ids: Optional[List[str]] = None
 
 
 @dataclass
@@ -172,3 +173,13 @@ class IdentifyUsersInput:
     aliases_to_identify: List[UserAliasIdentifier]
 
 
+@dataclass
+class _UsersBySegmentRequiredFields:
+    segment_id: str  # required, the segment id to export
+    fields_to_export: List[str]  # required, the fields to export from the segment
+
+
+@dataclass
+class UsersBySegmentInput(_UsersBySegmentRequiredFields):
+    callback_endpoint: Optional[str] = None  # if passed the endpoint to hit when the data is finished loading
+    output_format: Optional[str] = 'gzip'  # The output format for the file in our s3 bucket
