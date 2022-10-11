@@ -16,45 +16,55 @@ RECENT_RECOMMENDED_CANDIDATE_SET_ID = "2066c835-a940-45ec-b1f7-267457d9e0a2"
 
 
 EXPORT_RECOMMENDED_CANDIDATE_SET_SQL = """
-WITH prep as (
+WITH recently_updated_items as (
     SELECT 
         approved_corpus_item_external_id as "ID", 
         topic as "TOPIC",
         reviewed_corpus_item_updated_at as "REVIEW_TIME" 
     FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS" 
-    WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD('day', %(MAX_AGE_DAYS)s, current_timestamp())
-    AND CORPUS_REVIEW_STATUS = 'recommendation'
+    WHERE CORPUS_REVIEW_STATUS = 'recommendation'
     AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
     AND NOT is_syndicated
     AND NOT is_collection
-    
-    UNION
-    
+),
+
+recently_scheduled_items as (    
     SELECT 
         approved_corpus_item_external_id as "ID", 
         topic as "TOPIC",
         scheduled_corpus_item_scheduled_at as "REVIEW_TIME"
     FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
-    WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT BETWEEN DATEADD('day', %(MAX_AGE_DAYS)s, current_timestamp()) AND current_timestamp()
+    WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < current_timestamp()
     AND CORPUS_ITEM_LOADED_FROM = 'MANUAL'  -- should this be removed?
     AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
     AND NOT is_syndicated
     AND NOT is_collection
-    
-    )
+),
 
+all_recent_items as (
+    SELECT * FROM recently_scheduled_items
+    UNION ALL 
+    SELECT * FROM recently_updated_items
+),
+
+-- Deduplicate based on the CorpusItem id
+deduped as (
+  SELECT * FROM all_recent_items
+  QUALIFY row_number() OVER (PARTITION BY ID ORDER BY REVIEW_TIME DESC) = 1
+)
+
+-- Select the n most recent items per topic
 SELECT
     ID,
     TOPIC
-FROM PREP
-QUALIFY row_number() OVER (PARTITION BY ID ORDER BY REVIEW_TIME DESC) = 1
-LIMIT 2000 -- max feature value size / corpus item size ~= 350KB / 100 bytes ~= 3,500 max corpus items 
+FROM deduped
+QUALIFY row_number() OVER (PARTITION BY TOPIC ORDER BY REVIEW_TIME DESC) <= %(N_RECS_PER_TOPIC)s;
 """
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_RECOMMENDED_CANDIDATE_SET_SQL,
-        data={"MAX_AGE_DAYS": -14},
+        data={"N_RECS_PER_TOPIC": 6},
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
         output_type=OutputType.DICT,
