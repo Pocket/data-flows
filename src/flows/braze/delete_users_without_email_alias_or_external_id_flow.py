@@ -1,21 +1,18 @@
 from prefect import Flow, context, task, Parameter
-from prefect.executors import LocalDaskExecutor
 import datetime
 import re
 from typing import Any, Dict, List, Tuple
 from dataclasses import dataclass
 
 from api_clients.pocket_snowflake_query import OutputType, PocketSnowflakeQuery
-from common_tasks.braze import mask_email_domain_outside_production
 from common_tasks.mapping import split_in_chunks
 from utils import config
-from utils.flow import get_s3_result, get_flow_name, get_interval_schedule, get_cron_schedule
+from utils.flow import get_s3_result, get_flow_name, get_cron_schedule
 from api_clients.braze import models
 from api_clients.braze.client import (
     BrazeClient,
     IDENTIFY_USER_ALIAS_LIMIT
 )
-from api_clients.braze.pocket_config import EMAIL_ALIAS_LABEL
 
 from utils.iteration import chunks
 
@@ -25,9 +22,10 @@ EXTRACT_QUERY = """
 SELECT
     BRAZE_ID
 FROM "{table_name}"
+WHERE EXTERNAL_ID is null 
+    AND user_aliases is null 
 ORDER BY EXTERNAL_ID ASC
 """
-# TODO: ^ Add a where filter to this query to grab those with an external_id and no user alias.
 
 DEFAULT_MAX_OPERATIONS_PER_TASK_RUN = 100000  # The workload is run in parallel in chunks of this many rows.
 DEFAULT_TABLE_NAME = 'BRAZE_USERS'
@@ -95,8 +93,7 @@ def delete_users(users_to_delete: List[UserToDelete]):
         ))
 
 
-# TODO: Should this only run after a braze data export is successful???
-with Flow(FLOW_NAME, schedule=get_cron_schedule(cron='0 1 * * *'), result=get_s3_result()) as flow:
+with Flow(FLOW_NAME, result=get_s3_result()) as flow:
     # To backfill data we can manually run this flow and override the Snowflake database, schema, and table.
     snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_ANALYTICS_DATABASE)
     snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA)

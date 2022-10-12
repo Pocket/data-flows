@@ -91,15 +91,6 @@ class BrazeClient:
 
         return self._post_request('/subscription/status/set', input_without_empty_lists)
 
-    def users_by_segment(self, users_by_segment_input: UsersBySegmentInput):
-        """
-        Users by segment
-        @see https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#cfa6fa98-632c-4f25-8789-6c3f220b9457
-        :return:
-        """
-
-        return self._post_request('/users/export/segment', users_by_segment_input)
-
     def _post_request(self, path, braze_data):
         # TODO: Look at braze bulk header when backfilling data:
         # https://www.braze.com/docs/api/endpoints/user_data/post_user_track/#making-bulk-updates

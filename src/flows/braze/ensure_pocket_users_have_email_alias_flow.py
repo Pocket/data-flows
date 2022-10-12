@@ -1,5 +1,4 @@
 from prefect import Flow, context, task, Parameter
-from prefect.executors import LocalDaskExecutor
 import datetime
 import re
 from typing import Any, Dict, List, Tuple
@@ -9,7 +8,7 @@ from api_clients.pocket_snowflake_query import OutputType, PocketSnowflakeQuery
 from common_tasks.braze import mask_email_domain_outside_production
 from common_tasks.mapping import split_in_chunks
 from utils import config
-from utils.flow import get_s3_result, get_flow_name, get_interval_schedule, get_cron_schedule
+from utils.flow import get_s3_result, get_flow_name
 from api_clients.braze import models
 from api_clients.braze.client import (
     BrazeClient,
@@ -27,13 +26,14 @@ SELECT
     EXTERNAL_ID,
     EMAIL,
 FROM "{table_name}"
+WHERE EXTERNAL_ID is not null 
+    and user_aliases is null 
+    and email is not null
 ORDER BY EXTERNAL_ID ASC
 """
-# TODO: ^ Add a where filter to this query to grab those with an external_id and no user alias.
 
 DEFAULT_MAX_OPERATIONS_PER_TASK_RUN = 100000  # The workload is run in parallel in chunks of this many rows.
-DEFAULT_TABLE_NAME = 'BRAZE_USERS'
-
+DEFAULT_TABLE_NAME = 'BRAZE_USER_DATA'
 
 @dataclass
 class UserToIdentify:
@@ -104,11 +104,10 @@ def identify_users(user_deltas: List[UserToIdentify]):
         ))
 
 
-# TODO: Should this only run after a braze data export is successful???
-with Flow(FLOW_NAME, schedule=get_cron_schedule(cron='0 1 * * *'), result=get_s3_result()) as flow:
-    # To backfill data we can manually run this flow and override the Snowflake database, schema, and table.
-    snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_ANALYTICS_DATABASE)
-    snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_ANALYTICS_DBT_STAGING_SCHEMA)
+with Flow(FLOW_NAME, result=get_s3_result()) as flow:
+    # To backfill data we manually run this flow and override the Snowflake database, schema, and table.
+    snowflake_database = Parameter('snowflake_database', default='DEVELOPMENT')
+    snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_DEV_SCHEMA)
     extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
     # This parameter controls the number of rows processed by each task run. Higher number = less parallelism.
     max_operations_per_task_run = Parameter('max_operations_per_task_run', default=DEFAULT_MAX_OPERATIONS_PER_TASK_RUN)
@@ -131,14 +130,14 @@ with Flow(FLOW_NAME, schedule=get_cron_schedule(cron='0 1 * * *'), result=get_s3
     # Convert Snowflake dicts to @dataclass objects.
     all_user_deltas = get_users_to_identify_from_dicts(user_deltas_dicts)
 
-    # Identify ('merge') Pocket users with their email alias any time we have a new email for them.
-    # This deletes their old email alias.
-    identify_users_task = identify_users.map(
-        split_in_chunks(
-            all_user_deltas,
-            chunk_size=max_operations_per_task_run,
-        ),
-    )
+    # # Identify ('merge') Pocket users with their email alias any time we have a new email for them.
+    # # This deletes their old email alias.
+    # identify_users_task = identify_users.map(
+    #     split_in_chunks(
+    #         all_user_deltas,
+    #         chunk_size=max_operations_per_task_run,
+    #     ),
+    # )
 
 if __name__ == "__main__":
     flow.run()

@@ -171,15 +171,3 @@ class CreateUserAliasInput:
 @dataclass
 class IdentifyUsersInput:
     aliases_to_identify: List[UserAliasIdentifier]
-
-
-@dataclass
-class _UsersBySegmentRequiredFields:
-    segment_id: str  # required, the segment id to export
-    fields_to_export: List[str]  # required, the fields to export from the segment
-
-
-@dataclass
-class UsersBySegmentInput(_UsersBySegmentRequiredFields):
-    callback_endpoint: Optional[str] = None  # if passed the endpoint to hit when the data is finished loading
-    output_format: Optional[str] = 'gzip'  # The output format for the file in our s3 bucket
