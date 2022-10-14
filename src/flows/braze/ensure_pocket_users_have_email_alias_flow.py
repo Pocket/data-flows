@@ -22,18 +22,20 @@ FLOW_NAME = get_flow_name(__file__)
 
 EXTRACT_QUERY = """
 SELECT
-    BRAZE_ID,
-    EXTERNAL_ID,
-    EMAIL,
+    id as braze_id,
+    external_id,
+    email
 FROM "{table_name}"
-WHERE EXTERNAL_ID is not null 
-    and user_aliases is null 
+JOIN user_alias on id = user_id
+WHERE external_id is not null 
     and email is not null
-ORDER BY EXTERNAL_ID ASC
+    and label = 'email'
+    and email = name
+ORDER BY external_id ASC
 """
 
 DEFAULT_MAX_OPERATIONS_PER_TASK_RUN = 100000  # The workload is run in parallel in chunks of this many rows.
-DEFAULT_TABLE_NAME = 'BRAZE_USER_DATA'
+DEFAULT_TABLE_NAME = 'USER'
 
 @dataclass
 class UserToIdentify:
@@ -43,6 +45,7 @@ class UserToIdentify:
 
     """Unique Braze user identifier (based on the Pocket hashed user id)"""
     external_id: str
+    braze_id: str
     email: str
 
     @staticmethod
@@ -106,8 +109,8 @@ def identify_users(user_deltas: List[UserToIdentify]):
 
 with Flow(FLOW_NAME, result=get_s3_result()) as flow:
     # To backfill data we manually run this flow and override the Snowflake database, schema, and table.
-    snowflake_database = Parameter('snowflake_database', default='DEVELOPMENT')
-    snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_DEV_SCHEMA)
+    snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_FIVETRAN_DATABASE)
+    snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_FIVETRAN_BRAZE_SCHEMA)
     extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
     # This parameter controls the number of rows processed by each task run. Higher number = less parallelism.
     max_operations_per_task_run = Parameter('max_operations_per_task_run', default=DEFAULT_MAX_OPERATIONS_PER_TASK_RUN)
@@ -130,14 +133,14 @@ with Flow(FLOW_NAME, result=get_s3_result()) as flow:
     # Convert Snowflake dicts to @dataclass objects.
     all_user_deltas = get_users_to_identify_from_dicts(user_deltas_dicts)
 
-    # # Identify ('merge') Pocket users with their email alias any time we have a new email for them.
-    # # This deletes their old email alias.
-    # identify_users_task = identify_users.map(
-    #     split_in_chunks(
-    #         all_user_deltas,
-    #         chunk_size=max_operations_per_task_run,
-    #     ),
-    # )
+    # Identify ('merge') Pocket users with their email alias any time we have a new email for them.
+    # This deletes their old email alias.
+    identify_users_task = identify_users.map(
+        split_in_chunks(
+            all_user_deltas,
+            chunk_size=max_operations_per_task_run,
+        ),
+    )
 
 if __name__ == "__main__":
     flow.run()

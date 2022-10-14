@@ -5,7 +5,7 @@ import logging
 import requests
 
 from api_clients.braze.models import CreateUserAliasInput, IdentifyUsersInput, TrackUsersInput, UserDeleteInput, \
-    SubscribeUsersInput, UsersBySegmentInput
+    SubscribeUsersInput
 from utils import config
 from utils.dataclasses import DataClassJSONEncoderWithoutNoneValues
 

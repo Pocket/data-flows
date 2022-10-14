@@ -1,9 +1,5 @@
 from typing import List, Dict
-
-from prefect import task, context
-
-from api_clients.braze import models
-from api_clients.braze.client import BrazeClient
+from prefect import task
 from utils import config
 
 def _replace_email_domain(email: str, new_domain) -> str:
@@ -31,14 +27,3 @@ def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL')
                 row[email_column] = _replace_email_domain(row[email_column], new_domain='@example.com')
 
     return rows
-
-@task()
-def trigger_segment_export(segment_id: str):
-    """
-    Trigger an export of Braze Users
-    """
-    logger = context.get("logger")
-    BrazeClient(logger=logger).users_by_segment(models.UsersBySegmentInput(
-        segment_id=segment_id,
-        fields_to_export=['external_id', 'user_aliases', 'braze_id', 'email']
-    ))
