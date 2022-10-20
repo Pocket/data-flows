@@ -16,15 +16,41 @@ CURATED_LIFEHACKS_CANDIDATE_SET_ID = "da9cb7a1-3a34-4211-b918-73819a5586c8"
 
 # Export approved corpus items by language and recency
 EXPORT_LIFEHACKS_ITEMS_SQL = """
+WITH recently_updated_items as (
+    SELECT 
+        approved_corpus_item_external_id as "ID", 
+        topic as "TOPIC",
+        reviewed_corpus_item_updated_at as "REVIEW_TIME" 
+    FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS" 
+    WHERE CORPUS_REVIEW_STATUS = 'recommendation'
+    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    AND NOT is_syndicated
+    AND NOT is_collection
+),
+
+recently_scheduled_items as (    
+    SELECT 
+        approved_corpus_item_external_id as "ID", 
+        topic as "TOPIC",
+        scheduled_corpus_item_scheduled_at as "REVIEW_TIME"
+    FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
+    WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < current_timestamp()
+    AND CORPUS_ITEM_LOADED_FROM = 'MANUAL'  -- should this be removed?
+    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    AND NOT is_syndicated
+    AND NOT is_collection
+)
+
 SELECT 
-    approved_corpus_item_external_id as "ID", 
-    topic as "TOPIC"
-FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS"
-WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD("day", %(MAX_AGE_DAYS)s, current_timestamp())
-AND TOPIC IN (%(CORPUS_TOPIC_LIST)s)
-AND CORPUS_REVIEW_STATUS = 'recommendation'
-AND LANGUAGE = 'EN'
-ORDER BY REVIEWED_CORPUS_ITEM_UPDATED_AT desc
+    * 
+FROM 
+    (SELECT * FROM recently_scheduled_items
+     UNION ALL
+     SELECT * FROM recently_updated_items)
+WHERE TOPIC IN (%(CORPUS_TOPIC_LIST)s)
+AND REVIEW_TIME >= current_date() - %(MAX_AGE_DAYS)s
+QUALIFY row_number() OVER (PARTITION BY ID ORDER BY REVIEW_TIME DESC) = 1
+ORDER BY REVIEW_TIME DESC
 """
 
 @task()
@@ -41,7 +67,7 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     records = PocketSnowflakeQuery()(
         query=EXPORT_LIFEHACKS_ITEMS_SQL,
         data={
-            "MAX_AGE_DAYS": -30,
+            "MAX_AGE_DAYS": 30,
             "CORPUS_TOPIC_LIST": ['SELF_IMPROVEMENT','CAREER','HEALTH_FITNESS','PERSONAL_FINANCE']
         },
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
