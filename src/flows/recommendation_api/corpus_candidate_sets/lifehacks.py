@@ -20,6 +20,7 @@ WITH recently_updated_items as (
     SELECT 
         approved_corpus_item_external_id as "ID", 
         topic as "TOPIC",
+        publisher as "PUBLISHER",
         reviewed_corpus_item_updated_at as "REVIEW_TIME" 
     FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS" 
     WHERE CORPUS_REVIEW_STATUS = 'recommendation'
@@ -32,6 +33,7 @@ recently_scheduled_items as (
     SELECT 
         approved_corpus_item_external_id as "ID", 
         topic as "TOPIC",
+        publisher as "PUBLISHER",
         scheduled_corpus_item_scheduled_at as "REVIEW_TIME"
     FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
     WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < current_timestamp()
@@ -42,7 +44,9 @@ recently_scheduled_items as (
 )
 
 SELECT 
-    * 
+    "ID",
+    "TOPIC",
+    "PUBLISHER" 
 FROM 
     (SELECT * FROM recently_scheduled_items
      UNION ALL
@@ -52,14 +56,6 @@ AND REVIEW_TIME >= current_date() - %(MAX_AGE_DAYS)s
 QUALIFY row_number() OVER (PARTITION BY ID ORDER BY REVIEW_TIME DESC) = 1
 ORDER BY REVIEW_TIME DESC
 """
-
-@task()
-def transform_to_corpus_items(records: dict) -> List[dict]:
-    # corpus candidate sets don't yet include publisher information
-    return [
-        {'ID': rec['ID'], 'TOPIC': rec['TOPIC']}
-        for rec in records]
-
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
 
@@ -76,8 +72,7 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     )
 
     # create candidate set
-    corpus_items = transform_to_corpus_items(records)
-    corpus_items = validate_corpus_items(corpus_items)
+    corpus_items = validate_corpus_items(records)
     feature_group_record = create_corpus_candidate_set_record(
         id=CURATED_LIFEHACKS_CANDIDATE_SET_ID,
         corpus_items=corpus_items

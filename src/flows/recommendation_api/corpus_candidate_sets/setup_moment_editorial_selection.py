@@ -79,7 +79,8 @@ NOTE: I couldn't immediately find how to bind a list for parameterizing an IN cl
 EXPORT_CORPUS_ITEMS_SQL = f"""
 SELECT
     APPROVED_CORPUS_ITEM_EXTERNAL_ID as ID,
-    TOPIC
+    TOPIC,
+    PUBLISHER
 FROM "APPROVED_CORPUS_ITEMS"
 WHERE APPROVED_CORPUS_ITEM_EXTERNAL_ID IN ({",".join(f"'{corpus_id}'" for corpus_id in CORPUS_IDS)});
 """

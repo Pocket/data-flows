@@ -22,7 +22,8 @@ POCKETHITS_EN_CANDIDATE_SET_ID = "92411893-ebdb-4a43-ad29-aa79e56e2136"
 POCKETHITS_SQL = """
 SELECT
     APPROVED_CORPUS_ITEM_EXTERNAL_ID as "ID",
-    TOPIC as "TOPIC"
+    TOPIC as "TOPIC",
+    PUBLISHER as "PUBLISHER"
 FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
 WHERE SCHEDULED_SURFACE_ID = %(SURFACE_GUID)s
 AND SCHEDULED_CORPUS_ITEM_SCHEDULED_AT BETWEEN DATEADD(day, %(MAX_AGE_DAYS)s, CURRENT_DATE) AND CURRENT_DATE
@@ -30,14 +31,6 @@ QUALIFY row_number() OVER (PARTITION BY APPROVED_CORPUS_ITEM_EXTERNAL_ID ORDER B
 ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC
 LIMIT 8  -- Only include past Pocket Hits stories if today's aren't available. There are 8 stories per email.
 """
-
-
-@task()
-def transform_to_corpus_items(records: dict) -> List[dict]:
-    # corpus candidate sets don't yet include publisher information
-    return [
-        {'ID': rec['ID'], 'TOPIC': rec['TOPIC']}
-        for rec in records]
 
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
@@ -55,8 +48,7 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     )
 
     # create candidate set
-    corpus_items = transform_to_corpus_items(records)
-    corpus_items = validate_corpus_items(corpus_items)
+    corpus_items = validate_corpus_items(records)
     feature_group_record = create_corpus_candidate_set_record(
         id=POCKETHITS_EN_CANDIDATE_SET_ID,
         corpus_items=corpus_items

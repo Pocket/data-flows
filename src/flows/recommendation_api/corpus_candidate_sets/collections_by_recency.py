@@ -36,7 +36,8 @@ WITH recent_collections AS (
 
 SELECT
     approved_corpus_item_external_id as "ID", 
-    topic as "TOPIC"
+    topic as "TOPIC",
+    publisher as "PUBLISHER"
 FROM recent_collections
 ORDER BY recency DESC
 """

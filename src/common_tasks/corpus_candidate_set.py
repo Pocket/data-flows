@@ -14,7 +14,7 @@ from utils import config
 @task()
 def validate_corpus_items(corpus_items: List[Dict]):
     min_item_count = 1
-    expected_keys = ['ID', 'TOPIC']
+    expected_keys = ['ID', 'TOPIC', 'PUBLISHER']
 
     assert len(corpus_items) >= min_item_count
     assert all(list(corpus_item.keys()) == expected_keys for corpus_item in corpus_items)
