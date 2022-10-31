@@ -26,7 +26,9 @@ SELECT
     PUBLISHER as "PUBLISHER"
 FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
 WHERE SCHEDULED_SURFACE_ID = %(SURFACE_GUID)s
-AND SCHEDULED_CORPUS_ITEM_SCHEDULED_AT BETWEEN DATEADD(day, %(MAX_AGE_DAYS)s, CURRENT_DATE) AND CURRENT_DATE
+-- BACK-1668: `scheduled_at` is always 12am UTC, which is unexpected because Pocket Hits goes out at 10am EST.
+--            The workaround below overrides the time to be 2pm UTC = 10am EST. Can be removed when BACK-1668 is fixed.
+AND DATEADD('hour', 14, DATE_TRUNC('DAY', SCHEDULED_CORPUS_ITEM_SCHEDULED_AT)) < CURRENT_TIMESTAMP
 QUALIFY row_number() OVER (PARTITION BY APPROVED_CORPUS_ITEM_EXTERNAL_ID ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC) = 1
 ORDER BY SCHEDULED_CORPUS_ITEM_SCHEDULED_AT DESC
 LIMIT 8  -- Only include past Pocket Hits stories if today's aren't available. There are 8 stories per email.
@@ -39,7 +41,6 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     records = PocketSnowflakeQuery()(
         query=POCKETHITS_SQL,
         data={
-            "MAX_AGE_DAYS": -3,
             "SURFACE_GUID": "POCKET_HITS_EN_US"
         },
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
