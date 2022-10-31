@@ -25,7 +25,6 @@ WITH prep as (
     AND CORPUS_REVIEW_STATUS = 'recommendation'
     AND TOPIC = %(CORPUS_TOPIC_ID)s
     AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
-    AND NOT is_syndicated
     AND NOT is_collection
     
     UNION
@@ -40,7 +39,6 @@ WITH prep as (
     AND CORPUS_ITEM_LOADED_FROM = 'MANUAL'
     AND TOPIC = %(CORPUS_TOPIC_ID)s
     AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
-    AND NOT is_syndicated
     AND NOT is_collection
     
     )
