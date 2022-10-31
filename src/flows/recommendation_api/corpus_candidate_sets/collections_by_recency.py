@@ -45,7 +45,7 @@ ORDER BY recency DESC
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60)) as flow:
     corpus_items = PocketSnowflakeQuery()(
         query=EXPORT_COLLECTIONS_CANDIDATE_SET_SQL,
-        data={"MAX_AGE_DAYS": -60},
+        data={"MAX_AGE_DAYS": -120},
         database=config.SNOWFLAKE_ANALYTICS_DATABASE,
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
         output_type=OutputType.DICT,
