@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from api_clients.pocket_snowflake_query import OutputType, PocketSnowflakeQuery
 from common_tasks.braze import mask_email_domain_outside_production
 from common_tasks.mapping import split_in_chunks
-from utils import config
 from utils.flow import get_s3_result, get_flow_name
 from api_clients.braze import models
 from api_clients.braze.client import (
@@ -22,15 +21,13 @@ FLOW_NAME = get_flow_name(__file__)
 
 EXTRACT_QUERY = """
 SELECT
-    id as braze_id,
+    braze_id,
     external_id,
     email
 FROM "{table_name}"
-JOIN user_alias on id = user_id
 WHERE external_id is not null 
     and email is not null
-    and label = 'email'
-    and email = name
+    and user_aliases is null
 ORDER BY external_id ASC
 """
 
@@ -108,10 +105,16 @@ def identify_users(user_deltas: List[UserToIdentify]):
 
 
 with Flow(FLOW_NAME, result=get_s3_result()) as flow:
+    """
+    Take all users that have an email and external id (pocket id) in braze, but do not have a user alias.
+    Add a alias to them
+    Identify them with the alias to merge any duplicate profiles.
+    """
+
     # To backfill data we manually run this flow and override the Snowflake database, schema, and table.
-    snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_FIVETRAN_DATABASE)
-    snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_FIVETRAN_BRAZE_SCHEMA)
-    extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
+    snowflake_database = Parameter('snowflake_database', default='DEVELOPMENT')
+    snowflake_schema = Parameter('snowflake_schema', default='DANIEL')
+    extract_query_table_name = Parameter('snowflake_table_name', default='BRAZE_USERS_11_01_2022')
     # This parameter controls the number of rows processed by each task run. Higher number = less parallelism.
     max_operations_per_task_run = Parameter('max_operations_per_task_run', default=DEFAULT_MAX_OPERATIONS_PER_TASK_RUN)
 

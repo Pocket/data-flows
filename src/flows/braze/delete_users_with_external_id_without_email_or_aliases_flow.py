@@ -22,8 +22,9 @@ EXTRACT_QUERY = """
 SELECT
     BRAZE_ID
 FROM "{table_name}"
-WHERE EXTERNAL_ID is null 
+WHERE email is null 
     AND user_aliases is null 
+    AND external_id is not null
 ORDER BY EXTERNAL_ID ASC
 """
 
@@ -95,9 +96,9 @@ def delete_users(users_to_delete: List[UserToDelete]):
 
 with Flow(FLOW_NAME, result=get_s3_result()) as flow:
     # To backfill data we can manually run this flow and override the Snowflake database, schema, and table.
-    snowflake_database = Parameter('snowflake_database', default=config.SNOWFLAKE_FIVETRAN_DATABASE)
-    snowflake_schema = Parameter('snowflake_schema', default=config.SNOWFLAKE_FIVETRAN_BRAZE_SCHEMA)
-    extract_query_table_name = Parameter('snowflake_table_name', default=DEFAULT_TABLE_NAME)
+    snowflake_database = Parameter('snowflake_database', default='DEVELOPMENT')
+    snowflake_schema = Parameter('snowflake_schema', default='DANIEL')
+    extract_query_table_name = Parameter('snowflake_table_name', default='BRAZE_USERS_11_01_2022')
     # This parameter controls the number of rows processed by each task run. Higher number = less parallelism.
     max_operations_per_task_run = Parameter('max_operations_per_task_run', default=DEFAULT_MAX_OPERATIONS_PER_TASK_RUN)
 
