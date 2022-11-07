@@ -41,6 +41,7 @@ GROUP BY 1,2
 @task
 def transform_user_impressions_df(df: pd.DataFrame) -> pd.DataFrame:
     df["UPDATED_AT"] = df.UPDATED_AT.apply(lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    df = df.dropna(subset=["HASHED_USER_ID"])
     return df
 
 
