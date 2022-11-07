@@ -10,7 +10,7 @@ from common_tasks.corpus_candidate_set import validate_corpus_items, create_corp
 
 @pytest.fixture
 def corpus_items_100():
-    return [{'ID': str(uuid.uuid4()), 'TOPIC': str(i)} for i in range(100)]
+    return [{'ID': str(uuid.uuid4()), 'TOPIC': str(i % 9), 'PUBLISHER': f"the {i % 10}th source"} for i in range(100)]
 
 
 @pytest.fixture
@@ -19,7 +19,8 @@ def corpus_candidate_set_id():
 
 
 def test_validate_corpus_items_does_not_raise_an_exception(corpus_items_100):
-    validate_corpus_items.run([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': 'BUSINESS'}])
+    validate_corpus_items.run([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': 'BUSINESS', 'PUBLISHER': "thedude.com"}])
+    validate_corpus_items.run([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': 'BUSINESS', 'PUBLISHER': None}])
 
 
 def test_validate_corpus_items_returns_corpus_items(corpus_items_100):
@@ -34,7 +35,9 @@ def test_validate_corpus_items_returns_corpus_items(corpus_items_100):
         ([{'id': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a'}]),                       # Must contain 'TOPIC'
         ([{'id': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': 'BUSINESS'}]),  # 'ID' key is case-sensitive
         ([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'Topic': 'BUSINESS'}]),  # 'TOPIC' key is case-sensitive
-        ([{'ID': 1234, 'TOPIC': 'BUSINESS'}]),                                      # ID must be a string
+        ([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'Topic': 'BUSINESS',
+           'Publisher': 'this one'}]),                                            # 'PUBLISHER' key is case-sensitive
+        ([{'ID': 1234, 'TOPIC': 'BUSINESS'}]),                                    # ID must be a string
         ([{'ID': '', 'TOPIC': 'BUSINESS'}]),                                      # 'ID' key must be non-empty
         ([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': ''}]),          # 'TOPIC' must be non-empty
         ([{'ID': 'c9bf9e57-1685-4c89-bafb-ff5af830be8a', 'TOPIC': 'BUSINESS', 'FOO': 'BAR'}]),  # No other keys expected
