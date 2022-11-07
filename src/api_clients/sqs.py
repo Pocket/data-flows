@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, List
-from typing import Union
+from typing import Union, Dict
 
 import boto3
 import prefect
@@ -75,6 +75,19 @@ class SQSConfig:
                              sqs_queue=SQS_REC_QUEUE)
     prospecting = SQSInfo(name=CandidateType.prospect,
                           sqs_queue=SQS_PROSPECT_QUEUE)
+
+
+@task()
+def validate_candidate_items(corpus_items: List[Dict]):
+    min_item_count = 1
+    expected_keys = ['ID', 'PUBLISHER']
+
+    assert len(corpus_items) >= min_item_count
+    assert all(set(expected_keys).difference(set(corpus_item.keys())) == set() for corpus_item in corpus_items)
+    assert all(isinstance(corpus_item['ID'], int) and corpus_item['ID'] != None for corpus_item in corpus_items)
+    assert all(isinstance(corpus_item['PUBLISHER'], str) and corpus_item['PUBLISHER'] != '' for corpus_item in corpus_items)
+
+    return corpus_items
 
 
 @task()

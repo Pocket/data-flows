@@ -2,9 +2,7 @@ from typing import List
 from prefect import Flow, Parameter, unmapped, task
 from prefect.executors import LocalDaskExecutor
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
-from common_tasks.corpus_candidate_set import (
-    validate_candidate_items,
-)
+from api_clients.sqs import validate_candidate_items
 from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID
@@ -21,7 +19,8 @@ JOIN "ANALYTICS"."DBT".content as c ON c.content_id = a.content_id
 WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD('day', -90, current_timestamp())
 AND a.TOPIC = %(CORPUS_TOPIC_ID)s
 AND a.LANGUAGE = 'EN'
-order by REVIEWED_CORPUS_ITEM_UPDATED_AT desc
+AND a.CORPUS_REVIEW_STATUS = 'recommendation'
+order by a.REVIEWED_CORPUS_ITEM_UPDATED_AT desc
 limit 45
 """
 

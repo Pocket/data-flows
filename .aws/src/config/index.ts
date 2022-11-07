@@ -27,8 +27,10 @@ const prefect = {
   flowTask: {
     // See the documentation below for valid values for CPU and memory:
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
-    cpu: 1024, // 1024 = 1vCPU, 4096 = 4 vCPU
-    memory: 8192, // available memory in MB
+    cpu: 4096,
+    memory: 30720,
+    // For queuing large files to disk... https://docs.amazonaws.cn/en_us/AmazonECS/latest/userguide/fargate-task-defs.html#fargate-tasks-storage
+    ephemeralStorageSizeInGB: 200,
     dataLearningBucketName: isDev
       ? 'pocket-data-learning-dev'
       : 'pocket-data-learning',
@@ -61,7 +63,7 @@ const prefect = {
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
-    existingPolicies: isDev ? [] : ['PocketDataProductReadOnly'],
+    existingPolicies: isDev ? [] : ['PocketDataProductWriteAccess'],
   },
 };
 

@@ -152,6 +152,16 @@ Replace `{Env}` with the environment name as defined in
 - Sentry integration
 - Switch to the [LocalDaskExecutor](https://docs.prefect.io/api/latest/executors.html#localdaskexecutor) to allow tasks to be executed in parallel
 
+## Lessons Learned
+
+- Prefect works well with long running tasks. When flow execution duration is not a concern, its generally better to build simpler flows that take longer than invest developer time to build more efficient but more complex flows.
+- When working with large data files. 
+  - Queue them to disk and process in chunks or streams.
+  - Avoid reduce tasks, `foo.map(), bar.map(), reduce()`. All results have to be in memory at the same time significantly increasing memory requirements.  
+- Smaller source files are easier to work with than large source files. Large source files require downloading to disk and then chunking. Small source files can be downloaded entirely to memory and directly to data frames.
+- File transfer between a 4 VCPU ECS task and S3 is fast. Defining flow worker thread counts to be greater than the VCPU count only provides minimal gains.
+- Python gzip compression defaults to as small as possible and maximum CPU. We want compression=1 in most scenarios.
+
 ## References
 - Experimental cloud account: https://cloud.prefect.io/mathijs-getpocket-com-s-account
 - Running Prefect locally

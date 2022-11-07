@@ -50,6 +50,9 @@ export class FlowTaskDefinition extends Resource {
       taskRoleArn: this.dependencies.taskRole.arn,
       cpu: config.prefect.flowTask.cpu.toString(),
       memory: config.prefect.flowTask.memory.toString(),
+      ephemeralStorage: {
+        sizeInGib: config.prefect.flowTask.ephemeralStorageSizeInGB,
+      },
       requiresCompatibilities: ['FARGATE'],
       networkMode: 'awsvpc',
       tags: config.tags,
