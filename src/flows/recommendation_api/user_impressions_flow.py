@@ -27,9 +27,9 @@ WITH prep AS (
 )
 
 SELECT 
-    HASHED_USER_ID,
-    current_date as UPDATED_AT,
-    ('[' || LISTAGG(DISTINCT CORPUS_ITEM_ID, ',') || ']') AS CORPUS_IDS
+    "HASHED_USER_ID",
+    current_date as "UPDATED_AT",
+    ('[' || LISTAGG(DISTINCT CORPUS_ITEM_ID, ',') || ']') AS "CORPUS_IDS"
 FROM 
     (SELECT * FROM prep WHERE impression_count > %(MAX_IMPRS)s
      UNION 
@@ -40,8 +40,8 @@ GROUP BY 1,2
 
 @task
 def transform_user_impressions_df(df: pd.DataFrame) -> pd.DataFrame:
-    df["UPDATED_AT"] = df.UPDATED_AT.apply(lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ"))
     df = df.dropna(subset=["HASHED_USER_ID"])
+    df["UPDATED_AT"] = df.UPDATED_AT.apply(lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ"))
     return df
 
 
