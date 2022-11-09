@@ -22,6 +22,7 @@ WITH prep AS (
   FROM "ANALYTICS"."DBT"."IMPRESSIONS" i
   JOIN "ANALYTICS"."DBT_STAGING"."STG_CORPUS_SLATE_RECOMMENDATIONS" r on i.CORPUS_RECOMMENDATION_ID = r.CORPUS_RECOMMENDATION_ID
   WHERE i.HAPPENED_AT > CURRENT_DATE - %(AGG_WINDOW_DAYS)s
+    AND r.HASHED_USER_ID IS NOT NULL
   GROUP BY 1,2
   ORDER BY impression_count DESC
 )
@@ -40,7 +41,6 @@ GROUP BY 1,2
 
 @task
 def transform_user_impressions_df(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.dropna(subset=["HASHED_USER_ID"])
     df["UPDATED_AT"] = df.UPDATED_AT.apply(lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ"))
     return df
 
