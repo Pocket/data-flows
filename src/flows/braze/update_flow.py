@@ -36,7 +36,7 @@ SELECT
     USER_EVENT_TRIGGER,
     EXTERNAL_ID,
     EMAIL,
-    IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER,
+    IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER AS HAS_EMAIL,
     IS_PREMIUM,
     TIME_ZONE,
     COUNTRY,
@@ -72,7 +72,7 @@ class UserDelta:
     external_id: Optional[str]
     email: Optional[str]
     """If true, an email alias will be created for the external_id"""
-    is_new_email_alias_for_pocket_user: Optional[bool]
+    has_email: Optional[bool]
     is_premium: Optional[bool]
     country: Optional[str]
     time_zone: Optional[str]
@@ -134,12 +134,12 @@ def get_user_deltas_from_dicts(dicts: List[Dict]) -> List[UserDelta]:
 
 
 @task()
-def filter_user_deltas_with_new_pocket_user_emails(user_deltas: List[UserDelta]) -> List[UserDelta]:
+def filter_user_deltas_with_email(user_deltas: List[UserDelta]) -> List[UserDelta]:
     """
     :param user_deltas:
     :return: The subset of user_deltas where a user signed up with or changed their email address.
     """
-    filtered_user_deltas = [u for u in user_deltas if u.is_new_email_alias_for_pocket_user]
+    filtered_user_deltas = [u for u in user_deltas if u.has_email]
     logger = context.get("logger")
     logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} new aliases for Pocket users")
     return filtered_user_deltas
@@ -289,7 +289,7 @@ def get_attributes_for_user_deltas(user_deltas: Sequence[UserDelta]) -> List[mod
         models.UserAttributes(
             external_id=user_delta.external_id,
             user_alias=models.UserAlias(EMAIL_ALIAS_LABEL, user_delta.email) if not user_delta.external_id else None,
-            _update_existing_only=False,  # Create new profiles for alias-only users
+            _update_existing_only=True,  # Do not create new profiles if one does not exist.
             email=user_delta.email,
             is_premium=user_delta.is_premium,
             time_zone=user_delta.time_zone,
@@ -360,36 +360,28 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     # Convert Snowflake dicts to @dataclass objects.
     all_user_deltas = get_user_deltas_from_dicts(user_deltas_dicts)
 
-    # Apply attributes, events, and payments.
-    # This creates users (with either an external_id or an email alias) if they do not already exist.
-    # Note: Both external_id and email aliases cannot be set simultaneously for the same user in the same call
-    track_users_task = track_users.map(
-        split_in_chunks(all_user_deltas, chunk_size=max_operations_per_task_run)
-    )
+    # Get the user deltas that contain an email
+    user_deltas_with_email = filter_user_deltas_with_email(all_user_deltas)
 
-    # Get the user deltas with a new email alias for a Pocket user (i.e. a user with an external_id)
-    user_deltas_with_new_pocket_user_emails = filter_user_deltas_with_new_pocket_user_emails(all_user_deltas)
-
-    # Create email aliases for existing users WITH an external_id.
-    # Note: users with email aliases without external_id were created in the track_users task above.
+    # Create an email only profile,
+    # or add an email alias to an existing user profile,
+    # for our deltas that contain an email
     create_email_aliases_task = create_email_aliases.map(
         split_in_chunks(
-            user_deltas_with_new_pocket_user_emails,
+            user_deltas_with_email,
             chunk_size=max_operations_per_task_run,
         ),
-    ).set_upstream(
-        track_users_task,  # Users creation needs to happen first
     )
 
-    # Identify ('merge') Pocket users with their email alias any time we have a new email for them.
+    # Identify ('merge') Pocket users with their email alias any time we have a delta with an email address
     # This deletes their old email alias.
     identify_users_task = identify_users.map(
         split_in_chunks(
-            user_deltas_with_new_pocket_user_emails,
+            user_deltas_with_email,
             chunk_size=max_operations_per_task_run,
         ),
     ).set_upstream(
-        track_users_task,  # Users creation needs to happen first
+        create_email_aliases_task,  # Users creation needs to happen first
     )
 
     # Subscribing users needs to happen after Pocket users and alias-only users have been created.
@@ -399,10 +391,19 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
            chunk_size=max_operations_per_task_run,
         )
     ).set_upstream(
-        track_users_task,  # Users creation needs to happen first
+        identify_users_task,  # Merging of users needs to happen first
     )
 
-    # Deleting user profiles needs to happen after track_users, because the latter will create non-existing profiles.
+    # Apply attributes, events, and payments.
+    # Note: Both external_id and email aliases cannot be set simultaneously for the same user in the same call
+    track_users_task = track_users.map(
+        split_in_chunks(all_user_deltas, chunk_size=max_operations_per_task_run)
+    ).set_upstream(
+        subscribe_users_task   # Subscribing users needs to happen first
+    )
+
+    # Deleting user profiles needs to happen after all of our other calls,
+    # because it is possible the latter will create non-existing profiles.
     delete_users_results = delete_user_profiles.map(
         split_in_chunks(
             filter_user_deltas_by_trigger(all_user_deltas, trigger='account_delete'),
@@ -415,10 +416,10 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     # Set KV-store 'last_loaded_at' key to the maximum loaded_at seen so far if all tasks finished successfully.
     set_last_loaded_at(all_user_deltas).set_dependencies(upstream_tasks=[
         create_email_aliases_task,
-        delete_users_results,
         identify_users_task,
         subscribe_users_task,
         track_users_task,
+        delete_users_results,
     ])
 
 
