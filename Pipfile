@@ -13,7 +13,6 @@ sagemaker = "==2.80.0"
 pydantic = "*"
 scipy = "*"
 pymysql = "*"
-html2text = "*"
 
 [dev-packages]
 graphviz = "==0.19.1"
