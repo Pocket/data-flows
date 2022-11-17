@@ -25,7 +25,7 @@ def df_field_strip(dataframe: pd.DataFrame, field_name: str, chars_to_remove: st
     return dataframe
 
 
-class MLRemover(HTMLParser):
+class MarkupRemover(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=False)
         self.reset()
@@ -46,7 +46,7 @@ class MLRemover(HTMLParser):
 
 
 def get_text_from_html(html):
-    remover = MLRemover()
+    remover = MarkupRemover()
 
     remover.feed(html)
     remover.close()
