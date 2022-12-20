@@ -24,6 +24,7 @@ export class FlowTaskDefinition extends Resource {
       imageUri: string;
       taskRole: iam.IamRole;
       resultsBucket: s3.S3Bucket;
+      athenaQueryOutputBucket: s3.S3Bucket;
     }
   ) {
     super(scope, name);
@@ -31,7 +32,8 @@ export class FlowTaskDefinition extends Resource {
     const logGroup = this.createFlowLogGroup();
     const flowContainerDefinitions = this.getFlowContainerDefinitions(
       logGroup,
-      dependencies.resultsBucket
+      dependencies.resultsBucket,
+      dependencies.athenaQueryOutputBucket
     );
     this.taskDefinition = this.createTaskDefinition(flowContainerDefinitions);
   }
@@ -48,6 +50,9 @@ export class FlowTaskDefinition extends Resource {
       taskRoleArn: this.dependencies.taskRole.arn,
       cpu: config.prefect.flowTask.cpu.toString(),
       memory: config.prefect.flowTask.memory.toString(),
+      ephemeralStorage: {
+        sizeInGib: config.prefect.flowTask.ephemeralStorageSizeInGB,
+      },
       requiresCompatibilities: ['FARGATE'],
       networkMode: 'awsvpc',
       tags: config.tags,
@@ -61,7 +66,8 @@ export class FlowTaskDefinition extends Resource {
    */
   private getFlowContainerDefinitions(
     flowLogGroup: cloudwatch.CloudwatchLogGroup,
-    resultsBucket: s3.S3Bucket
+    resultsBucket: s3.S3Bucket,
+    athenaQueryOutputBucket: s3.S3Bucket
   ): string {
     const region = this.dependencies.region;
     const caller = this.dependencies.caller;
@@ -89,6 +95,10 @@ export class FlowTaskDefinition extends Resource {
         {
           name: 'PREFECT_S3_RESULT_BUCKET',
           value: resultsBucket.bucket,
+        },
+        {
+          name: 'PREFECT_S3_ATHENA_QUERY_OUTPUT_BUCKET',
+          value: `s3://${athenaQueryOutputBucket.bucket}/`,
         },
       ],
       secretEnvVars: secretEnvVars,

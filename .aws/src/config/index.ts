@@ -27,8 +27,10 @@ const prefect = {
   flowTask: {
     // See the documentation below for valid values for CPU and memory:
     // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-cpu
-    cpu: 4096, // 4096 = 4 vCPU
-    memory: 30720, // 30720 = 30GB
+    cpu: 4096,
+    memory: 30720,
+    // For queuing large files to disk... https://docs.amazonaws.cn/en_us/AmazonECS/latest/userguide/fargate-task-defs.html#fargate-tasks-storage
+    ephemeralStorageSizeInGB: 200,
     dataLearningBucketName: isDev
       ? 'pocket-data-learning-dev'
       : 'pocket-data-learning',
@@ -43,10 +45,25 @@ const prefect = {
       'GCE_KEY',
       'BRAZE_API_KEY',
       'BRAZE_REST_ENDPOINT',
+      'SNOWFLAKE_DATA_RETENTION_ROLE',
+      'SNOWFLAKE_DATA_RETENTION_WAREHOUSE',
+      'SNOWFLAKE_DATA_RETENTION_DB',
+      'SNOWFLAKE_DATA_RETENTION_SCHEMA',
+      'SNOWFLAKE_SNOWPLOW_DB',
+      'SNOWFLAKE_SNOWPLOW_SCHEMA',
+      'SNOWFLAKE_RAWDATA_DB',
+      'SNOWFLAKE_RAWDATA_FIREHOSE_SCHEMA',
+      'SNOWFLAKE_SNAPSHOT_DB',
+      'SNOWFLAKE_SNAPSHOT_FIREHOSE_SCHEMA',
+      'POCKET_PUBLISHER_DATABASE_HOST',
+      'POCKET_PUBLISHER_DATABASE_PORT',
+      'POCKET_PUBLISHER_DATABASE_DBNAME',
+      'POCKET_PUBLISHER_DATABASE_USER',
+      'POCKET_PUBLISHER_DATABASE_PASSWORD',
     ],
     // Use the existing 'PocketDataProductReadOnly' policy. It currently only exists in production.
     // @see https://github.com/Pocket/data-shared/blob/main/lib/permissions-stack.ts#L14
-    existingPolicies: isDev ? [] : ['PocketDataProductReadOnly'],
+    existingPolicies: isDev ? [] : ['PocketDataProductWriteAccess'],
   },
 };
 

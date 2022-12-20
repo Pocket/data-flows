@@ -20,6 +20,7 @@ from api_clients.braze.pocket_config import EMAIL_ALIAS_LABEL, SUBSCRIPTION_GROU
 from api_clients.braze.utils import is_valid_email, format_date
 from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
+from common_tasks.braze import mask_email_domain_outside_production
 from utils.flow import get_flow_name, get_s3_result
 from utils.iteration import chunks
 from utils import config
@@ -344,20 +345,6 @@ def _replace_email_domain(email: str, new_domain) -> str:
     else:
         # Don't replace domain if there is none. If email = '', then we should keep it that way, to catch errors in dev.
         return email
-
-
-@task()
-def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL'):
-    """
-    For debugging purposes, change the domain of all email addresses to '@example.com' in the local/dev environment.
-    """
-    if config.ENVIRONMENT != config.ENV_PROD:
-        for row in rows:
-            if row[email_column] is not None:
-                row[email_column] = _replace_email_domain(row[email_column], new_domain='@example.com')
-
-    return rows
-
 
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as flow:
     # To backfill data we can manually run this flow and override the Snowflake database, schema, and table.

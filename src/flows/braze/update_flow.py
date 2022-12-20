@@ -20,6 +20,7 @@ from api_clients.braze.pocket_config import EMAIL_ALIAS_LABEL, SUBSCRIPTION_GROU
 from api_clients.braze.utils import is_valid_email, format_date
 from api_clients.prefect_key_value_store_client import get_kv, set_kv, format_key
 from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
+from common_tasks.braze import mask_email_domain_outside_production
 from utils.flow import get_flow_name, get_s3_result
 from utils.iteration import chunks
 from utils import config
@@ -35,7 +36,7 @@ SELECT
     USER_EVENT_TRIGGER,
     EXTERNAL_ID,
     EMAIL,
-    IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER,
+    IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER AS HAS_EMAIL,
     IS_PREMIUM,
     TIME_ZONE,
     COUNTRY,
@@ -71,7 +72,7 @@ class UserDelta:
     external_id: Optional[str]
     email: Optional[str]
     """If true, an email alias will be created for the external_id"""
-    is_new_email_alias_for_pocket_user: Optional[bool]
+    has_email: Optional[bool]
     is_premium: Optional[bool]
     country: Optional[str]
     time_zone: Optional[str]
@@ -133,12 +134,12 @@ def get_user_deltas_from_dicts(dicts: List[Dict]) -> List[UserDelta]:
 
 
 @task()
-def filter_user_deltas_with_new_pocket_user_emails(user_deltas: List[UserDelta]) -> List[UserDelta]:
+def filter_user_deltas_with_email(user_deltas: List[UserDelta]) -> List[UserDelta]:
     """
     :param user_deltas:
     :return: The subset of user_deltas where a user signed up with or changed their email address.
     """
-    filtered_user_deltas = [u for u in user_deltas if u.is_new_email_alias_for_pocket_user]
+    filtered_user_deltas = [u for u in user_deltas if u.has_email]
     logger = context.get("logger")
     logger.info(f"Found {len(filtered_user_deltas)}/{len(user_deltas)} new aliases for Pocket users")
     return filtered_user_deltas
@@ -288,7 +289,7 @@ def get_attributes_for_user_deltas(user_deltas: Sequence[UserDelta]) -> List[mod
         models.UserAttributes(
             external_id=user_delta.external_id,
             user_alias=models.UserAlias(EMAIL_ALIAS_LABEL, user_delta.email) if not user_delta.external_id else None,
-            _update_existing_only=False,  # Create new profiles for alias-only users
+            _update_existing_only=True,  # Do not create new profiles if one does not exist.
             email=user_delta.email,
             is_premium=user_delta.is_premium,
             time_zone=user_delta.time_zone,
@@ -332,33 +333,6 @@ def get_event_properties_for_user_delta(user_delta: UserDelta) -> models.EventPr
     else:
         return {}
 
-
-def _replace_email_domain(email: str, new_domain) -> str:
-    """
-    :param email: Email address
-    :param new_domain:
-    :return: Email address with the domain/host part replaced by new_domain
-    """
-    if '@' in email:
-        return email.split('@')[0] + new_domain
-    else:
-        # Don't replace domain if there is none. If email = '', then we should keep it that way, to catch errors in dev.
-        return email
-
-
-@task()
-def mask_email_domain_outside_production(rows: List[Dict], email_column='EMAIL'):
-    """
-    For debugging purposes, change the domain of all email addresses to '@example.com' in the local/dev environment.
-    """
-    if config.ENVIRONMENT != config.ENV_PROD:
-        for row in rows:
-            if row[email_column] is not None:
-                row[email_column] = _replace_email_domain(row[email_column], new_domain='@example.com')
-
-    return rows
-
-
 with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as flow:
     # To backfill data we can manually run this flow and override the Snowflake database, schema, and table.
     # The default is ANALYTICS.DBT_STAGING.STG_BRAZE_USER_DELTAS.
@@ -386,36 +360,28 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     # Convert Snowflake dicts to @dataclass objects.
     all_user_deltas = get_user_deltas_from_dicts(user_deltas_dicts)
 
-    # Apply attributes, events, and payments.
-    # This creates users (with either an external_id or an email alias) if they do not already exist.
-    # Note: Both external_id and email aliases cannot be set simultaneously for the same user in the same call
-    track_users_task = track_users.map(
-        split_in_chunks(all_user_deltas, chunk_size=max_operations_per_task_run)
-    )
+    # Get the user deltas that contain an email
+    user_deltas_with_email = filter_user_deltas_with_email(all_user_deltas)
 
-    # Get the user deltas with a new email alias for a Pocket user (i.e. a user with an external_id)
-    user_deltas_with_new_pocket_user_emails = filter_user_deltas_with_new_pocket_user_emails(all_user_deltas)
-
-    # Create email aliases for existing users WITH an external_id.
-    # Note: users with email aliases without external_id were created in the track_users task above.
+    # Create an email only profile,
+    # or add an email alias to an existing user profile,
+    # for our deltas that contain an email
     create_email_aliases_task = create_email_aliases.map(
         split_in_chunks(
-            user_deltas_with_new_pocket_user_emails,
+            user_deltas_with_email,
             chunk_size=max_operations_per_task_run,
         ),
-    ).set_upstream(
-        track_users_task,  # Users creation needs to happen first
     )
 
-    # Identify ('merge') Pocket users with their email alias any time we have a new email for them.
+    # Identify ('merge') Pocket users with their email alias any time we have a delta with an email address
     # This deletes their old email alias.
     identify_users_task = identify_users.map(
         split_in_chunks(
-            user_deltas_with_new_pocket_user_emails,
+            user_deltas_with_email,
             chunk_size=max_operations_per_task_run,
         ),
     ).set_upstream(
-        track_users_task,  # Users creation needs to happen first
+        create_email_aliases_task,  # Users creation needs to happen first
     )
 
     # Subscribing users needs to happen after Pocket users and alias-only users have been created.
@@ -425,10 +391,19 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
            chunk_size=max_operations_per_task_run,
         )
     ).set_upstream(
-        track_users_task,  # Users creation needs to happen first
+        identify_users_task,  # Merging of users needs to happen first
     )
 
-    # Deleting user profiles needs to happen after track_users, because the latter will create non-existing profiles.
+    # Apply attributes, events, and payments.
+    # Note: Both external_id and email aliases cannot be set simultaneously for the same user in the same call
+    track_users_task = track_users.map(
+        split_in_chunks(all_user_deltas, chunk_size=max_operations_per_task_run)
+    ).set_upstream(
+        subscribe_users_task   # Subscribing users needs to happen first
+    )
+
+    # Deleting user profiles needs to happen after all of our other calls,
+    # because it is possible the latter will create non-existing profiles.
     delete_users_results = delete_user_profiles.map(
         split_in_chunks(
             filter_user_deltas_by_trigger(all_user_deltas, trigger='account_delete'),
@@ -441,10 +416,10 @@ with Flow(FLOW_NAME, executor=LocalDaskExecutor(), result=get_s3_result()) as fl
     # Set KV-store 'last_loaded_at' key to the maximum loaded_at seen so far if all tasks finished successfully.
     set_last_loaded_at(all_user_deltas).set_dependencies(upstream_tasks=[
         create_email_aliases_task,
-        delete_users_results,
         identify_users_task,
         subscribe_users_task,
         track_users_task,
+        delete_users_results,
     ])
 
 
