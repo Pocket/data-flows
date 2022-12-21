@@ -25,14 +25,8 @@ env:
     PAGERDUTY_TOKEN: 'CodeBuild/Default:pagerduty_token'
     GITHUB_ACCESS_TOKEN: 'CodeBuild/Default:github_access_token'
 
-#All phases are ran within the hashicorp/terraform:light docker image
+#All phases are ran within the pocket/pocket-build:prod docker image
 phases:
-  install:
-    commands:
-      - echo Installing utilities necessary. Eventually we will bake these into an image..
-      # Within our terraform files we execute jq, and aws-cli and python
-      - apk add jq aws-cli perl-utils nodejs npm git bash curl
-
   pre_build:
     commands:
       - echo $CODEBUILD_WEBHOOK_HEAD_REF
@@ -45,15 +39,7 @@ phases:
       - echo "//npm.pkg.github.com/:_authToken=${GITHUB_ACCESS_TOKEN}" > ~/.npmrc
       - echo Setting environment variables
       - cd .aws
-
-      # Until we use a docker image with tfenv built in lets install it.
-      # This lets us store the needed terraform verison in the source and not rely on changing amazon values.
-      - rm -rf /bin/terraform
-      - git clone https://github.com/tfutils/tfenv.git ~/.tfenv
-      - ln -s ~/.tfenv/bin/* /usr/bin
-      - tfenv install
       - tfenv use $(cat .terraform-version)
-
       - npm install -g npm@latest
       - npm ci
       # synthesize the js into terraform json with the proper node environment
