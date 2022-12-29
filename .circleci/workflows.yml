@@ -138,6 +138,7 @@ jobs:
           name: Install nvm
       - run:
           command: |
+            source ~/.nvm/nvm.sh
             nvm use
             nvm install
           name: Install node deps
