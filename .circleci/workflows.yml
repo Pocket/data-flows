@@ -125,7 +125,7 @@ jobs:
           name: Install tfenv
           command: |
             git clone https://github.com/tfutils/tfenv.git ~/.tfenv
-            ln -s ~/.tfenv/bin/* /usr/bin
+            sudo ln -s ~/.tfenv/bin/* /usr/bin
             tfenv install
       - run:
           command: >-
@@ -291,7 +291,9 @@ workflows:
             - deploy_dev
   v2-aws-changes:
     jobs: 
-      - v2-aws-changes-build
+      - v2-aws-changes-build:
+          <<: *not_dev_main
+          context: pocket
       
   
 # VS Code Extension Version: 1.5.1
