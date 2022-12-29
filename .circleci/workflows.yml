@@ -4,6 +4,7 @@ orbs:
   aws-ecs: circleci/aws-ecs@2.0.0
   pocket: pocket/circleci-orbs@1.2.3
   aws-cli: circleci/aws-cli@3.1
+  node: circleci/node@5.0.3
   
 # Parameters to control monorepo workflows
 parameters:
@@ -131,19 +132,10 @@ jobs:
       - run:
           command: >-
             echo "credentials \"app.terraform.io\" {token =
-            \"$TERRAFORM_TOKEN\"}" > $HOME/.terraformrc
+            \"$TERRAFORM_TOKEN\"}" > .terraformrc
           name: Create .terraformrc file locally
-      - run:
-          command: |
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
-          name: Install nvm
-      - run:
-          command: |
-            source ~/.nvm/nvm.sh
-            nvm install
-            nvm use
-            npm install
-          name: Install node deps
+      - node/install
+      - node/install-packages
       - aws-cli/setup:
          role-arn: 'arn:aws:iam::${ACCOUNT_ID_DEV}:role/CircleCIPrefectOpenIDRole'
          aws-region: Dev_AWS_DEFAULT_REGION
@@ -152,9 +144,8 @@ jobs:
       - run:
           command: |
             cdktf diff
-          name: Install node deps
-
-
+          name: check cdktf plan
+          
     working_directory: ~/repo/prefect_v2/.aws
 
   

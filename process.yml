@@ -1,0 +1,288 @@
+# Orb 'circleci/aws-ecs@2.0.0' resolved to 'circleci/aws-ecs@2.0.0'
+# Orb 'pocket/circleci-orbs@1.2.3' resolved to 'pocket/circleci-orbs@1.2.3'
+# Orb 'circleci/aws-cli@3.1' resolved to 'circleci/aws-cli@3.1.4'
+# Orb 'circleci/node@5.0.3' resolved to 'circleci/node@5.0.3'
+version: 2
+jobs:
+  v2-aws-changes-build:
+    docker:
+    - image: cimg/python:3.9-node
+    steps:
+    - checkout:
+        path: ~/repo
+    - run:
+        name: Install tfenv
+        command: |
+          git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+          sudo ln -s ~/.tfenv/bin/* /usr/bin
+          tfenv install
+    - run:
+        command: echo "credentials \"app.terraform.io\" {token = \"$TERRAFORM_TOKEN\"}" > .terraformrc
+        name: Create .terraformrc file locally
+    - run:
+        command: echo "@pocket:registry=https://npm.pkg.github.com/:_authToken=${GITHUB_ACCESS_TOKEN}"  > .npmrc
+        name: Create .npmrc file locally
+    - run:
+        command: "# Only install nvm if it's not already installed\nif command -v nvm &> /dev/null; then\n    echo \"nvm is already installed. Skipping nvm install.\";\nelse\n    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash;\n    \n    echo 'export NVM_DIR=\"$HOME/.nvm\"' >> \"$BASH_ENV\";\n    echo '[ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\" --no-use' >> \"$BASH_ENV\";\n    \n    # shellcheck source=/dev/null\n    source \"$BASH_ENV\";\nfi\n\n# See: https://github.com/nvm-sh/nvm#usage\nif [ \"$NODE_PARAM_VERSION\" = \"latest\" ]; then\n    # When no version is specified we default to the latest version of Node\n    NODE_ORB_INSTALL_VERSION=$(nvm ls-remote | tail -n1 | grep -Eo 'v[0-9]+\\.[0-9]+\\.[0-9]+')\n    nvm install \"$NODE_ORB_INSTALL_VERSION\" # aka nvm install node. We're being explicit here.\n    nvm alias default \"$NODE_ORB_INSTALL_VERSION\"\nelif [ -n \"$NODE_PARAM_VERSION\" ] && [ \"$NODE_PARAM_VERSION\" != \"lts\" ]; then\n    nvm install \"$NODE_PARAM_VERSION\"\n    nvm alias default \"$NODE_PARAM_VERSION\"\nelif [ -f \".nvmrc\" ]; then\n    NVMRC_SPECIFIED_VERSION=$(<.nvmrc)\n    nvm install \"$NVMRC_SPECIFIED_VERSION\"\n    nvm alias default \"$NVMRC_SPECIFIED_VERSION\"\nelse\n    nvm install --lts\n    nvm alias default lts/*\nfi\n\necho 'nvm use default &>/dev/null' >> \"$BASH_ENV\"\n"
+        environment:
+          NODE_PARAM_VERSION: ''
+        name: 'Install Node.js '
+    - run:
+        command: |-
+          # Fail if package.json does not exist in working directory
+
+          if [ ! -f "package.json" ]; then
+              echo
+              echo "---"
+              echo "Unable to find your package.json file. Did you forget to set the app-dir parameter?"
+              echo "---"
+              echo
+              echo "Current directory: $(pwd)"
+              echo
+              echo
+              echo "List directory: "
+              echo
+              ls
+              exit 1
+          fi
+        name: Checking for package.json
+        working_directory: .
+    - run:
+        command: |
+          TARGET_DIR="/tmp"
+          if [ -n "$HOMEDRIVE" ]; then
+              TARGET_DIR="$HOMEDRIVE\\tmp"
+          fi
+
+          # Link corresponding lock file to a temporary file used by cache commands
+          if [ -f "package-lock.json" ]; then
+              echo "Found package-lock.json file, assuming lockfile"
+              cp package-lock.json $TARGET_DIR/node-project-lockfile
+          elif [ -f "npm-shrinkwrap.json" ]; then
+              echo "Found npm-shrinkwrap.json file, assuming lockfile"
+              cp npm-shrinkwrap.json $TARGET_DIR/node-project-lockfile
+          elif [ -f "yarn.lock" ]; then
+              echo "Found yarn.lock file, assuming lockfile"
+              cp yarn.lock $TARGET_DIR/node-project-lockfile
+          fi
+
+          cp package.json $TARGET_DIR/node-project-package.json
+        name: Determine lockfile
+        working_directory: .
+    - restore_cache:
+        keys:
+        - node-deps-{{ arch }}-v1-{{ .Branch }}-{{ checksum "/tmp/node-project-lockfile" }}
+        - node-deps-{{ arch }}-v1-{{ .Branch }}-{{ checksum "/tmp/node-project-package.json" }}
+        - node-deps-{{ arch }}-v1-{{ .Branch }}-
+    - run:
+        command: |-
+          # Configure npm cache path if provided
+          if [[ -n "$PARAM_CACHE_PATH" ]]; then
+              npm config set cache "$PARAM_CACHE_PATH"
+          fi
+
+          # Run override ci command if provided, otherwise run default npm install
+          if [[ -n "$PARAM_OVERRIDE_COMMAND" ]]; then
+              echo "Running override package installation command:"
+              eval "$PARAM_OVERRIDE_COMMAND"
+          else
+              npm ci
+          fi
+        environment:
+          PARAM_CACHE_PATH: ''
+          PARAM_OVERRIDE_COMMAND: ''
+        name: Installing NPM packages
+        working_directory: .
+    - save_cache:
+        key: node-deps-{{ arch }}-v1-{{ .Branch }}-{{ checksum "/tmp/node-project-lockfile" }}
+        paths:
+        - ~/.npm
+    - run:
+        command: rm -f /tmp/node-project-lockfile /tmp/node-project-package.json /tmp/yarn-zero-lockfile
+        name: Remove temporary links
+    - run:
+        command: |
+          if cat /etc/issue | grep "Alpine" >/dev/null 2>&1; then
+              if [ "$ID" = 0 ]; then export SUDO=""; else export SUDO="sudo"; fi
+          else
+              if [[ $EUID == 0 ]]; then export SUDO=""; else export SUDO="sudo"; fi
+          fi
+
+          Install_AWS_CLI() {
+              echo "Installing AWS CLI v2"
+              cd /tmp || exit
+              # Platform check
+              if uname -a | grep "Darwin"; then
+                  export SYS_ENV_PLATFORM=macos
+              elif uname -a | grep "x86_64 GNU/Linux"; then
+                  export SYS_ENV_PLATFORM=linux_x86
+              elif uname -a | grep "aarch64 GNU/Linux"; then
+                  export SYS_ENV_PLATFORM=linux_arm
+              elif uname -a | grep "x86_64 Msys"; then
+                  export SYS_ENV_PLATFORM=windows
+              elif cat /etc/issue | grep "Alpine" >/dev/null 2>&1; then
+                  export SYS_ENV_PLATFORM=linux_alpine
+              else
+                  echo "This platform appears to be unsupported."
+                  uname -a
+                  exit 1
+              fi
+
+              # Install per platform
+              case $SYS_ENV_PLATFORM in
+              linux_x86)
+                  curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64$1.zip" -o "awscliv2.zip"
+                  unzip -q -o awscliv2.zip
+                  $SUDO ./aws/install -i "${PARAM_AWS_CLI_INSTALL_DIR}" -b "${PARAM_AWS_CLI_BINARY_DIR}"
+                  rm -r awscliv2.zip ./aws
+                  ;;
+              windows)
+                  if [ ! "$(command -v choco)" ]; then
+                      echo "Chocolatey is required to uninstall AWS"
+                      exit 1
+                  fi
+                  choco install awscli --version="$1"
+                  echo "$1"
+                  if echo "$1" | grep "2."; then
+                      echo 'export PATH="${PATH}:/c/Program Files/Amazon/AWSCLIV2"' >>"$BASH_ENV"
+                  else
+                      echo 'export PATH="${PATH}:/c/Program Files/Amazon/AWSCLI/bin"' >>"$BASH_ENV"
+                  fi
+                  ;;
+              macos)
+                  curl -sSL "https://awscli.amazonaws.com/AWSCLIV2$1.pkg" -o "AWSCLIV2.pkg"
+                  $SUDO installer -pkg AWSCLIV2.pkg -target /
+                  rm AWSCLIV2.pkg
+                  ;;
+              linux_arm)
+                  curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64$1.zip" -o "awscliv2.zip"
+                  unzip -q -o awscliv2.zip
+                  $SUDO ./aws/install -i "${PARAM_AWS_CLI_INSTALL_DIR}" -b "${PARAM_AWS_CLI_BINARY_DIR}"
+                  rm -r awscliv2.zip ./aws
+                  ;;
+              linux_alpine)
+                  apk --no-cache add \
+                      binutils \
+                      curl
+
+                  curl -L https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub -o /etc/apk/keys/sgerrand.rsa.pub
+                  curl -LO https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.34-r0/glibc-2.34-r0.apk
+                  curl -LO https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.34-r0/glibc-bin-2.34-r0.apk
+                  curl -LO https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.34-r0/glibc-i18n-2.34-r0.apk
+
+                  apk add --force-overwrite --no-cache \
+                      glibc-2.34-r0.apk \
+                      glibc-bin-2.34-r0.apk \
+                      glibc-i18n-2.34-r0.apk
+
+                  /usr/glibc-compat/bin/localedef -i en_US -f UTF-8 en_US.UTF-8
+                  curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64$1.zip" -o "awscliv2.zip"
+
+                  echo "https://awscli.amazonaws.com/awscli-exe-linux-x86_64$1.zip"
+                  unzip awscliv2.zip
+                  aws/install
+                  rm -r awscliv2.zip ./aws
+                  ;;
+              *)
+                  echo "This orb does not currently support your platform. If you believe it should, please consider opening an issue on the GitHub repository:"
+                  echo "https://github.com/CircleCI-Public/aws-cli-orb/issues/new"
+                  exit 1
+                  ;;
+              esac
+              # Toggle AWS Pager
+              if [ "$PARAM_AWS_CLI_DISABLE_PAGER" = 1 ]; then
+                  if [ -z "${AWS_PAGER+x}" ]; then
+                      echo 'export AWS_PAGER=""' >>"$BASH_ENV"
+                      echo "AWS_PAGER is being set to the empty string to disable all output paging for AWS CLI commands."
+                      echo "You can set the 'disable-aws-pager' parameter to 'false' to disable this behavior."
+                  fi
+              fi
+          }
+
+          Uninstall_AWS_CLI() {
+              if uname -a | grep "x86_64 Msys"; then
+                  if [ ! "$(command -v choco)" ]; then
+                      echo "Chocolatey is required to uninstall AWS"
+                      exit 1
+                  fi
+                  choco uninstall awscli
+              else
+                  AWS_CLI_PATH=$(command -v aws)
+                  echo "$AWS_CLI_PATH"
+                  if [ -n "$AWS_CLI_PATH" ]; then
+                      EXISTING_AWS_VERSION=$(aws --version)
+                      echo "Uninstalling ${EXISTING_AWS_VERSION}"
+                      # shellcheck disable=SC2012
+                      if [ -L "$AWS_CLI_PATH" ]; then
+                          AWS_SYMLINK_PATH=$(ls -l "$AWS_CLI_PATH" | sed -e 's/.* -> //')
+                      fi
+                      if uname -a | grep "x86_64 Msys"; then export SUDO=""; fi
+                      $SUDO rm -rf "$AWS_CLI_PATH" "$AWS_SYMLINK_PATH" "$HOME/.aws/" "/usr/local/bin/aws" "/usr/local/bin/aws_completer" "/usr/local/aws-cli"
+                  else
+                      echo "No AWS install found"
+                  fi
+              fi
+          }
+
+          if [ ! "$(command -v aws)" ]; then
+              if [ "$PARAM_AWS_CLI_VERSION" = "latest" ]; then
+                  Install_AWS_CLI
+              else
+                  if uname -a | grep "x86_64 Msys"; then
+                      Install_AWS_CLI "${PARAM_AWS_CLI_VERSION}"
+                  else
+                      Install_AWS_CLI "-${PARAM_AWS_CLI_VERSION}"
+                  fi
+              fi
+          elif [ "$PARAM_AWS_CLI_OVERRIDE" = 1 ]; then
+              Uninstall_AWS_CLI
+              if uname -a | grep "x86_64 Msys"; then
+                  Install_AWS_CLI "${PARAM_AWS_CLI_VERSION}"
+              else
+                  Install_AWS_CLI "-${PARAM_AWS_CLI_VERSION}"
+              fi
+          else
+              echo "AWS CLI is already installed, skipping installation."
+              aws --version
+          fi
+        environment:
+          PARAM_AWS_CLI_BINARY_DIR: /usr/local/bin
+          PARAM_AWS_CLI_DISABLE_PAGER: true
+          PARAM_AWS_CLI_INSTALL_DIR: /usr/local/aws-cli
+          PARAM_AWS_CLI_OVERRIDE: false
+          PARAM_AWS_CLI_VERSION: latest
+        name: Install AWS CLI - latest
+    - run:
+        command: "PARAM_ROLE_SESSION_NAME=$(eval echo \"${PARAM_ROLE_SESSION_NAME}\")\nPARAM_AWS_CLI_ROLE_ARN=$(eval echo \"${PARAM_AWS_CLI_ROLE_ARN}\")\n\nif [ -z \"${PARAM_ROLE_SESSION_NAME}\" ]; then\n    echo \"Role session name is required\"\n    exit 1\nfi\n\nif [ -z \"${CIRCLE_OIDC_TOKEN}\" ]; then\n    echo \"OIDC Token cannot be found. A CircleCI context must be specified.\"\n    exit 1\nfi\n\nif [ ! \"$(command -v aws)\" ]; then\n    echo \"AWS CLI is not installed. Please run the setup or install command first.\"\n    exit 1\nfi\n\nread -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN <<EOF\n$(aws sts assume-role-with-web-identity \\\n--role-arn \"${PARAM_AWS_CLI_ROLE_ARN}\" \\\n--role-session-name \"${PARAM_ROLE_SESSION_NAME}\" \\\n--web-identity-token \"${CIRCLE_OIDC_TOKEN}\" \\\n--duration-seconds \"${PARAM_SESSION_DURATION}\" \\\n--query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \\\n--output text)\nEOF\n\nif [ -z \"${AWS_ACCESS_KEY_ID}\" ] || [ -z \"${AWS_SECRET_ACCESS_KEY}\" ] || [ -z \"${AWS_SESSION_TOKEN}\" ]; then\n    echo \"Failed to assume role\";\n    exit 1\nelse \n    {\n        echo \"export AWS_ACCESS_KEY_ID=\\\"${AWS_ACCESS_KEY_ID}\\\"\"\n        echo \"export AWS_SECRET_ACCESS_KEY=\\\"${AWS_SECRET_ACCESS_KEY}\\\"\"\n        echo \"export AWS_SESSION_TOKEN=\\\"${AWS_SESSION_TOKEN}\\\"\"\n    } >>\"$BASH_ENV\"\n    echo \"Assume role with web identity succeeded\"\nfi\n"
+        environment:
+          PARAM_AWS_CLI_PROFILE_NAME: default
+          PARAM_AWS_CLI_ROLE_ARN: arn:aws:iam::${ACCOUNT_ID_DEV}:role/CircleCIPrefectOpenIDRole
+          PARAM_ROLE_SESSION_NAME: “circleci-build”
+          PARAM_SESSION_DURATION: '1800'
+        name: Generate shortlived AWS Keys using CircleCI OIDC token.
+    - run:
+        command: "#!/bin/sh\nif cat /etc/issue | grep \"Alpine\" >/dev/null 2>&1; then\n    . $BASH_ENV\nfi\n\nPARAM_AWS_CLI_ACCESS_KEY_ID=$(eval echo \"\\$$PARAM_AWS_CLI_ACCESS_KEY_ID\")\nPARAM_AWS_CLI_SECRET_ACCESS_KEY=$(eval echo \"\\$$PARAM_AWS_CLI_SECRET_ACCESS_KEY\")\nPARAM_AWS_CLI_REGION=$(eval echo \"\\$$PARAM_AWS_CLI_REGION\")\n\nif [ -z \"$PARAM_AWS_CLI_ACCESS_KEY_ID\" ] || [ -z \"${PARAM_AWS_CLI_SECRET_ACCESS_KEY}\" ]; then \n    echo \"Cannot configure profile. AWS access key id and AWS secret access key must be provided.\"\n    exit 1\nfi\n\naws configure set aws_access_key_id \\\n    \"$PARAM_AWS_CLI_ACCESS_KEY_ID\" \\\n    --profile \"$PARAM_AWS_CLI_PROFILE_NAME\"\n\naws configure set aws_secret_access_key \\\n    \"$PARAM_AWS_CLI_SECRET_ACCESS_KEY\" \\\n    --profile \"$PARAM_AWS_CLI_PROFILE_NAME\"\n\nif [ -n \"${AWS_SESSION_TOKEN}\" ]; then\n    aws configure set aws_session_token \\\n        \"${AWS_SESSION_TOKEN}\" \\\n        --profile \"$PARAM_AWS_CLI_PROFILE_NAME\"\nfi\n\nif [ \"$PARAM_AWS_CLI_CONFIG_DEFAULT_REGION\" = \"1\" ]; then\n    aws configure set default.region \"$PARAM_AWS_CLI_REGION\" \\\n        --profile \"$PARAM_AWS_CLI_PROFILE_NAME\"\nfi\n\nif [ \"$PARAM_AWS_CLI_CONFIG_PROFILE_REGION\" = \"1\" ]; then\n    aws configure set region \"$PARAM_AWS_CLI_REGION\" \\\n        --profile \"$PARAM_AWS_CLI_PROFILE_NAME\"\nfi\n"
+        environment:
+          PARAM_AWS_CLI_ACCESS_KEY_ID: AWS_ACCESS_KEY_ID
+          PARAM_AWS_CLI_CONFIG_DEFAULT_REGION: true
+          PARAM_AWS_CLI_CONFIG_PROFILE_REGION: true
+          PARAM_AWS_CLI_PROFILE_NAME: default
+          PARAM_AWS_CLI_REGION: Dev_AWS_DEFAULT_REGION
+          PARAM_AWS_CLI_SECRET_ACCESS_KEY: AWS_SECRET_ACCESS_KEY
+        name: Configure AWS Access Key ID
+    - run:
+        command: |
+          cdktf diff
+        name: check cdktf plan
+    working_directory: ~/repo/prefect_v2/.aws
+workflows:
+  v2-aws-changes:
+    jobs:
+    - v2-aws-changes-build:
+        filters:
+          branches:
+            ignore:
+            - dev
+            - main
+        context: pocket
+  version: 2
