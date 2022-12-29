@@ -120,7 +120,8 @@ jobs:
   v2-aws-changes-build:
     executor: aws-cli/default
     steps:
-      - checkout
+      - checkout:
+          path: ~/repo
       - run:
           name: Install tfenv
           command: |
@@ -154,7 +155,7 @@ jobs:
           name: Install node deps
 
 
-    working_directory: ~/prefect_v2/.aws
+    working_directory: ~/repo/prefect_v2/.aws
 
   
 
