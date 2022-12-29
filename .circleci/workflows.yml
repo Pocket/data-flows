@@ -132,10 +132,19 @@ jobs:
       - run:
           command: >-
             echo "credentials \"app.terraform.io\" {token =
-            \"$TERRAFORM_TOKEN\"}" > .terraformrc
+            \"$TERRAFORM_TOKEN\"}" > $HOME/.terraformrc
           name: Create .terraformrc file locally
       - node/install
       - node/install-packages
+      - run:
+          command: |
+            npm install --global cdktf-cli@latest
+          name: install cdktf-cli
+      - run:
+          command: |
+            npm run prettier-check
+            npm run lint
+          name: check eslint and format
       - aws-cli/setup:
          role-arn: 'arn:aws:iam::${ACCOUNT_ID_DEV}:role/CircleCIPrefectOpenIDRole'
          aws-region: Dev_AWS_DEFAULT_REGION
