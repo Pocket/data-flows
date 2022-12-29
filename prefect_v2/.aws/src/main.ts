@@ -34,7 +34,7 @@ class PrefectV2 extends TerraformStack {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    new AwsProvider(this, 'AWS', {
+    new AwsProvider(this, "AWS", {
       region: config.region,
       defaultTags: {
         tags: config.tags

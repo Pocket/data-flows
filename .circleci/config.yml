@@ -10,6 +10,6 @@ workflows:
           config-path: .circleci/workflows.yml
           mapping: |
             prefect_v2\/.aws\/.* v2-aws-changes true
-            ^((?!prefect_v2|\.circleci\/).)*$ legacy-changes true
+            ^((?!prefect_v2\/|.circleci\/).)*$ legacy-changes true
 
 # VS Code Extension Version: 1.5.1
