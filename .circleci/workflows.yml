@@ -3,6 +3,7 @@ version: 2.1
 orbs:
   aws-ecs: circleci/aws-ecs@2.0.0
   pocket: pocket/circleci-orbs@1.2.3
+  aws-cli: circleci/aws-cli@3.1
   
 # Parameters to control monorepo workflows
 parameters:
@@ -117,19 +118,42 @@ jobs:
           path: test-reports
 
   v2-aws-changes-build:
-    docker:
-        - image: python:3.10
-          auth:
-            username: $DOCKERHUB_USERNAME
-            password: $DOCKERHUB_PASSWORD
-    environment:
-      WORKON_HOME: '~/.venv'
+    executor: aws-cli/default
     steps:
       - checkout
       - run:
-          name: testing
+          name: Install tfenv
           command: |
-            ls prefect_v2
+            git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+            ln -s ~/.tfenv/bin/* /usr/bin
+            tfenv install
+      - run:
+          command: >-
+            echo "credentials \"app.terraform.io\" {token =
+            \"$TERRAFORM_TOKEN\"}" > $HOME/.terraformrc
+          name: Create .terraformrc file locally
+      - run:
+          command: |
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+          name: Install nvm
+      - run:
+          command: |
+            nvm use
+            nvm install
+          name: Install node deps
+      - aws-cli/setup:
+         role-arn: 'arn:aws:iam::${ACCOUNT_ID_DEV}:role/CircleCIPrefectOpenIDRole'
+         aws-region: Dev_AWS_DEFAULT_REGION
+         role-session-name: “circleci-build”
+         session-duration: "1800"
+      - run:
+          command: |
+            cdktf diff
+          name: Install node deps
+
+
+    working_directory: ~/prefect_v2/.aws
+
   
 
 workflows:
