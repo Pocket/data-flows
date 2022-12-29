@@ -139,8 +139,9 @@ jobs:
       - run:
           command: |
             source ~/.nvm/nvm.sh
-            nvm use
             nvm install
+            nvm use
+            npm install
           name: Install node deps
       - aws-cli/setup:
          role-arn: 'arn:aws:iam::${ACCOUNT_ID_DEV}:role/CircleCIPrefectOpenIDRole'
