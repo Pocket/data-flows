@@ -129,11 +129,6 @@ jobs:
             git clone https://github.com/tfutils/tfenv.git ~/.tfenv
             sudo ln -s ~/.tfenv/bin/* /usr/bin
             tfenv install
-      - run:
-          command: >-
-            echo "credentials \"app.terraform.io\" {token =
-            \"$TERRAFORM_TOKEN\"}" > $HOME/.terraformrc
-          name: Create .terraformrc file locally
       - node/install
       - node/install-packages
       - run:
@@ -152,7 +147,8 @@ jobs:
          session-duration: '1800'
       - run:
           command: |
-            cdktf --log-level DEBUG diff
+            export TF_TOKEN_app_terraform_io=$TERRAFORM_TOKEN
+            cdktf diff
           name: check cdktf plan
           
     working_directory: ~/repo/prefect_v2/.aws
