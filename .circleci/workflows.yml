@@ -148,7 +148,7 @@ jobs:
       - aws-cli/setup:
          role-arn: 'arn:aws:iam::${ACCOUNT_ID_DEV}:role/CircleCIPrefectOpenIDRole'
          aws-region: Dev_AWS_DEFAULT_REGION
-         role-session-name: “circleci-build”
+         role-session-name: “CircleciBuild”
          session-duration: "1800"
       - run:
           command: |

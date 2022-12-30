@@ -4,5 +4,3 @@
 
 .env
 *.env
-
-process.yml
