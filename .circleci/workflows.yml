@@ -152,7 +152,7 @@ jobs:
          session-duration: '1800'
       - run:
           command: |
-            cdktf diff
+            cdktf --log-level DEBUG diff
           name: check cdktf plan
           
     working_directory: ~/repo/prefect_v2/.aws
