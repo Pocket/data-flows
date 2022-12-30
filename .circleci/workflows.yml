@@ -135,10 +135,6 @@ jobs:
       - node/install-packages
       - run:
           command: |
-            npm install --global cdktf-cli@latest
-          name: install cdktf-cli
-      - run:
-          command: |
             npm run prettier-check
             npm run lint
           name: check eslint and format
@@ -149,8 +145,15 @@ jobs:
          session-duration: '1800'
       - run:
           command: |
-            cdktf diff
-          name: check cdktf plan
+            npm run synth
+          name: generate terraform output
+      - run:
+          command: |
+            cd cdktf.out/stacks/prefect-v2
+            terraform init
+            terraform plan
+          name: check terraform plan dev
+
           
     working_directory: ~/repo/prefect_v2/.aws
 
