@@ -120,6 +120,9 @@ jobs:
 
   v2-aws-changes-build:
     executor: aws-cli/default
+    environment: 
+      TF_TOKEN_app_terraform_io: $TERRAFORM_TOKEN
+      CDKTF_LOG_LEVEL: DEBUG
     steps:
       - checkout:
           path: ~/repo
@@ -147,7 +150,6 @@ jobs:
          session-duration: '1800'
       - run:
           command: |
-            export TF_TOKEN_app_terraform_io=$TERRAFORM_TOKEN
             cdktf diff
           name: check cdktf plan
           
