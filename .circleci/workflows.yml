@@ -121,7 +121,7 @@ jobs:
   v2-aws-changes-build:
     executor: aws-cli/default
     environment: 
-      TF_TOKEN_app_terraform_io: $TERRAFORM_TOKEN
+      TF_TOKEN_app_terraform_io: $DPT_TERRAFORM_TOKEN
       CDKTF_LOG_LEVEL: DEBUG
     steps:
       - checkout:
