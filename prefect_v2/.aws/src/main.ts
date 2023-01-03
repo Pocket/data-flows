@@ -1,5 +1,6 @@
 // Copyright (c) HashiCorp, Inc
 // SPDX-License-Identifier: MPL-2.0
+// Module to orchestrate our Terraform Stacks
 import { Construct } from 'constructs';
 import { AwsProvider } from '@cdktf/provider-aws/lib/provider';
 import { config } from './config';
@@ -22,7 +23,9 @@ import { EcsService } from '@cdktf/provider-aws/lib/ecs-service';
 import { buildDefinitionJSON } from '@pocket/terraform-modules';
 import { DataAwsSsmParameter } from '@cdktf/provider-aws/lib/data-aws-ssm-parameter';
 
+// main Terraform Stack object for Prefect V2 infrastructure
 class PrefectV2 extends TerraformStack {
+  // these will enable access to variables in private methods
   private readonly region: DataAwsRegion;
   private readonly logGroup: CloudwatchLogGroup;
   private readonly dockerSecret: DataAwsSecretsmanagerSecret;
@@ -35,10 +38,10 @@ class PrefectV2 extends TerraformStack {
     super(scope, id);
 
     new AwsProvider(this, 'AWS', {
-      region: config.region,
       defaultTags: {
         tags: config.tags
       },
+      // the conditional here make it possible to run stack as OpenID Role for testing locally
       assumeRole:
         config.testCircleCIArn === undefined
           ? config.testCircleCIArn
@@ -48,18 +51,18 @@ class PrefectV2 extends TerraformStack {
               sessionName: 'prefect-v2-circleci-local'
             }
     });
-
+    // we need this for the agent service to deploy on private subnet
     this.privateSubnets = new DataAwsSsmParameter(this, `privateSubnets`, {
       name: '/Shared/PrivateSubnets'
     });
-
+    // boiler plate for access to region and account id from iam creds
     this.region = new DataAwsRegion(this, 'region');
     const caller = new DataAwsCallerIdentity(this, 'caller');
-
+    // need this bypass pull limits on DockerHub by logging into Pocket docker account
     this.dockerSecret = new DataAwsSecretsmanagerSecret(this, 'dockerSecret', {
       name: 'Shared/DockerHub'
     });
-
+    // need this for the Prefect v2 API credentials
     this.prefectV2Secret = new DataAwsSecretsmanagerSecret(
       this,
       'prefectV2Secret',
@@ -68,20 +71,22 @@ class PrefectV2 extends TerraformStack {
       }
     );
 
+    // creates log group for the Prefect Agent
     this.logGroup = new CloudwatchLogGroup(this, 'logGroup', {
       name: `prefect-v2-agent-log-group-${config.tags.environment}`,
       retentionInDays: config.log_retention_days
     });
-
+    // creates an ECS cluster for Prefect v2 workloads (agent and flows)
     this.ecsCluster = new EcsCluster(this, 'ecsCluster', {
       name: `prefect-v2-${config.tags.environment}`
     });
-
+    // TODO: not sure why we need this...it was in the Prefect docs
     new EcsClusterCapacityProviders(this, 'ecsCapacityProvider', {
       clusterName: this.ecsCluster.name,
       capacityProviders: ['FARGATE']
     });
-
+    // Custom construct to implement the IAM roles needed for the agent
+    // Abstracting IAM stuff into iam.ts module
     this.agentRoles = new AgentIamRoles(
       this,
       'agentRoles',
@@ -90,10 +95,11 @@ class PrefectV2 extends TerraformStack {
       this.ecsCluster,
       caller
     );
-
+    // we need an agent per queue...so we create 2 agent services
     this.getAgentService('test');
     this.getAgentService('live');
   }
+  // parametized container definition maker
   private getAgentContainerDefinition(deploymentType: string): string {
     const containerDef = buildDefinitionJSON({
       name: `prefect-v2-agent-${config.tags.environment}-${deploymentType}`,
@@ -121,6 +127,7 @@ class PrefectV2 extends TerraformStack {
     });
     return `[${containerDef}]`;
   }
+  // create a task definition and service using private methods and params
   private getAgentService(deploymentType: string) {
     const DeploymentTypeProper =
       deploymentType.charAt(0).toUpperCase() + deploymentType.slice(1);
@@ -152,12 +159,12 @@ class PrefectV2 extends TerraformStack {
   }
 }
 
+// this is a stack that can be run locally to test OpenID Connect for CircleCI in Dev Account
 class CircleCIDev extends TerraformStack {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
     new AwsProvider(this, 'AWS', {
-      region: config.region,
       defaultTags: {
         tags: config.tags
       }
@@ -170,6 +177,7 @@ class CircleCIDev extends TerraformStack {
   }
 }
 
+// setup our App and add our stack(s)
 const app = new App();
 const prefectStack = new PrefectV2(app, 'prefect-v2');
 new CloudBackend(prefectStack, {
@@ -177,7 +185,9 @@ new CloudBackend(prefectStack, {
   organization: 'Pocket',
   workspaces: new NamedCloudWorkspace(config.workspaceName)
 });
-
+// if isLocal that add this stack to the App
+// this means we will have to explicitly reference the stack name is cdkft cli - cdktf diff prefect-v2-circleci
+// we will only ever want to run this locally against the Dev AWS Account
 if (config.isLocal) {
   const circleCIDevStack = new CircleCIDev(app, 'prefect-v2-circleci');
   new CloudBackend(circleCIDevStack, {

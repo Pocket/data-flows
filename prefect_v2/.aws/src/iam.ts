@@ -1,8 +1,8 @@
+// Module to abstract IAM elements needed for Prefect v2
 import { DataAwsCallerIdentity } from '@cdktf/provider-aws/lib/data-aws-caller-identity';
 import {
   DataAwsIamPolicyDocument,
-  DataAwsIamPolicyDocumentStatement,
-  DataAwsIamPolicyDocumentStatementCondition
+  DataAwsIamPolicyDocumentStatement
 } from '@cdktf/provider-aws/lib/data-aws-iam-policy-document';
 import { DataAwsSecretsmanagerSecret } from '@cdktf/provider-aws/lib/data-aws-secretsmanager-secret';
 import { EcsCluster } from '@cdktf/provider-aws/lib/ecs-cluster';
@@ -15,6 +15,9 @@ import { DataAwsSecretsmanagerSecretVersion } from '@cdktf/provider-aws/lib/data
 import { Fn } from 'cdktf';
 import { IamPolicy } from '@cdktf/provider-aws/lib/iam-policy';
 
+// Both IAM Roles needed for Prefect v2 agent have the same trust policy
+// Other task roles will have the same trust as well
+// This Construct will provide re-usable base trust policy doc
 export class BaseTrustPolicy extends Construct {
   public readonly baseTrustPolicy: DataAwsIamPolicyDocument;
   constructor(scope: Construct, name: string) {
@@ -38,39 +41,11 @@ export class BaseTrustPolicy extends Construct {
   }
 }
 
-export class BaseExecutionPolicy extends Construct {
-  public readonly baseExecutionPolicy: DataAwsIamPolicyDocument;
-  constructor(
-    scope: Construct,
-    name: string,
-    secrets: DataAwsSecretsmanagerSecret[]
-  ) {
-    super(scope, name);
-    const secretArns: string[] = [];
-    secrets.forEach((secret) => {
-      secretArns.push(secret.arn);
-    });
-    const PolicyDoc = new DataAwsIamPolicyDocument(this, name, {
-      version: '2012-10-17',
-      statement: [
-        {
-          actions: [
-            'kms:Decrypt',
-            'secretsmanager:GetSecretValue',
-            'ssm:GetParameters'
-          ],
-          effect: 'Allow',
-          resources: secretArns
-        }
-      ]
-    });
-    this.baseExecutionPolicy = PolicyDoc;
-  }
-}
-
+// Custom construct to create IAM roles needed for a Prefect v2 Agent
 export class AgentIamRoles extends Construct {
   public readonly agentExecutionRole: IamRole;
   public readonly agentTaskRole: IamRole;
+  private readonly ecsCluster: EcsCluster;
   constructor(
     scope: Construct,
     name: string,
@@ -80,29 +55,45 @@ export class AgentIamRoles extends Construct {
     caller: DataAwsCallerIdentity
   ) {
     super(scope, name);
-
+    this.ecsCluster = ecsCluster;
+    // get the base Trust Policy Doc
     const baseTrustPolicy = new BaseTrustPolicy(this, 'baseTrustPolicy')
       .baseTrustPolicy;
-    const agentExecutionPolicy = new BaseExecutionPolicy(
+    // create an inline policy doc for the execution role that can be combined with AWS managed policy
+    const agentExecutionPolicy = new DataAwsIamPolicyDocument(
       this,
       'agentExecutionPolicy',
-      [dockerSecret, prefectV2Secret]
+      {
+        version: '2012-10-17',
+        statement: [
+          {
+            actions: [
+              'kms:Decrypt',
+              'secretsmanager:GetSecretValue',
+              'ssm:GetParameters'
+            ],
+            effect: 'Allow',
+            resources: [dockerSecret.arn, prefectV2Secret.arn]
+          }
+        ]
+      }
     );
-
+    // create the execution role for Prefect v2 agent
     this.agentExecutionRole = new IamRole(this, 'agentExecutionRole', {
       name: `prefect-v2-agent-execution-role-${config.tags.environment}`,
       assumeRolePolicy: baseTrustPolicy.json,
       inlinePolicy: [
         {
           name: `prefect-v2-agent-execution-policy-${config.tags.environment}`,
-          policy: agentExecutionPolicy.baseExecutionPolicy.json
+          policy: agentExecutionPolicy.json
         }
       ],
+      // combine inline with standard AWS ECS execution policy
       managedPolicyArns: [
         'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
       ]
     });
-
+    // build the policy document for the Task role using Policy statement functions
     const agentTaskPolicy = new DataAwsIamPolicyDocument(
       this,
       'agentTaskPolicy',
@@ -110,13 +101,13 @@ export class AgentIamRoles extends Construct {
         version: '2012-10-17',
         statement: [
           this.getAgentTaskAllAccess(),
-          this.getAgentTaskEcsAccess(this.getClusterCondition(ecsCluster)),
+          this.getAgentTaskEcsAccess(),
           this.getAgentTaskIamAccess(caller),
           this.getAgentTaskXrayAccess()
         ]
       }
     );
-
+    // create the task role for the Prefect v2 agent
     this.agentTaskRole = new IamRole(this, 'agentTaskRole', {
       name: `prefect-v2-agent-task-role-${config.tags.environment}`,
       assumeRolePolicy: baseTrustPolicy.json,
@@ -128,7 +119,7 @@ export class AgentIamRoles extends Construct {
       ]
     });
   }
-
+  // build policy statment for resources "*"
   private getAgentTaskAllAccess(): DataAwsIamPolicyDocumentStatement {
     return {
       actions: [
@@ -141,28 +132,22 @@ export class AgentIamRoles extends Construct {
       resources: ['*']
     };
   }
-
-  private getClusterCondition(
-    ecsCluster: EcsCluster
-  ): DataAwsIamPolicyDocumentStatementCondition {
-    return {
-      test: 'ArnEquals',
-      values: [ecsCluster.arn],
-      variable: 'ecs:cluster'
-    };
-  }
-
-  private getAgentTaskEcsAccess(
-    clusterCondition: DataAwsIamPolicyDocumentStatementCondition
-  ): DataAwsIamPolicyDocumentStatement {
+  // build policy statment for ECS task actions
+  private getAgentTaskEcsAccess(): DataAwsIamPolicyDocumentStatement {
     return {
       actions: ['ecs:StopTask', 'ecs:RunTask'],
       effect: 'Allow',
       resources: ['*'],
-      condition: [clusterCondition]
+      condition: [
+        {
+          test: 'ArnEquals',
+          values: [this.ecsCluster.arn],
+          variable: 'ecs:cluster'
+        }
+      ]
     };
   }
-
+  // build policy statement that allows agent to pass the Prefect IAM roles
   private getAgentTaskIamAccess(
     caller: DataAwsCallerIdentity
   ): DataAwsIamPolicyDocumentStatement {
@@ -172,7 +157,7 @@ export class AgentIamRoles extends Construct {
       resources: [`arn:aws:iam::${caller.accountId}:role/prefect-*`]
     };
   }
-
+  // add xray access per Prefect v2 docs
   private getAgentTaskXrayAccess(): DataAwsIamPolicyDocumentStatement {
     return {
       actions: [
@@ -188,6 +173,8 @@ export class AgentIamRoles extends Construct {
   }
 }
 
+// Custom construct to create a OpenID Connect Role in the Dev Account
+// This helps us test fine grained IAM Policies for CircleCI before applying in Production
 export class CircleCIDevRole extends Construct {
   private readonly region: DataAwsRegion;
   private readonly caller: DataAwsCallerIdentity;
@@ -201,6 +188,7 @@ export class CircleCIDevRole extends Construct {
     this.region = region;
     this.caller = caller;
 
+    // We need this secret for the CircleCI OIDC ids and thumbprint
     const circleCIOIDCSecret = new DataAwsSecretsmanagerSecretVersion(
       this,
       'CircleCIOIDCSecret',
@@ -208,7 +196,7 @@ export class CircleCIDevRole extends Construct {
         secretId: 'Shared/CircleCIOIDC'
       }
     );
-
+    // create the OIDC Provder per CircleCI and AWS Docs
     const circleCIDevOIDCProvider = new IamOpenidConnectProvider(
       this,
       'circleCIDevOIDCProvider',
@@ -237,7 +225,8 @@ export class CircleCIDevRole extends Construct {
         ])
       }
     );
-
+    // Create a Trust that grants assume to CircleCI and the PocketSSODataLearning Role
+    // This allows us to assume this role locally for testing Prefect-v2 stack with the CircleCI Policy
     const circleCIDevTrust = new DataAwsIamPolicyDocument(
       this,
       'circleCIDevTrust',
@@ -312,6 +301,7 @@ export class CircleCIDevRole extends Construct {
         ]
       }
     );
+    // Create the Policy doc for CircleCI with fine grained access to resources needed to deploy Prefect-v2 stack
     const circleCIDevPolicy = new DataAwsIamPolicyDocument(
       this,
       'circleCIDevPolicy',
