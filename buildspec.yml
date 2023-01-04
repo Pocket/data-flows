@@ -6,6 +6,8 @@ version: 0.2
 # For Code Deployments see CircleCI and AWS CodeDeploy
 #####
 
+run-as: circleci
+
 env:
   variables:
     #Terraform workspace that we operate in
@@ -28,7 +30,9 @@ env:
 #All phases are ran within the pocket/pocket-build:prod docker image
 phases:
   pre_build:
+    run-as: circleci
     commands:
+      - . /home/circleci/.codebuild_shims_wrapper.sh
       - echo $CODEBUILD_WEBHOOK_HEAD_REF
       - echo Setting Up Terraform Token
       - rc="credentials \"app.terraform.io\" { "
@@ -39,14 +43,14 @@ phases:
       - echo "//npm.pkg.github.com/:_authToken=${GITHUB_ACCESS_TOKEN}" > ~/.npmrc
       - echo Setting environment variables
       - cd .aws
-      - tfenv use $(cat .terraform-version)
-      - npm install -g npm@latest
+      - tfenv install
       - npm ci
       # synthesize the js into terraform json with the proper node environment
       - 'if [ "$GIT_BRANCH" == "$DEV_BRANCH" ]; then NODE_ENV=development npm run synth; else npm run synth; fi'
       - cd cdktf.out/stacks/data-flows
       - terraform init
   build:
+    run-as: circleci
     commands:
       - echo Build started on `date`
       ### If the branch is not main and its not dev, lets do a plan on prod.
@@ -56,6 +60,7 @@ phases:
       #### If the branch is main lets apply.
       - 'if [ "$GIT_BRANCH" == "$MAIN_BRANCH" ]; then terraform apply -auto-approve -no-color; fi'
   post_build:
+    run-as: circleci
     commands:
       - 'if [ "$GIT_BRANCH" == "$MAIN_BRANCH" ] || [ "$GIT_BRANCH" == "$DEV_BRANCH" ]; then cp appspec.json taskdef.json ../../../../; fi'
       # get back to the root dir
