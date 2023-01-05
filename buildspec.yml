@@ -46,7 +46,7 @@ phases:
       - tfenv install
       - npm ci
       # synthesize the js into terraform json with the proper node environment
-      - 'if [ "$GIT_BRANCH" == "$DEV_BRANCH" ]; then NODE_ENV=development npm run synth; else npm run synth; fi'
+      - 'if [ "$GIT_BRANCH" = "$DEV_BRANCH" ]; then NODE_ENV=development npm run synth; else npm run synth; fi'
       - cd cdktf.out/stacks/data-flows
       - terraform init
   build:
@@ -56,13 +56,13 @@ phases:
       ### If the branch is not main and its not dev, lets do a plan on prod.
       - 'if [ "$CODEBUILD_WEBHOOK_HEAD_REF" != "$MAIN_BRANCH_REF" ] && [ "$CODEBUILD_WEBHOOK_HEAD_REF" != "$DEV_BRANCH_REF" ] && [ -z "$GIT_BRANCH" ]; then terraform plan -lock=false -refresh=false -no-color; fi'
       #### If the branch is dev, lets do an apply on dev.
-      - 'if [ "$GIT_BRANCH" == "$DEV_BRANCH" ]; then TF_WORKSPACE=$TF_DEV_WORKSPACE TF_LOG=INFO terraform apply -auto-approve -no-color; fi'
+      - 'if [ "$GIT_BRANCH" = "$DEV_BRANCH" ]; then TF_WORKSPACE=$TF_DEV_WORKSPACE TF_LOG=INFO terraform apply -auto-approve -no-color; fi'
       #### If the branch is main lets apply.
-      - 'if [ "$GIT_BRANCH" == "$MAIN_BRANCH" ]; then terraform apply -auto-approve -no-color; fi'
+      - 'if [ "$GIT_BRANCH" = "$MAIN_BRANCH" ]; then terraform apply -auto-approve -no-color; fi'
   post_build:
     run-as: circleci
     commands:
-      - 'if [ "$GIT_BRANCH" == "$MAIN_BRANCH" ] || [ "$GIT_BRANCH" == "$DEV_BRANCH" ]; then cp appspec.json taskdef.json ../../../../; fi'
+      - 'if [ "$GIT_BRANCH" = "$MAIN_BRANCH" ] || [ "$GIT_BRANCH" = "$DEV_BRANCH" ]; then cp appspec.json taskdef.json ../../../../; fi'
       # get back to the root dir
       - cd ../../
       - echo Build completed on `date`
