@@ -18,6 +18,7 @@ html2text = "*"
 [dev-packages]
 graphviz = "==0.19.1"
 pytest = "==7.1.1"
+black = "*"
 
 [requires]
 python_version = "3.9"
