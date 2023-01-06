@@ -120,8 +120,13 @@ jobs:
 
   v2-aws-changes-build:
     executor: aws-cli/default
+    parameters:
+      node_env:
+        default: "dev"
+        type: string
     environment: 
       CDKTF_LOG_LEVEL: DEBUG
+      NODE_ENV: << parameters.node_env >>
     steps:
       - checkout:
           path: ~/repo
@@ -297,8 +302,7 @@ workflows:
       - v2-aws-changes-build:
           <<: *not_dev_main
           context: pocket
-          environment:
-            NODE_ENV: dev
+          node_env: dev
       
   
 # VS Code Extension Version: 1.5.1
