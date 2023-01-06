@@ -7,3 +7,10 @@
     TEXT_MD5
     from SNAPSHOT.ITEM.ARTICLE_CONTENT_V2
     order by resolved_id);
+
+-- grants needed on new table
+    grant ownership on table snapshot.item.article_content_ordered_snapshot to role LOADER REVOKE CURRENT GRANTS;
+    grant select, delete on table snapshot.item.article_content_ordered_snapshot to role USER_DATA_DELETION_ROLE;
+    grant all on table snapshot.item.article_content_ordered_snapshot to role ML_SERVICE_ROLE;
+    grant select on table snapshot.item.article_content_ordered_snapshot to role TRANSFORMER;
+    grant select on table snapshot.item.article_content_ordered_snapshot to role SELECT_ALL_ROLE;
