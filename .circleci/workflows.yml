@@ -297,6 +297,8 @@ workflows:
       - v2-aws-changes-build:
           <<: *not_dev_main
           context: pocket
+          environment:
+            NODE_ENV: dev
       
   
 # VS Code Extension Version: 1.5.1
