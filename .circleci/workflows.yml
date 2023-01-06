@@ -1,0 +1,302 @@
+version: 2.1
+
+orbs:
+  aws-ecs: circleci/aws-ecs@2.0.0
+  pocket: pocket/circleci-orbs@1.2.3
+  aws-cli: circleci/aws-cli@3.1
+  node: circleci/node@5.0.3
+  
+# Parameters to control monorepo workflows
+parameters:
+  v2-aws-changes:
+    type: boolean
+    default: false
+  legacy-changes:
+    type: boolean
+    default: false
+
+# Workflow shortcuts
+# You can remove unnecessary shortcuts as applicable
+not_main: &not_main
+  filters:
+    branches:
+      ignore:
+        - main
+
+only_main: &only_main
+  filters:
+    branches:
+      only:
+        - main
+
+not_dev: &not_dev
+  filters:
+    branches:
+      ignore:
+        - dev
+
+only_dev_main: &only_dev_main
+  filters:
+    branches:
+      only:
+        - dev
+        - main
+
+not_dev_main: &not_dev_main
+  filters:
+    branches:
+      ignore:
+        - dev
+        - main
+
+only_dev: &only_dev
+  filters:
+    branches:
+      only:
+        - dev
+
+jobs:
+
+  build:
+    #Sets up the code for the docker image to build in
+    #Other repos at Pocket use this to install modules and or compile the code.
+    docker:
+      - image: cimg/python:3.9-node
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
+    steps:
+      - checkout
+      # Define the working directory for this job
+      - attach_workspace:
+          at: /tmp/workspace
+
+      # Copy built files to app_prod folder
+      - run:
+          name: Setup workspace
+          command: |
+            mkdir -p /tmp/workspace/app_prod
+            cp -r . /tmp/workspace/app_prod
+            cp .docker/app/Dockerfile /tmp/workspace/app_prod/
+      # Persist built files to workspace
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - app_prod
+
+  test_app:
+    docker:
+      - image: python:3.8
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
+    parameters:
+      pipenv_path:
+        default: "./"
+        type: string
+    environment:
+      WORKON_HOME: '~/.venv'
+    steps:
+      - checkout
+      - restore_cache:
+          key: deps-test-{{ checksum "<<parameters.pipenv_path>>Pipfile.lock" }}
+      - run:
+          name: Build environment and install requirements
+          command: |
+            pip install pipenv
+            pipenv install --dev
+      - save_cache:
+          key: deps-test-{{ checksum "<<parameters.pipenv_path>>Pipfile.lock" }}
+          paths:
+            - "~/.venv"
+      - run:
+          name: Run tests
+          command: |
+            cd src/
+            mkdir test-reports
+            pipenv run python -m pytest test/ --junitxml=test-reports/junit.xml
+      - store_test_results:
+          path: test-reports
+
+  v2-aws-changes-build:
+    executor: aws-cli/default
+    environment: 
+      CDKTF_LOG_LEVEL: DEBUG
+    steps:
+      - checkout:
+          path: ~/repo
+      - run:
+          name: Install tfenv
+          command: |
+            git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+            sudo ln -s ~/.tfenv/bin/* /usr/bin
+            tfenv install
+      - node/install
+      - node/install-packages
+      - run:
+          command: |
+            npm run prettier-check
+            npm run lint
+          name: check eslint and format
+      - aws-cli/setup:
+         role-arn: arn:aws:iam::${ACCOUNT_ID_DEV}:role/CircleCIPrefectOpenIDRole
+         aws-region: Dev_AWS_DEFAULT_REGION
+         role-session-name: CircleciBuild
+         session-duration: '1800'
+      - run:
+          command: |
+            npm run synth
+          name: generate terraform output
+      - run:
+          command: |
+            cd cdktf.out/stacks/prefect-v2
+            terraform init
+            terraform plan
+          name: check terraform plan dev
+
+          
+    working_directory: ~/repo/prefect_v2/.aws
+
+  
+
+workflows:
+  all:
+    when: << pipeline.parameters.legacy-changes >>
+    jobs:
+      - test_app:
+          <<: *not_main
+          context: pocket
+
+      - build:
+          context: pocket
+
+      # Try building the ECS docker image on each branch
+      - pocket/docker_build:
+          <<: *not_dev_main
+          context: pocket
+          name: build_docker
+          aws-access-key-id: Dev_AWS_ACCESS_KEY
+          aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
+          aws-region: Dev_AWS_DEFAULT_REGION
+          repo-name: ${SERVICE_NAME_LOWER}-dev-app
+          ecr-url: ${ACCOUNT_ID_DEV}.dkr.ecr.us-east-1.amazonaws.com
+          push: false
+          requires:
+            - build
+
+      # Build & Deploy the Dev Docker Image
+      - pocket/docker_build:
+          <<: *only_dev
+          context: pocket
+          name: build_docker_dev
+          aws-access-key-id: Dev_AWS_ACCESS_KEY
+          aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
+          aws-region: Dev_AWS_DEFAULT_REGION
+          codebuild-project-name: ${SERVICE_NAME}-Dev
+          codebuild-project-branch: dev
+          repo-name: ${SERVICE_NAME_LOWER}-dev-app
+          ecr-url: ${ACCOUNT_ID_DEV}.dkr.ecr.us-east-1.amazonaws.com
+          push: true
+          requires:
+            - build
+
+      # Dev
+      - pocket/execute_codepipeline:
+          <<: *only_dev
+          context: pocket
+          name: deploy_dev
+          environment: Dev
+          aws-access-key-id: Dev_AWS_ACCESS_KEY
+          aws-secret-access-key: Dev_AWS_SECRET_ACCESS_KEY
+          aws-region: Dev_AWS_DEFAULT_REGION
+          codepipeline-name: ${SERVICE_NAME}-Dev-CodePipeline
+          codebuild-project-name: ${SERVICE_NAME}-Dev
+          codebuild-project-branch: dev
+          requires:
+            - build_docker_dev
+
+      # Build & Deploy the Prod Docker Image
+      - pocket/docker_build:
+          <<: *only_main
+          context: pocket
+          name: build_docker_prod
+          aws-access-key-id: Prod_AWS_ACCESS_KEY
+          aws-secret-access-key: Prod_AWS_SECRET_ACCESS_KEY
+          aws-region: Prod_AWS_DEFAULT_REGION
+          codebuild-project-name: ${SERVICE_NAME}-Prod
+          codebuild-project-branch: main
+          repo-name: ${SERVICE_NAME_LOWER}-prod-app
+          ecr-url: ${ACCOUNT_ID_PROD}.dkr.ecr.us-east-1.amazonaws.com
+          push: true
+          requires:
+            - build
+
+      # Prod
+      - pocket/execute_codepipeline:
+          <<: *only_main
+          context: pocket
+          name: deploy_prod
+          environment: Prod
+          aws-access-key-id: Prod_AWS_ACCESS_KEY
+          aws-secret-access-key: Prod_AWS_SECRET_ACCESS_KEY
+          aws-region: Prod_AWS_DEFAULT_REGION
+          codepipeline-name: ${SERVICE_NAME}-Prod-CodePipeline
+          codebuild-project-name: ${SERVICE_NAME}-Prod
+          codebuild-project-branch: main
+          requires:
+            - build_docker_prod
+
+
+      # Prod
+      - pocket/setup_deploy_params:
+          <<: *only_main
+          name: setup-deploy-params-prod
+          aws_access_key_id: Prod_AWS_ACCESS_KEY
+          aws_secret_access_key: Prod_AWS_SECRET_ACCESS_KEY
+          context: pocket
+          env: Prod
+          service_name: ${SERVICE_NAME}
+
+      # Dev
+      - pocket/setup_deploy_params:
+          <<: *only_dev
+          name: setup-deploy-params-dev
+          aws_access_key_id: Dev_AWS_ACCESS_KEY
+          aws_secret_access_key: Dev_AWS_SECRET_ACCESS_KEY
+          context: pocket
+          env: Dev
+          service_name: ${SERVICE_NAME}
+
+      # Notify sentry of main deployment
+      - pocket/sentry_release_notification:
+          <<: *only_main
+          name: sentry-release-notification-prod
+          context: pocket
+          repository_name: Pocket/${CONSTRUCT_NAME}
+          sentry_project_name: ${CONSTRUCT_NAME}
+          sentry_env: production
+          sentry_org: pocket
+          workspace-path: /tmp/workspace
+          requires:
+            - deploy_prod
+
+      # Notify sentry of dev deployment
+      - pocket/sentry_release_notification:
+          <<: *only_dev
+          name: sentry-release-notification-dev
+          context: pocket
+          repository_name: Pocket/${CONSTRUCT_NAME}
+          sentry_project_name: ${CONSTRUCT_NAME}
+          sentry_env: development
+          sentry_org: pocket
+          workspace-path: /tmp/workspace
+          requires:
+            - deploy_dev
+  v2-aws-changes:
+    jobs: 
+      - v2-aws-changes-build:
+          <<: *not_dev_main
+          context: pocket
+      
+  
+# VS Code Extension Version: 1.5.1
