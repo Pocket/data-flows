@@ -1,6 +1,7 @@
 import gzip
 import hashlib
 import json
+from copy import deepcopy
 from io import BytesIO
 from typing import List
 
@@ -8,11 +9,10 @@ import boto3
 import pandas as pd
 import pendulum
 import prefect
-import snowflake.connector as sf
 from prefect import Flow, flatten, task
 from prefect.executors import LocalDaskExecutor
 from prefect.tasks.aws import S3Download, S3List
-from prefect.tasks.snowflake import SnowflakeQuery
+from prefect.tasks.snowflake import SnowflakeQueriesFromFile, SnowflakeQuery
 
 from common_tasks.transform_data import get_text_from_html
 from utils.config import ARTICLES_DB_SCHEMA_DICT, ENVIRONMENT, SNOWFLAKE_DEFAULT_DICT
@@ -29,6 +29,8 @@ STAGE_PREFIX = "article/streaming-html-stage/"
 CHUNK_ROWS = 50000  # 3486 rows = 10MB
 NUM_FILES_PER_RUN = 1000
 
+# location for temp sql file needed to use Prefect Snowflake Task
+TEMP_SQL_FILE_LOC = "/tmp/temp_sql_file.sql"
 
 # Import from S3 to Snowflake
 # 3.5k rows = 2 seconds on xsmall warehouse
@@ -41,16 +43,22 @@ file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
 on_error=ABORT_STATEMENT;
 """
 
+# get flow db and schema names from config for ordering tasks
 DATABASE_NAME = ARTICLES_DB_SCHEMA_DICT[ENVIRONMENT]["articles_database_name"]
 SCHEMA_NAME = ARTICLES_DB_SCHEMA_DICT[ENVIRONMENT]["articles_schema_name"]
+
+# create copy of default dict and add flow db and schema names for ordering tasks
+FLOW_SNOWFLAKE_DICT = deepcopy(SNOWFLAKE_DEFAULT_DICT)
+FLOW_SNOWFLAKE_DICT["database"] = DATABASE_NAME
+FLOW_SNOWFLAKE_DICT["schema"] = SCHEMA_NAME
+
 
 # SQL statements to insert new ordered raw data
 # These depend on the initial execution of the 'initial clean' statements in the sql folder
 # This will execute after the copy statement as a single statement
-
-INSERT_ORDERED_SQL = f"""set max_date = (select max(snowflake_loaded_at) from {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_live);
+INSERT_ORDERED_SQL = f"""set max_date = (select max(snowflake_loaded_at) from article_content_ordered_live);
         
-    insert into {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_live (
+    insert into article_content_ordered_live (
         RESOLVED_ID, 
                 HTML, 
                 TEXT, 
@@ -74,33 +82,47 @@ WEEKLY_DEDUP_SQL = f"""
 
     use warehouse dpt_wh_3xl;
     
-    create or replace table {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_new as (
+    create or replace table article_content_ordered_new as (
     select RESOLVED_ID, 
     HTML, 
     TEXT, 
     SNOWFLAKE_LOADED_AT,
     TEXT_MD5,
     current_timestamp() as last_ordered
-    from {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_live
+    from article_content_ordered_live
     qualify row_number() over (partition by resolved_id order by snowflake_loaded_at desc) = 1
     order by resolved_id);
 
     -- clean up ownership
-    grant ownership on table {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_new to role LOADER REVOKE CURRENT GRANTS;
+    grant ownership on table article_content_ordered_new to role LOADER REVOKE CURRENT GRANTS;
 
     -- apply proper grants to new ordered table before swap
 
-    grant select, delete on table {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_new to role USER_DATA_DELETION_ROLE;
-    grant all on table {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_new to role ML_SERVICE_ROLE;
-    grant select on table {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_new to role TRANSFORMER;
-    grant select on table {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_new to role SELECT_ALL_ROLE;
+    grant select, delete on table article_content_ordered_new to role USER_DATA_DELETION_ROLE;
+    grant all on table article_content_ordered_new to role ML_SERVICE_ROLE;
+    grant select on table article_content_ordered_new to role TRANSFORMER;
+    grant select on table article_content_ordered_new to role SELECT_ALL_ROLE;
 
     -- swap and drop old table
     
-    alter table {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_live swap with {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_new;
-    drop table {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_new;
+    alter table article_content_ordered_live swap with article_content_ordered_new;
+    drop table article_content_ordered_new;
     
 """
+
+# Need to check the last_ordered value to determine if reorder is needed
+WEEKLY_DEDUP_CHECK_SQL = """select datediff('hours', max(last_ordered), current_timestamp()) > 168 as ready_for_reordering
+   from IDENTIFIER(%(full_name)s);"""
+
+# function to encapsulate the temp sql file logic
+def create_temp_sql_file(sql_text: str) -> None:
+    """Helper function to load sql_text to gile path in global variable.
+
+    Args:
+        sql_text (str): sql text to write to file
+    """
+    with open(TEMP_SQL_FILE_LOC, "w") as fp:
+        fp.write(sql_text)
 
 
 @task()
@@ -219,9 +241,11 @@ def ordered_dataset_insert_transform() -> None:
     """
     logger = prefect.context.get("logger")
     logger.info("Adding new records to article_content_ordered_live dataset...")
-    with sf.connect(**SNOWFLAKE_DEFAULT_DICT) as conn:
-        result = conn.execute_string(INSERT_ORDERED_SQL)
-        logger.info(f"Inserted {result[1].rowcount} rows...")
+    create_temp_sql_file(INSERT_ORDERED_SQL)
+    result = SnowflakeQueriesFromFile(**FLOW_SNOWFLAKE_DICT).run(
+        file_path=TEMP_SQL_FILE_LOC
+    )
+    logger.info(f"Inserted {result[1][0][0]} rows...")
 
 
 @task()
@@ -234,22 +258,17 @@ def weekly_reordering_transform() -> None:
     """
     logger = prefect.context.get("logger")
     logger.info("Checking to see if reordering is needed...")
-    with sf.connect(**SNOWFLAKE_DEFAULT_DICT) as conn:
-        result = (
-            conn.cursor()
-            .execute(
-                f"""select datediff('hours', max(last_ordered), current_timestamp()) > 168 as ready_for_reordering
-   from {DATABASE_NAME}.{SCHEMA_NAME}.article_content_ordered_live;"""
-            )
-            .fetchone()
-        )
-        ready_for_reordering = result[0]
+    full_name = f"article_content_ordered_live"
+    result = SnowflakeQuery(**FLOW_SNOWFLAKE_DICT).run(
+        data={"full_name": full_name}, query=WEEKLY_DEDUP_CHECK_SQL
+    )
+    ready_for_reordering = result[0]
     current_dt = pendulum.now("UTC")
     # this should be Saturday
     if current_dt.day_of_week == 6 and ready_for_reordering:
         logger.info("Executing reordering of article_content_ordered_live dataset...")
-        with sf.connect(**SNOWFLAKE_DEFAULT_DICT) as conn:
-            conn.execute_string(WEEKLY_DEDUP_SQL)
+        create_temp_sql_file(WEEKLY_DEDUP_SQL)
+        SnowflakeQueriesFromFile(**FLOW_SNOWFLAKE_DICT).run(file_path=TEMP_SQL_FILE_LOC)
     else:
         logger.info("Reordering not needed at this time...")
 
