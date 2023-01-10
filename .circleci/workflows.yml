@@ -119,7 +119,8 @@ jobs:
           path: test-reports
 
   v2-aws-changes-build:
-    executor: aws-cli/default
+    machine: true
+    resource_class: pocket/default-dev
     parameters:
       node_env:
         default: "development"
