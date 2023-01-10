@@ -131,12 +131,6 @@ jobs:
     steps:
       - checkout:
           path: ~/repo
-      - run:
-          name: Install tfenv
-          command: |
-            git clone https://github.com/tfutils/tfenv.git ~/.tfenv
-            sudo ln -s ~/.tfenv/bin/* /usr/bin
-            tfenv install
       - node/install
       - node/install-packages
       - run:
@@ -144,11 +138,6 @@ jobs:
             npm run prettier-check
             npm run lint
           name: check eslint and format
-      - aws-cli/setup:
-         role-arn: arn:aws:iam::${ACCOUNT_ID_DEV}:role/CircleCIPrefectOpenIDRole
-         aws-region: Dev_AWS_DEFAULT_REGION
-         role-session-name: CircleciBuild
-         session-duration: '1800'
       - run:
           command: |
             npm run synth
