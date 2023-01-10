@@ -416,3 +416,19 @@ export class CircleCIDevRole extends Construct {
     };
   }
 }
+
+export class CircleCIRunnerRole extends Construct {
+  public readonly runnerIamRole: IamRole;
+  constructor(scope: Construct, name: string) {
+    super(scope, name);
+
+    const baseTrustPolicy = new BaseTrustPolicy(this, 'baseTrustPolicy')
+      .baseTrustPolicy;
+
+    this.runnerIamRole = new IamRole(this, 'CircleCIRunnerRole', {
+      name: 'CircleCIRunnerRole',
+      assumeRolePolicy: baseTrustPolicy.json,
+      managedPolicyArns: ['arn:aws:iam::aws:policy/AdministratorAccess']
+    });
+  }
+}

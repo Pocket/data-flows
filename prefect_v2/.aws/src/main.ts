@@ -16,12 +16,13 @@ import { DataAwsCallerIdentity } from '@cdktf/provider-aws/lib/data-aws-caller-i
 import { CloudwatchLogGroup } from '@cdktf/provider-aws/lib/cloudwatch-log-group';
 import { EcsCluster } from '@cdktf/provider-aws/lib/ecs-cluster';
 import { EcsClusterCapacityProviders } from '@cdktf/provider-aws/lib/ecs-cluster-capacity-providers';
-import { AgentIamRoles, CircleCIDevRole } from './iam';
+import { AgentIamRoles, CircleCIDevRole, CircleCIRunnerRole } from './iam';
 import { DataAwsSecretsmanagerSecret } from '@cdktf/provider-aws/lib/data-aws-secretsmanager-secret';
 import { EcsTaskDefinition } from '@cdktf/provider-aws/lib/ecs-task-definition';
 import { EcsService } from '@cdktf/provider-aws/lib/ecs-service';
 import { buildDefinitionJSON } from '@pocket/terraform-modules';
 import { DataAwsSsmParameter } from '@cdktf/provider-aws/lib/data-aws-ssm-parameter';
+import { CircleCIRunner } from './circleci-runner';
 
 // main Terraform Stack object for Prefect V2 infrastructure
 class PrefectV2 extends TerraformStack {
@@ -175,7 +176,24 @@ class CircleCIDev extends TerraformStack {
     const region = new DataAwsRegion(this, 'region');
     const caller = new DataAwsCallerIdentity(this, 'caller');
 
+    // need this bypass pull limits on DockerHub by logging into Pocket docker account
+    const dockerSecret = new DataAwsSecretsmanagerSecret(this, 'dockerSecret', {
+      name: 'Shared/DockerHub'
+    });
+
     new CircleCIDevRole(this, 'circleCIDevRole', region, caller);
+
+    const circleCIRunnerRole = new CircleCIRunnerRole(
+      this,
+      'circleCIRunnerRole'
+    );
+    new CircleCIRunner(
+      this,
+      'CircleCIRunner',
+      circleCIRunnerRole.runnerIamRole,
+      dockerSecret,
+      config.tags.environment
+    );
   }
 }
 

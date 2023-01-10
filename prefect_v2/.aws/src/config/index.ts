@@ -19,6 +19,10 @@ const agentImage = 'prefecthq/prefect:2-python3.10';
 const circleCIDevWorkspaceName = 'prefect-v2-circleci-dev';
 const isLocal = process.env['DPT_IS_LOCAL'] === 'true';
 const testCircleCIArn = process.env['DPT_LOCAL_CIRCLECI_ARN'];
+const runnerImage = 'circleci/runner:launch-agent';
+const runnerCpu = '2048';
+const runnerMemory = '4096';
+const runnerTaskCount = 2;
 
 export const config = {
   workspaceName,
@@ -37,5 +41,9 @@ export const config = {
   agentImage,
   circleCIDevWorkspaceName,
   isLocal,
-  testCircleCIArn
+  testCircleCIArn,
+  runnerCpu,
+  runnerMemory,
+  runnerTaskCount,
+  runnerImage
 };
