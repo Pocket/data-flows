@@ -1,6 +1,8 @@
 import gzip
 import hashlib
 import json
+import os
+import pathlib
 from copy import deepcopy
 from io import BytesIO
 from typing import List
@@ -29,9 +31,6 @@ STAGE_PREFIX = "article/streaming-html-stage/"
 CHUNK_ROWS = 50000  # 3486 rows = 10MB
 NUM_FILES_PER_RUN = 1000
 
-# location for temp sql file needed to use Prefect Snowflake Task
-TEMP_SQL_FILE_LOC = "/tmp/temp_sql_file.sql"
-
 # Import from S3 to Snowflake
 # 3.5k rows = 2 seconds on xsmall warehouse
 IMPORT_SQL = f"""
@@ -52,77 +51,22 @@ FLOW_SNOWFLAKE_DICT = deepcopy(SNOWFLAKE_DEFAULT_DICT)
 FLOW_SNOWFLAKE_DICT["database"] = DATABASE_NAME
 FLOW_SNOWFLAKE_DICT["schema"] = SCHEMA_NAME
 
-
-# SQL statements to insert new ordered raw data
-# These depend on the initial execution of the 'initial clean' statements in the sql folder
-# This will execute after the copy statement as a single statement
-INSERT_ORDERED_SQL = f"""set max_date = (select max(snowflake_loaded_at) from article_content_ordered_live);
-        
-    insert into article_content_ordered_live (
-        RESOLVED_ID, 
-                HTML, 
-                TEXT, 
-                SNOWFLAKE_LOADED_AT,
-                TEXT_MD5
-    )
-    select RESOLVED_ID, 
-                HTML, 
-                TEXT, 
-                SNOWFLAKE_LOADED_AT,
-                TEXT_MD5
-    from raw.ITEM.ARTICLE_CONTENT_V2
-        where snowflake_loaded_at > $max_date
-        order by resolved_id;"""
-
-# This will run after an hourly update only once on the weekend
-# Will probably need to apply grants to the renamed live table
-# Revoke grants will remove access to the old live table for better UX
-WEEKLY_DEDUP_SQL = f"""
-    -- weekly dedup on 3XL warehouse
-
-    use warehouse dpt_wh_3xl;
-    
-    create or replace table article_content_ordered_new as (
-    select RESOLVED_ID, 
-    HTML, 
-    TEXT, 
-    SNOWFLAKE_LOADED_AT,
-    TEXT_MD5,
-    current_timestamp() as last_ordered
-    from article_content_ordered_live
-    qualify row_number() over (partition by resolved_id order by snowflake_loaded_at desc) = 1
-    order by resolved_id);
-
-    -- clean up ownership
-    grant ownership on table article_content_ordered_new to role LOADER REVOKE CURRENT GRANTS;
-
-    -- apply proper grants to new ordered table before swap
-
-    grant select, delete on table article_content_ordered_new to role USER_DATA_DELETION_ROLE;
-    grant all on table article_content_ordered_new to role ML_SERVICE_ROLE;
-    grant select on table article_content_ordered_new to role TRANSFORMER;
-    grant select on table article_content_ordered_new to role SELECT_ALL_ROLE;
-
-    -- swap and drop old table
-    
-    alter table article_content_ordered_live swap with article_content_ordered_new;
-    drop table article_content_ordered_new;
-    
-"""
-
 # Need to check the last_ordered value to determine if reorder is needed
 WEEKLY_DEDUP_CHECK_SQL = """select datediff('hours', max(last_ordered), current_timestamp()) > 168 as ready_for_reordering
    from IDENTIFIER(%(full_name)s);"""
 
-# function to encapsulate the temp sql file logic
-def create_temp_sql_file(sql_text: str) -> None:
-    """Helper function to load sql_text to gile path in global variable.
+# create a base sql file path that will work locally and in prod docker env
+BASE_SQL_FILE_PATH = os.path.join(
+    os.getenv("DATA_FLOWS_SOURCE_DIR", pathlib.Path(__file__).parents[1]),
+    "flows/sql",
+)
 
-    Args:
-        sql_text (str): sql text to write to file
-    """
-    with open(TEMP_SQL_FILE_LOC, "w") as fp:
-        fp.write(sql_text)
+INSERT_ORDERED_SQL_FILE = os.path.join(
+    BASE_SQL_FILE_PATH, "article_text_insert_ordered.sql"
+)
+WEEKLY_DEDUP_SQL_FILE = os.path.join(
+    BASE_SQL_FILE_PATH, "article_text_weekly_dedup.sql"
+)
 
 
 @task()
@@ -241,9 +185,8 @@ def ordered_dataset_insert_transform() -> None:
     """
     logger = prefect.context.get("logger")
     logger.info("Adding new records to article_content_ordered_live dataset...")
-    create_temp_sql_file(INSERT_ORDERED_SQL)
     result = SnowflakeQueriesFromFile(**FLOW_SNOWFLAKE_DICT).run(
-        file_path=TEMP_SQL_FILE_LOC
+        file_path=INSERT_ORDERED_SQL_FILE
     )
     logger.info(f"Inserted {result[1][0][0]} rows...")
 
@@ -267,8 +210,9 @@ def weekly_reordering_transform() -> None:
     # this should be Saturday
     if current_dt.day_of_week == 6 and ready_for_reordering:
         logger.info("Executing reordering of article_content_ordered_live dataset...")
-        create_temp_sql_file(WEEKLY_DEDUP_SQL)
-        SnowflakeQueriesFromFile(**FLOW_SNOWFLAKE_DICT).run(file_path=TEMP_SQL_FILE_LOC)
+        SnowflakeQueriesFromFile(**FLOW_SNOWFLAKE_DICT).run(
+            file_path=WEEKLY_DEDUP_SQL_FILE
+        )
     else:
         logger.info("Reordering not needed at this time...")
 
@@ -276,7 +220,7 @@ def weekly_reordering_transform() -> None:
 with Flow(
     FLOW_NAME,
     executor=LocalDaskExecutor(),
-    schedule=get_interval_schedule(minutes=1440),
+    schedule=get_interval_schedule(minutes=60),
 ) as flow:
     source_keys_results = get_source_keys()
     extract_results = extract.map(source_keys_results)
