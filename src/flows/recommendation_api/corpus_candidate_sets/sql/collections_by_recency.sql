@@ -7,12 +7,12 @@ WITH recent_collections AS (
   LEFT JOIN "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS" s ON (
     s.approved_corpus_item_external_id = a.approved_corpus_item_external_id
     AND s.SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < current_timestamp()
-    AND s.SCHEDULED_SURFACE_ID = %(SURFACE)s
+    AND s.SCHEDULED_SURFACE_ID = %(SCHEDULED_SURFACE_ID)s
   )
   WHERE a.IS_COLLECTION
   AND a.CORPUS_REVIEW_STATUS = 'recommendation'
   AND a.LANGUAGE = %(LANGUAGE)s
-  AND recency > DATEADD("day", %(MAX_AGE_DAYS)s, current_timestamp())
+  AND recency between DATEADD("day", %(MAX_AGE_DAYS)s, current_timestamp()) and current_timestamp()
   QUALIFY row_number() OVER (PARTITION BY a.APPROVED_CORPUS_ITEM_EXTERNAL_ID ORDER BY recency DESC) = 1
 )
 

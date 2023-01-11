@@ -17,13 +17,13 @@ static_candidate_set_configs = [
         id='92af3dae-25c9-46c3-bf05-18082aacc7e1',
         name='en_us/collections_by_recency',
         query_filename='collections_by_recency.sql',
-        query_params={'LANGUAGE': 'EN', 'SURFACE': 'NEW_TAB_EN_US', 'MAX_AGE_DAYS': -60}
+        query_params={'LANGUAGE': 'EN', 'SCHEDULED_SURFACE_ID': 'NEW_TAB_EN_US', 'MAX_AGE_DAYS': -60}
     ),
     CorpusCandidateSetConfig(
         id='ce0e010b-d73d-45e2-a4cd-4abbff74d168',
         name='de_de/collections_by_recency_de_de',
         query_filename='collections_by_recency.sql',
-        query_params={'LANGUAGE': 'DE', 'SURFACE': 'NEW_TAB_DE_DE', 'MAX_AGE_DAYS': -60},
+        query_params={'LANGUAGE': 'DE', 'SCHEDULED_SURFACE_ID': 'NEW_TAB_DE_DE', 'MAX_AGE_DAYS': -60},
     ),
     CorpusCandidateSetConfig(
         id='da9cb7a1-3a34-4211-b918-73819a5586c8',
