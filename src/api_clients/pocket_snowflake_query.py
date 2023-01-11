@@ -1,7 +1,7 @@
 import base64
 from enum import Enum
 import os
-from typing import Any
+from typing import Any, Union, Dict
 
 from prefect.tasks.snowflake import SnowflakeQuery
 from prefect.utilities.tasks import defaults_from_attrs
@@ -30,7 +30,7 @@ class PocketSnowflakeQuery(SnowflakeQuery):
     def __init__(
             self,
             query: str = None,
-            data: tuple = None,
+            data: Union[tuple, Dict] = None,
             private_key_env_var_name: str = "SNOWFLAKE_PRIVATE_KEY",
             account_env_var_name: str = "SNOWFLAKE_ACCOUNT",
             user_env_var_name: str = "SNOWFLAKE_USER",
@@ -67,7 +67,7 @@ class PocketSnowflakeQuery(SnowflakeQuery):
     def run(
             self,
             query: str = None,
-            data: tuple = None,
+            data: Union[tuple, Dict] = None,
             private_key_env_var_name: str = None,
             private_key: bytes = None,
             account_env_var_name: str = None,
