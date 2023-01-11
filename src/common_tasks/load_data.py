@@ -14,7 +14,7 @@ def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str)
     Update SageMaker feature group.
 
     Args:
-        df : the data in a dataframe to upload to the feature group
+        dataframe : the data in a dataframe to upload to the feature group
         feature_group_name: the name of the feature group to upload the data to
 
     Returns:
