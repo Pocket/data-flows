@@ -1,16 +1,18 @@
-from typing import Dict
+from typing import Dict, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CorpusCandidateSetConfig(BaseModel):
-    id: str
-    name: str
-    query_filename: str  # Query result is expected to have columns 'ID', 'TOPIC', 'PUBLISHER'
-    query_params: Dict
+    id: str = Field(description='UUID identifying the candidate set')
+    name: str = Field(description='Internal human-readable name for the candidate set')
+    query_filename: str = Field(
+        description='Filename of Snowflake query located in src/flows/recommendation_api/corpus_candidate_sets/sql/. '
+                    'Query result must contain CorpusItem columns "ID", "TOPIC", "PUBLISHER".')
+    query_params: Optional[Dict] = Field(description='Optional Snowflake query parameters')
 
 
-corpus_candidate_set_configs = [
+static_candidate_set_configs = [
     CorpusCandidateSetConfig(
         id='92af3dae-25c9-46c3-bf05-18082aacc7e1',
         name='en_us/collections_by_recency',
