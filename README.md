@@ -22,6 +22,12 @@ We use two environments in this repo:
 - docker
 - PyCharm
 
+#### Black Formatting
+
+[Black](https://github.com/psf/black) is will be installed as part of your Dev dependencies.  This is a great way to auto format your Python code.  You can even install it as the default formatter in your IDE to format on save.  Here is a link to an example for vs-code: https://code.visualstudio.com/docs/python/editing#_formatting.
+
+We will probably not add Black formatting check as part of the PR process for this version of Prefect v1.  However, we may require it for developing and deploying flows on v2.
+
 #### One-time setup of your local environment:
 1. Copy the `.env.example` file to a file in the same directory called `.env`. Change the values according to the instructions you find in that file. :warning: Do not put your credentials in `.env.example` to prevent accidentally checking them into git. Modifying `.env` is safe because it's git ignored.
    1. Set `PREFECT__CLOUD__API_KEY` to a Prefect API key that you can create on the [API keys page](https://cloud.prefect.io/user/keys).
