@@ -24,7 +24,7 @@ WITH prep as (
     WHERE REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD('day', -90, current_timestamp())
     AND CORPUS_REVIEW_STATUS = 'recommendation'
     AND TOPIC = %(CORPUS_TOPIC_ID)s
-    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    AND SCHEDULED_SURFACE_ID = %(SCHEDULED_SURFACE_ID)s
     AND NOT is_syndicated
     AND NOT is_collection
     
@@ -39,7 +39,7 @@ WITH prep as (
     WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT BETWEEN DATEADD('day', -90, current_timestamp()) AND current_timestamp()
     AND CORPUS_ITEM_LOADED_FROM = 'MANUAL'
     AND TOPIC = %(CORPUS_TOPIC_ID)s
-    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    AND SCHEDULED_SURFACE_ID = %(SCHEDULED_SURFACE_ID)s
     AND NOT is_syndicated
     AND NOT is_collection
     
@@ -56,7 +56,16 @@ QUALIFY row_number() OVER (PARTITION BY ID ORDER BY REVIEW_TIME DESC) = 1
 GET_TOPICS_SQL = """
 SELECT 
     curated_corpus_candidate_set_id as "CURATED_CORPUS_CANDIDATE_SET_ID", 
-    corpus_topic_id as "CORPUS_TOPIC_ID"
+    corpus_topic_id as "CORPUS_TOPIC_ID",
+    'NEW_TAB_EN_US' as "SCHEDULED_SURFACE_ID"
+FROM analytics.dbt.static_corpus_candidate_set_topics
+
+UNION ALL
+
+SELECT
+    german_curated_corpus_candidate_set_id as "CURATED_CORPUS_CANDIDATE_SET_ID",
+    corpus_topic_id as "CORPUS_TOPIC_ID",
+    'NEW_TAB_DE_DE' as "SCHEDULED_SURFACE_ID"
 FROM analytics.dbt.static_corpus_candidate_set_topics
 """
 
