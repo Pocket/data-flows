@@ -6,7 +6,7 @@ WITH recently_updated_items as (
         reviewed_corpus_item_updated_at as "REVIEW_TIME"
     FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS"
     WHERE CORPUS_REVIEW_STATUS = 'recommendation'
-    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    AND SCHEDULED_SURFACE_ID = %(SCHEDULED_SURFACE_ID)s
     AND NOT is_syndicated
     AND NOT is_collection
 ),
@@ -20,7 +20,7 @@ recently_scheduled_items as (
     FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
     WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < current_timestamp()
     AND CORPUS_ITEM_LOADED_FROM = 'MANUAL'  -- should this be removed?
-    AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
+    AND SCHEDULED_SURFACE_ID = %(SCHEDULED_SURFACE_ID)s
     AND NOT is_syndicated
     AND NOT is_collection
 ),

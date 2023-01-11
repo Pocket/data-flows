@@ -13,7 +13,6 @@ from common_tasks.corpus_candidate_set import (
 )
 from models.corpus_candidate_set_configs import corpus_candidate_set_configs, CorpusCandidateSetConfig
 from utils import config
-from utils.config import SQL_DIR
 from utils.flow import get_flow_name, get_interval_schedule
 
 FLOW_NAME = get_flow_name(__file__)
