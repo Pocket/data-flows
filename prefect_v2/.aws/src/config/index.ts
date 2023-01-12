@@ -11,18 +11,10 @@ const version =
     ? process.env['PACKAGE_VERSION']
     : 'dev';
 const log_retention_days = 30;
-const agentCpu = '1024';
-const agentMemory = '2048';
+const agentCpu = 1024;
+const agentMemory = 2048;
 const agentTaskCount = 1;
 const agentImage = 'prefecthq/prefect:2-python3.10';
-// these final configs allow the testing of the CircleCI OpenID Role in Dev
-const circleCIDevWorkspaceName = 'prefect-v2-circleci-dev';
-const isLocal = process.env['DPT_IS_LOCAL'] === 'true';
-const testCircleCIArn = process.env['DPT_LOCAL_CIRCLECI_ARN'];
-const runnerImage = 'pocket/pocket-build:prod';
-const runnerCpu = '2048';
-const runnerMemory = '4096';
-const runnerTaskCount = 2;
 
 export const config = {
   workspaceName,
@@ -38,12 +30,5 @@ export const config = {
   agentCpu,
   agentMemory,
   agentTaskCount,
-  agentImage,
-  circleCIDevWorkspaceName,
-  isLocal,
-  testCircleCIArn,
-  runnerCpu,
-  runnerMemory,
-  runnerTaskCount,
-  runnerImage
+  agentImage
 };

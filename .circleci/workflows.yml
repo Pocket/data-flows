@@ -1,9 +1,7 @@
 version: 2.1
 
 orbs:
-  aws-ecs: circleci/aws-ecs@2.0.0
   pocket: pocket/circleci-orbs@1.2.3
-  aws-cli: circleci/aws-cli@3.1
   node: circleci/node@5.0.3
   
 # Parameters to control monorepo workflows
@@ -119,15 +117,19 @@ jobs:
           path: test-reports
 
   v2-aws-changes-build:
-    machine: true
-    resource_class: pocket/default-dev
     parameters:
       node_env:
         default: "development"
         type: string
+      runner_resource_class:
+        default: pocket/default-dev
+        type: string
+    machine: true
+    resource_class: << parameters.runner_resource_class >>
     environment: 
       CDKTF_LOG_LEVEL: DEBUG
       NODE_ENV: << parameters.node_env >>
+      PACKAGE_VERSION: $(echo << pipeline.git.revision >> | cut -c -7)
     steps:
       - checkout:
           path: ~/repo
@@ -147,12 +149,43 @@ jobs:
             cd cdktf.out/stacks/prefect-v2
             terraform init
             terraform plan
-          name: check terraform plan dev
+          name: terraform plan
 
           
     working_directory: ~/repo/prefect_v2/.aws
 
-  
+  v2-aws-changes-deploy:
+      parameters:
+        node_env:
+          default: "development"
+          type: string
+        runner_resource_class:
+          default: pocket/default-dev
+          type: string
+      machine: true
+      resource_class: << parameters.runner_resource_class >>
+      environment: 
+        CDKTF_LOG_LEVEL: DEBUG
+        NODE_ENV: << parameters.node_env >>
+        PACKAGE_VERSION: $(echo << pipeline.git.revision >> | cut -c -7)
+      steps:
+      - checkout:
+          path: ~/repo
+      - node/install
+      - node/install-packages
+      - run:
+          command: |
+            npm run synth
+          name: generate terraform output
+      - run:
+          command: |
+            cd cdktf.out/stacks/prefect-v2
+            terraform init
+            terraform apply -auto-approve
+          name: terraform deploy
+
+            
+      working_directory: ~/repo/prefect_v2/.aws
 
 workflows:
   all:
@@ -288,11 +321,23 @@ workflows:
           requires:
             - deploy_dev
   v2-aws-changes:
+    when: << pipeline.parameters.v2-aws-changes >>
     jobs: 
       - v2-aws-changes-build:
           <<: *not_dev_main
           context: pocket
           node_env: development
+          runner_resource_class: pocket/default-dev
+      - v2-aws-changes-deploy:
+          <<: *only_dev
+          context: pocket
+          node_env: development
+          runner_resource_class: pocket/default-dev
+      - v2-aws-changes-deploy:
+          <<: *only_main
+          context: pocket
+          node_env: production
+          runner_resource_class: pocket/default-production
       
   
 # VS Code Extension Version: 1.5.1
