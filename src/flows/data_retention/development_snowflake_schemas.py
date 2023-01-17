@@ -33,7 +33,7 @@ def query():
 
 
 @task()
-def drop_schema(row: dict[str]):
+def drop_schema(row: list[str]):
     schema_name = row[1]
     return query().run(query=f'DROP SCHEMA {schema_name}')
 
