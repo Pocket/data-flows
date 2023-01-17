@@ -29,19 +29,14 @@ only_dev_v2: &only_dev_v2
 has_aws_changes: &has_aws_changes
   when: << pipeline.parameters.aws_changes >>
 
-aws_no_op: &aws_no_op
-  when:
-    not: << pipeline.parameters.aws_changes >>
-
-
 # Reusable commands for jobs
 commands:
   no_op:
     steps:
       - run:
-          name: No Op Build Step
+          name: Build Completed
           command: |
-            echo "No build steps needed."
+            echo "All build steps expected have completed."
 
 # Jobs to be used by workflows
 # Use of conditionals allow required checks to pass when build steps are not needed
@@ -81,10 +76,7 @@ jobs:
                 terraform init
                 terraform plan
               name: terraform plan
-      - when:
-          condition: aws_no_op
-          steps:
-            - no_op
+      - no_op
     working_directory: ~/repo/.aws
 
   aws_changes_deploy:
@@ -119,10 +111,7 @@ jobs:
                     terraform init
                     terraform apply -auto-approve
                   name: terraform deploy
-        - when:
-            condition: aws_no_op
-            steps:
-              - no_op
+        - no_op
       working_directory: ~/repo/.aws
 
 workflows:
