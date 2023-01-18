@@ -1,4 +1,6 @@
 -- to be run on 3XL Warehouse as a one-time run as role "loader"
+    use warehouse dpt_wh_3xl;
+    
     create or replace table snapshot.item.article_content_ordered_snapshot as (
     select RESOLVED_ID, 
     HTML, 
