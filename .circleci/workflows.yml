@@ -1,0 +1,146 @@
+version: 2.1
+  
+# Parameters to control monorepo conditionals
+parameters:
+  aws_changes:
+    type: boolean
+    default: false
+
+# Workflow and job shortcuts
+only_main_v2: &only_main_v2
+  filters:
+    branches:
+      only:
+        - main-v2
+
+not_dev_main_v2: &not_dev_main_v2
+  filters:
+    branches:
+      ignore:
+        - dev-v2
+        - main-v2
+
+only_dev_v2: &only_dev_v2
+  filters:
+    branches:
+      only:
+        - dev-v2
+
+has_aws_changes: &has_aws_changes
+  when: << pipeline.parameters.aws_changes >>
+
+# Reusable commands for jobs
+commands:
+  no_op:
+    steps:
+      - run:
+          name: Build Completed
+          command: |
+            echo "All build steps expected have completed."
+
+# Jobs to be used by workflows
+# Use of conditionals allow required checks to pass when build steps are not needed
+# Conditionals will the trigger the appropriate steps for the appropriate folders/files
+jobs:
+  aws_changes_build:
+    parameters:
+      node_env:
+        default: "development"
+        type: string
+      runner_resource_class:
+        default: pocket/default-dev
+        type: string
+    machine: true
+    resource_class: << parameters.runner_resource_class >>
+    environment: 
+      CDKTF_LOG_LEVEL: DEBUG
+      NODE_ENV: << parameters.node_env >>
+    steps:
+      - when: 
+          condition: has_aws_changes
+          steps:
+          - checkout:
+              path: ~/repo
+          - run:
+              command: |
+                . /home/circleci/.codebuild_shims_wrapper.sh
+                nvm install
+                npm install
+                [[ ${NODE_ENV} == "development" ]] && npm run prettier-check
+                [[ ${NODE_ENV} == "development" ]] && npm run lint
+                npm run synth
+              name: install packages, lint, and create tf template
+          - run:
+              command: |
+                cd cdktf.out/stacks/prefect-v2
+                terraform init
+                terraform plan
+              name: terraform plan
+      - no_op
+    working_directory: ~/repo/.aws
+
+  aws_changes_deploy:
+      parameters:
+        node_env:
+          default: "development"
+          type: string
+        runner_resource_class:
+          default: pocket/default-dev
+          type: string
+      machine: true
+      resource_class: << parameters.runner_resource_class >>
+      environment: 
+        CDKTF_LOG_LEVEL: DEBUG
+        NODE_ENV: << parameters.node_env >>
+      steps:
+        - when: 
+            condition: has_aws_changes
+            steps:
+              - checkout:
+                  path: ~/repo
+              - run:
+                  command: |
+                    . /home/circleci/.codebuild_shims_wrapper.sh
+                    nvm install
+                    npm install
+                    npm run synth
+                  name: install packages and create tf template
+              - run:
+                  command: |
+                    cd cdktf.out/stacks/prefect-v2
+                    terraform init
+                    terraform apply -auto-approve
+                  name: terraform deploy
+        - no_op
+      working_directory: ~/repo/.aws
+
+workflows:
+  aws_changes_workflow:
+    jobs: 
+      - aws_changes_build:
+          <<: *not_dev_main_v2
+          context: pocket
+          node_env: development
+          runner_resource_class: pocket/default-dev
+          name: terraform plan dev
+      - aws_changes_build:
+          <<: *not_dev_main_v2
+          context: pocket
+          node_env: production
+          runner_resource_class: pocket/default-prod
+          name: terraform plan production
+      - aws_changes_deploy:
+          <<: *only_dev_v2
+          context: pocket
+          node_env: development
+          runner_resource_class: pocket/default-dev
+          name: terraform apply dev
+      - aws_changes_deploy:
+          <<: *only_main_v2
+          context: pocket
+          node_env: production
+          runner_resource_class: pocket/default-prod
+          name: terraform apply production
+      
+  
+# VS Code Extension Version: 1.5.1
