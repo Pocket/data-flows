@@ -102,3 +102,23 @@ ARTICLES_DB_SCHEMA_DICT = {
         "articles_schema_name": "item",
     },
 }
+
+PROSPECTING_TRAINING_FLOWS = {
+    "local": ["test-sfn-1", "test-sfn-2"],
+    "production": [
+        "GlobalProspectModelTrainingFlow",
+        "TimespentProspectModelTrainingFlow",
+        "V1ProspectModelTrainingFlow",
+    ],
+}
+
+PROSPECTING_PROSPECTS_FLOWS = {
+    "local": ["test-sfn-3", "test-sfn-4"],
+    "production": [
+        "AllowlistProspectsFlow",
+        "CuratedProspectsFlow",
+        "GlobalProspectsFlow",
+        "SyndicatedProspectsFlow",
+        "TimespentProspectsFlow",
+    ],
+}
