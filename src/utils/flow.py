@@ -24,12 +24,12 @@ def get_s3_result() -> S3Result:
     return S3Result(bucket=PREFECT_S3_RESULT_BUCKET)
 
 
-def get_interval_schedule(minutes: int) -> IntervalSchedule:
+def get_interval_schedule(minutes: int, **kwargs) -> IntervalSchedule:
     """
     :return: Prefect IntervalSchedule for PROD only environment.
     """
     if ENVIRONMENT == ENV_PROD:
-        schedule = IntervalSchedule(interval=timedelta(minutes=minutes))
+        schedule = IntervalSchedule(interval=timedelta(minutes=minutes), **kwargs)
     else:
         schedule = None
 

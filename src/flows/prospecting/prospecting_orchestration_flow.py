@@ -2,6 +2,7 @@ import json
 
 import boto3
 import boto3.session
+from pendulum import datetime as pd_dt
 from pendulum import now as pd_now
 from prefect import Flow, task, unmapped
 from prefect.executors import DaskExecutor
@@ -47,9 +48,12 @@ def create_sfn_execution_names(sfn_flow_names: list) -> list:
     return [f"{x}-{pd_now('UTC').int_timestamp}" for x in sfn_flow_names]
 
 
-with Flow(
-    FLOW_NAME, schedule=get_interval_schedule(minutes=120), executor=DaskExecutor()
-) as flow:
+FLOW_SCHEDULE = get_interval_schedule(
+    minutes=120, start_date=pd_dt(2023, 2, 15, 7, 5, tz="America/Los_Angeles")
+)
+
+
+with Flow(FLOW_NAME, schedule=FLOW_SCHEDULE, executor=DaskExecutor()) as flow:
     # create the list of sfn flow arns and execution names
     training_arns = create_sfn_arns(STEP_FUNCTION_TRAINING_FLOWS)
     prospects_arns = create_sfn_arns(STEP_FUNCTION_PROSPECTS_FLOWS)
