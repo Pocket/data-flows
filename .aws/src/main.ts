@@ -7,9 +7,15 @@ import { config } from './config';
 import { App, TerraformStack, CloudBackend, NamedCloudWorkspace } from 'cdktf';
 import { DataAwsRegion } from '@cdktf/provider-aws/lib/data-aws-region';
 import { DataAwsCallerIdentity } from '@cdktf/provider-aws/lib/data-aws-caller-identity';
-import { AgentIamPolicies } from './iam';
+import { AgentIamPolicies, DataFlowsIamRoles } from './iam';
 import { DataAwsSecretsmanagerSecret } from '@cdktf/provider-aws/lib/data-aws-secretsmanager-secret';
-import { PocketECSApplication } from '@pocket-tools/terraform-modules';
+import {
+  ApplicationECR,
+  PocketECSApplication
+} from '@pocket-tools/terraform-modules';
+import { S3Bucket } from '@cdktf/provider-aws/lib/s3-bucket';
+import { S3BucketVersioningA } from '@cdktf/provider-aws/lib/s3-bucket-versioning';
+import { S3BucketPublicAccessBlock } from '@cdktf/provider-aws/lib/s3-bucket-public-access-block';
 
 // main Terraform Stack object for Prefect V2 infrastructure
 class PrefectV2 extends TerraformStack {
@@ -50,6 +56,66 @@ class PrefectV2 extends TerraformStack {
     // we need an agent per queue...so we create 2 agent services
     this.getAgentService('test');
     this.getAgentService('live');
+
+    // create new data-flows-prefect-envs ECR Repo
+    new ApplicationECR(this, 'data-flows-prefect-envs-ecr', {
+      name: 'data-flows-prefect-envs'
+    });
+
+    // create live and test filesystems
+    const testFS = this.createDataFlowsBucket('test');
+    const liveFS = this.createDataFlowsBucket('live');
+
+    // create live and test iam roles
+    new DataFlowsIamRoles(
+      this,
+      'dataFlowTestRoles',
+      testFS,
+      this.caller,
+      this.region,
+      config.tags.environment,
+      'test'
+    );
+    new DataFlowsIamRoles(
+      this,
+      'dataFlowLiveRoles',
+      liveFS,
+      this.caller,
+      this.region,
+      config.tags.environment,
+      'live'
+    );
+  }
+
+  // create new data-flows-prefect-filesystem S3 buckets
+  // this is used for flow artifacts and staging as needed
+  private createDataFlowsBucket(deploymentType: string): S3Bucket {
+    const artifactsBucket = new S3Bucket(
+      this,
+      `dataFlowsPrefectFs${deploymentType}`,
+      {
+        bucket: `data-flows-prefect-fs-${config.tags.environment}-${deploymentType}`
+      }
+    );
+    new S3BucketVersioningA(
+      this,
+      `dataFlowsPrefectFsVConfig${deploymentType}`,
+      {
+        bucket: artifactsBucket.id,
+        versioningConfiguration: {
+          status: 'Enabled'
+        }
+      }
+    );
+    new S3BucketPublicAccessBlock(this, `dataFlowsPrefectFsPublicAccess${deploymentType}`, {
+      bucket: artifactsBucket.id,
+      blockPublicAcls: true,
+      blockPublicPolicy: true,
+      ignorePublicAcls: true,
+      restrictPublicBuckets: true
+    }
+      )
+    return artifactsBucket;
   }
 
   // create a task definition and service using private methods and params

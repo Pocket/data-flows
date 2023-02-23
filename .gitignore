@@ -2,6 +2,9 @@
 .idea
 *__pycache__
 
+# Python
 .env
-*.env
 .venv
+.pytest_cache
+dist
+.coverage
