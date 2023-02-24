@@ -130,10 +130,9 @@ jobs:
               path: ~/repo
           - run:
               command: |
-                curl -sSL https://install.python-poetry.org | python3 -
-                $HOME/.local/bin/poetry install --only main, dev
-                $HOME/.local/bin/poetry run black check --exclude .venv .
-                $HOME/.local/bin/poetry run python -m pytest --cov=src/common --cov-report term-missing --cov-fail-under=100
+                poetry install --only main,dev
+                poetry run black check --exclude .venv .
+                poetry run python -m pytest --cov=src/common --cov-report term-missing --cov-fail-under=100
               name: Install dependencies and run tests
       - no_op
     working_directory: ~/repo/common-utils
