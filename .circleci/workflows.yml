@@ -122,6 +122,8 @@ jobs:
   common_utils_changes_build:
     docker:
       - image: cimg/python:3.10
+    environment: 
+      PAGER: cat
     steps:
       - when: 
           condition: has_common_utils_changes
@@ -131,7 +133,7 @@ jobs:
           - run:
               command: |
                 poetry install --only main,dev
-                poetry run black check --exclude .venv .
+                poetry run black --check --exclude .venv .
                 poetry run python -m pytest --cov=src/common --cov-report term-missing --cov-fail-under=100
               name: Install dependencies and run tests
       - no_op
