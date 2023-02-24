@@ -137,7 +137,7 @@ jobs:
                 apt clean && apt autoremove -y
                 rm -rf /var/lib/apt/lists/*
                 poetry config virtualenvs.create false
-                poetry install --only main,dev
+                poetry install --no-ansi --only main,dev
                 black --check .
                 python -m pytest --cov=src/common --cov-report term-missing --cov-fail-under=100
               name: Install dependencies and run tests
