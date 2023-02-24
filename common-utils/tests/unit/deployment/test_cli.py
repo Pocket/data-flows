@@ -1,5 +1,5 @@
-from common.deployment.cli import parse_args, main
 from unittest.mock import patch
+from common.deployment.cli import main, parse_args
 
 
 def test_parse_args():
@@ -12,4 +12,10 @@ def test_parse_args():
 @patch("common.deployment.cli.process_project_env")
 def test_main(mock_process):
     main([])
+    assert mock_process.called
+
+
+@patch("common.deployment.cli.process_project_env")
+def test_main_help(mock_process):
+    main()
     assert mock_process.called

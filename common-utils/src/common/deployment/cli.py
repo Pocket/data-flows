@@ -43,7 +43,7 @@ def parse_args(args: list[str]) -> Namespace:
     return parser.parse_args(args)
 
 
-def main(args: list[str]) -> None:
+def main(args: list[str] = []) -> None:
     """Main function for operationalizing CLI"""
     parsed = parse_args(args)
     process_project_env(parsed.build_only)
