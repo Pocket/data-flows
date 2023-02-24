@@ -163,6 +163,8 @@ workflows:
           node_env: production
           runner_resource_class: pocket/default-prod
           name: terraform apply production
+  common_utils_changes_workflow:
+    jobs: 
       - common_utils_changes_build:
           <<: *not_dev_main_v2
           name: common-utils build
