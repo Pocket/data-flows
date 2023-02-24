@@ -107,14 +107,17 @@ class PrefectV2 extends TerraformStack {
         }
       }
     );
-    new S3BucketPublicAccessBlock(this, `dataFlowsPrefectFsPublicAccess${deploymentType}`, {
-      bucket: artifactsBucket.id,
-      blockPublicAcls: true,
-      blockPublicPolicy: true,
-      ignorePublicAcls: true,
-      restrictPublicBuckets: true
-    }
-      )
+    new S3BucketPublicAccessBlock(
+      this,
+      `dataFlowsPrefectFsPublicAccess${deploymentType}`,
+      {
+        bucket: artifactsBucket.id,
+        blockPublicAcls: true,
+        blockPublicPolicy: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+      }
+    );
     return artifactsBucket;
   }
 
