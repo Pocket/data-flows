@@ -10,5 +10,6 @@ workflows:
           config-path: .circleci/workflows.yml
           mapping: |
             [.]aws/.* aws_changes true
+            common-utils/.* common_utils_changes true
 
 # VS Code Extension Version: 1.5.1
