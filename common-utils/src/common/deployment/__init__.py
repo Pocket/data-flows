@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
@@ -26,6 +27,7 @@ from pydantic import (
     FilePath,
     PrivateAttr,
     StrictStr,
+    conint,
     validator,
 )
 from pydantic.error_wrappers import ValidationError
@@ -99,18 +101,48 @@ def standard_slugify(string: str) -> str:
     return slugify(string, separator="-").lower()
 
 
-def create_image_name_str(project_name: str, env_name: str, python_version: str) -> str:
+# model for pyproject metadata
+class PyProjectMetadata(BaseModel):
+    """Model to call namespaced metadata"""
+
+    project_name: str
+    prefect_flows_folder: str
+    docker_envs: dict
+
+
+# creating and running a helper function to extract project metadata for rest of the module to use.
+def get_pyproject_metadata() -> PyProjectMetadata:
+    """Produce a PyProjectMetadata object from PYPROJECT_PATH
+
+    Returns:
+        PyProjectMetadata: Model containing the pyproject metadata.
+    """
+    with open(PYPROJECT_PATH) as t:
+        config = toml.load(t)
+    project_name = standard_slugify(config["tool"]["poetry"]["name"])
+    prefect_flows_folder = config["tool"].get("prefect", {}).get("flows_folder", "src")
+    docker_envs = config["tool"].get("prefect", {"envs": {}})["envs"]
+    return PyProjectMetadata(
+        project_name=project_name,
+        prefect_flows_folder=prefect_flows_folder,
+        docker_envs=docker_envs,
+    )
+
+
+PYPROJECT_METADATA = get_pyproject_metadata()
+
+
+def create_image_name_str(env_name: str, python_version: str) -> str:
     """Helper function to create image name to enable resuability.
 
     Args:
-        project_name (str): Slugified Project name from pyproject.toml.
         env_name (str): Slugified Docker env name.
         python_version (str): Python version.
 
     Returns:
         str: _description_
     """
-    return f"{standard_slugify(project_name)}-{standard_slugify(env_name)}-py-{python_version}"
+    return f"{PYPROJECT_METADATA.project_name}-{standard_slugify(env_name)}-py-{python_version}"
 
 
 def get_aws_account_id() -> str:
@@ -141,7 +173,6 @@ def get_flow_folder(flow_path: Path) -> str:
 class FlowDockerEnv(BaseModel):
     """Model that represents a Prefect Docker environment."""
 
-    project_name: StrictStr
     env_name: StrictStr
     dockerfile_path: FilePath
     python_version: Literal["3.10"]
@@ -151,7 +182,7 @@ class FlowDockerEnv(BaseModel):
     def build_image(self) -> None:
         """Build a docker image using model attributes."""
         image_name = create_image_name_str(
-            self.project_name, self.env_name, self.python_version
+            self.env_name, self.python_version  # type: ignore
         )
         self._image_name = image_name
         dockerfile_path = self.dockerfile_path
@@ -182,11 +213,10 @@ class ProjectEnvs(BaseModel):
     This will store the list of docker envs to build and push.
     """
 
-    project_name: StrictStr
     docker_envs: list[FlowDockerEnv]
 
     def _push_environments(self, build_only: bool = False) -> None:
-        """_summary_
+        """Build and optionally push ECR Image.
 
         Args:
             build_only (bool, optional): _description_. Defaults to False.
@@ -198,13 +228,13 @@ class ProjectEnvs(BaseModel):
                 env.push_image(account_id)
 
     def _create_file_systems(self, build_only: bool = False) -> None:
-        """_summary_
+        """Create Prefect S3 filesystem for project.
 
         Args:
             build_only (bool, optional): Switch to only run if True. Defaults to False.
         """
         if not build_only:
-            project_name = standard_slugify(self.project_name)
+            project_name = PYPROJECT_METADATA.project_name
             for deployment_type in ["test", "live"]:
                 bucket_name = (
                     f"data-flows-prefect-fs-{ENVIRONMENT_TYPE}-{deployment_type}"
@@ -273,7 +303,6 @@ class FlowDeployment(BaseModel):
 
     def push_deployment(
         self,
-        project_name: str,
         storage_path: str,
         infrastructure: str,
         flow_path: Path,
@@ -283,13 +312,13 @@ class FlowDeployment(BaseModel):
         """This method will push a Prefect deployment to Prefect using the deployment cli.
 
         Args:
-            project_name (str): Poetry project name so that we can use in tags.
             storage_block_path (str): Remote storage block path to use for flow files.
             infrastructure (str): ECS Task block name to use for the flow execution environment.
             flow_path (Path): Relative path to the flow python file.
             flow_function_name: (str): Name of the flow function to deploy.
             skip_upload (bool): Whether to skip upload. Will be set to True after first deployment pushed for flow.
         """
+        project_name = PYPROJECT_METADATA.project_name
         deployment_name = standard_slugify(self.deployment_name)
         flow_file_name = flow_path.name
         overrides = f"--override cpu={self.cpu} --override memory={self.memory}"
@@ -330,7 +359,7 @@ class FlowSpec(BaseModel):
         ...,
         description="docker environment name from pyproject.toml, which is the key name in '[tool.prefect.envs.base]'",
     )
-    ephemeral_storage_gb: int = 20
+    ephemeral_storage_gb: conint(gt=19, lt=200) = 20  # type: ignore
     deployments: list[FlowDeployment] = []
     _slugified_flow_name: StrictStr = PrivateAttr()
     _project_name: StrictStr = PrivateAttr()
@@ -344,25 +373,20 @@ class FlowSpec(BaseModel):
         """
         if DISABLE_FLOW_SPEC != "true":
             super().__init__(**data)
-            with open(PYPROJECT_PATH) as t:
-                config = toml.load(t)
-            project_name = standard_slugify(config["tool"]["poetry"]["name"])
+            project_name = PYPROJECT_METADATA.project_name
             self._project_name = project_name
             self.flow.name = f"{project_name}.{standard_slugify(self.flow.fn.__name__)}"
 
     @validator("docker_env")
     def docker_env_must_be_registered(cls, v):
-        with open(PYPROJECT_PATH) as t:
-            config = toml.load(t)
-        docker_envs = [
-            k for k in config["tool"].get("prefect", {"envs": {}})["envs"].keys()
-        ]
-        if v not in docker_envs:
+        docker_envs = PYPROJECT_METADATA.docker_envs
+        if v not in docker_envs.keys():
             raise ValueError(
                 "Docker env does not exist in pyproject.toml.  It must be the key name in a '[tool.prefect.envs.<key name>]' configuration."
             )
         else:
-            return v
+            # return image string
+            return create_image_name_str(ENVIRONMENT_TYPE, PYPROJECT_METADATA.docker_envs[v]["python_version"])  # type: ignore
 
     def _create_ecs_task_block(self):
         """This method will create the ECS Task block as supported by common-utils."""
@@ -374,7 +398,7 @@ class FlowSpec(BaseModel):
         ecs_block = ECSTask(
             name=block_name,
             family=task_name,
-            image=self.docker_env,
+            image=f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-envs:{self.docker_env}",
             cpu="256",
             memory="512",
             stream_output=True,
@@ -405,7 +429,6 @@ class FlowSpec(BaseModel):
         """Method for processing the flows deployments.
 
         Args:
-            project_name (str): Project name that get passed in from the FlowSpec
             so that we can leverage the project's filesystem.
             flow_path (Path): Path object for file name pf  flow file.
         """
@@ -420,7 +443,6 @@ class FlowSpec(BaseModel):
         flow_folder = get_flow_folder(flow_path)
         for d in self.deployments:
             d.push_deployment(
-                project_name,
                 f"{s3_block_name}/{flow_folder}/{self._slugified_flow_name}",
                 ecs_block_name,  # type: ignore
                 flow_path,
@@ -433,25 +455,18 @@ class FlowSpec(BaseModel):
 class PrefectProject(BaseModel):
     """Model used for fetching the project configuration and deploying docker envs and flows as needed."""
 
-    _project_name: str = PrivateAttr()
     _project_docker_envs: list[FlowDockerEnv] = PrivateAttr()
     _prefect_flows_folder: DirectoryPath = PrivateAttr()
 
     def __init__(self, **data) -> None:
         """Set the private fields on intansiation."""
         super().__init__(**data)
-        with open("pyproject.toml") as t:
-            config = toml.load(t)
-        project_name = standard_slugify(config["tool"]["poetry"]["name"])
-        self._project_name = project_name
         self._project_docker_envs = []
         envs = self._project_docker_envs
-        for k, v in config["tool"].get("prefect", {"envs": {}})["envs"].items():
-            env = FlowDockerEnv(project_name=project_name, env_name=k, **v)
+        for k, v in PYPROJECT_METADATA.docker_envs.items():
+            env = FlowDockerEnv(env_name=k, **v)
             envs.append(env)
-        self._prefect_flows_folder = (
-            config["tool"].get("prefect", {}).get("flows_folder", "src")
-        )
+        self._prefect_flows_folder = Path(PYPROJECT_METADATA.prefect_flows_folder)
 
     def process_project_docker_envs(self, build_only: bool = False) -> None:
         """Method to process project docker envs from the project's
@@ -460,9 +475,8 @@ class PrefectProject(BaseModel):
         Args:
             build_only (bool, optional): Whether to run docker build only. Defaults to False.
         """
-        project_name = self._project_name
         envs = self._project_docker_envs
-        project_docker_envs = ProjectEnvs(project_name=project_name, docker_envs=envs)
+        project_docker_envs = ProjectEnvs(docker_envs=envs)
         project_docker_envs.process(build_only)
 
     def process_project_flows(self, validate_only: bool = False) -> None:

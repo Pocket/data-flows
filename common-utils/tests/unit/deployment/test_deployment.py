@@ -60,7 +60,6 @@ def test_get_flow_folder():
 def test_flow_docker_env(mock_cmd):
     # Validate class methods using mock on run_command.
     x = FlowDockerEnv(
-        project_name="test",
         env_name="test",
         dockerfile_path=Path("tests/unit/deployment/testDockerfile"),
         docker_build_context=Path("tests/unit/deployment"),
@@ -99,7 +98,6 @@ def test_flow_deployment(mock_cmd):
         parameters={"test_param": "test_value"},
     )
     d5.push_deployment(
-        project_name="test-project",
         storage_path="test-bucket/test-folder",
         infrastructure="test-ECS-block",
         flow_path=Path("tests/unit/deployment/test_deployment.py"),
@@ -107,7 +105,7 @@ def test_flow_deployment(mock_cmd):
         skip_upload=True,
     )
     assert mock_cmd.call_count == 1
-    call_text = """export PREFECT_PYPROJECT_PATH=/users/mozilla/projects/data-flows/common-utils/pyproject.toml && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override cpu=1024 --override memory=4096 \\\n        -q prefect-v2-queue-dev-test \\\n        -v dev \\\n        --params \'{"test_param": "test_value"}\' \\\n        -t test-project -t deployment \\\n        -a \\\n        --interval 120 --skip-upload && \\\n        popd"""
+    call_text = """export PREFECT_PYPROJECT_PATH=/users/mozilla/projects/data-flows/common-utils/pyproject.toml && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override cpu=1024 --override memory=4096 \\\n        -q prefect-v2-queue-dev-test \\\n        -v dev \\\n        --params \'{"test_param": "test_value"}\' \\\n        -t common-utils -t deployment \\\n        -a \\\n        --interval 120 --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 
