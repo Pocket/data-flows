@@ -359,7 +359,7 @@ class FlowSpec(BaseModel):
         ...,
         description="docker environment name from pyproject.toml, which is the key name in '[tool.prefect.envs.base]'",
     )
-    ephemeral_storage_gb: conint(gt=19, lt=200) = 20  # type: ignore
+    ephemeral_storage_gb: conint(gt=19, lt=201) = 20  # type: ignore
     deployments: list[FlowDeployment] = []
     _slugified_flow_name: StrictStr = PrivateAttr()
     _project_name: StrictStr = PrivateAttr()
