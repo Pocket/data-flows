@@ -1,4 +1,5 @@
-from pathlib import Path
+from datetime import timedelta
+from pathlib import Path, PosixPath
 from unittest.mock import patch
 
 import pytest
@@ -10,6 +11,7 @@ from common.deployment import (
     CronSchedule,
     FlowDeployment,
     FlowDockerEnv,
+    FlowSecret,
     FlowSpec,
     IntervalSchedule,
     PrefectProject,
@@ -51,9 +53,9 @@ def test_run_command_execption():
 
 def test_get_flow_folder():
     # Validate function returns slugified value.
-    path = Path("test_test/1_2_3/test.py")
+    path = Path("tests/test_flows/flow_group_2/no_spec_example_flow.py")
     x = get_flow_folder(path)
-    assert x == "1-2-3"
+    assert x == "flow-group-2"
 
 
 @patch("common.deployment.run_command")
@@ -68,6 +70,9 @@ def test_flow_docker_env(mock_cmd):
     x.build_image()
     x.push_image("12345")
     assert mock_cmd.call_count == 2
+    mock_cmd.assert_called_with(
+        "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/push_image.sh common-utils-test-py-3.10 12345"
+    )
 
 
 @patch("common.deployment.run_command")
@@ -75,15 +80,15 @@ def test_flow_deployment(mock_cmd):
     # Test schedule method return cli arg as expected.
     d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
     x1 = d1._get_schedule_arg()
-    assert x1 == "--cron 0 0 * * *"
+    assert x1 == "--cron '0 0 * * *'"
     d2 = FlowDeployment(deployment_name="test", schedule=IntervalSchedule(interval=60))  # type: ignore
     x2 = d2._get_schedule_arg()
-    assert x2 == "--interval 60"
+    assert x2 == "--interval '60'"
     d3 = FlowDeployment(deployment_name="test", schedule=RRuleSchedule(rrule="FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17"))  # type: ignore
     x3 = d3._get_schedule_arg()
     assert (
         x3
-        == "--rrule FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17"
+        == "--rrule 'FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17'"
     )
     d4 = FlowDeployment(deployment_name="test")  # type: ignore
     x4 = d4._get_schedule_arg()
@@ -105,7 +110,7 @@ def test_flow_deployment(mock_cmd):
         skip_upload=True,
     )
     assert mock_cmd.call_count == 1
-    call_text = """export PREFECT_PYPROJECT_PATH=/users/mozilla/projects/data-flows/common-utils/pyproject.toml && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override cpu=1024 --override memory=4096 \\\n        -q prefect-v2-queue-dev-test \\\n        -v dev \\\n        --params \'{"test_param": "test_value"}\' \\\n        -t common-utils -t deployment \\\n        -a \\\n        --interval 120 --skip-upload && \\\n        popd"""
+    call_text = """export PREFECT_PYPROJECT_PATH=/users/mozilla/projects/data-flows/common-utils/pyproject.toml && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override cpu=1024 --override memory=4096 \\\n        -q prefect-v2-queue-dev-test \\\n        -v dev \\\n        --params \'{"test_param": "test_value"}\' \\\n        -t common-utils -t deployment \\\n        -a \\\n        --interval '120' --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 
@@ -114,7 +119,7 @@ def test_flow_deployment(mock_cmd):
 @patch("common.deployment.ECSTask.save")
 @patch("common.deployment.ECSTask.load")
 @patch("common.deployment.S3.load")
-def test_flow_spec(mock_deployment, mock_ecs_save, mock_ecs_load, mock_s3_load):
+def test_flow_spec(mock_s3_load, mock_ecs_load, mock_ecs_save, mock_deployment):
     # Test basic functionality of Flow Spec.
     # Mocking methods that make API calls to aid in testing.
     @task()
@@ -136,6 +141,78 @@ def test_flow_spec(mock_deployment, mock_ecs_save, mock_ecs_load, mock_s3_load):
     assert mock_ecs_load.call_count == 1
     assert mock_ecs_save.call_count == 1
     assert flow_1.name == "common-utils.flow-1"
+    mock_deployment.assert_called_with(
+        "common-utils-dev-test/flow-group-1/flow-1",
+        "common-utils-flow-1-dev-test",
+        PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
+        "flow_1",
+        False,
+    )
+    mock_ecs_load.assert_called_with("common-utils-flow-1-dev-test")
+    mock_ecs_save.assert_called_with("common-utils-flow-1-dev-test", overwrite=True)
+    mock_s3_load.assert_called_with("common-utils-dev-test")
+
+
+@mock_sts
+@patch("common.deployment.FlowDeployment.push_deployment")
+@patch("common.deployment.ECSTask.save")
+@patch("common.deployment.ECSTask.load")
+@patch("common.deployment.S3.load")
+def test_flow_spec_all_fields(
+    mock_s3_load, mock_ecs_load, mock_ecs_save, mock_deployment
+):
+    # Test basic functionality of Flow Spec.
+    # Mocking methods that make API calls to aid in testing.
+    @task()
+    def task_1():
+        print("hello world")
+
+    @flow()
+    def flow_1():
+        task_1()
+
+    flow_spec = FlowSpec(
+        flow=flow_1,
+        docker_env="base",
+        secrets=[
+            FlowSecret(
+                envar_name="MY_SECRET_JSON", secret_name="/my/secretsmanager/secret"
+            )
+        ],
+        ephemeral_storage_gb=200,
+        deployments=[
+            FlowDeployment(
+                deployment_name="base",
+                cpu="1024",
+                memory="4096",
+                parameters={"param_name": "param_value"},
+                schedule=CronSchedule(cron="0 0 * * *"),
+            ),
+            FlowDeployment(
+                deployment_name="hourly",
+                cpu="1024",
+                memory="4096",
+                parameters={"param_name": "param_value"},
+                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+            ),
+        ],  # type: ignore
+    )
+    flow_spec.push_deployments(Path("tests/test_flows/flow_group_1/example_flow.py"))
+    assert mock_deployment.call_count == 2
+    assert mock_s3_load.call_count == 1
+    assert mock_ecs_load.call_count == 1
+    assert mock_ecs_save.call_count == 1
+    assert flow_1.name == "common-utils.flow-1"
+    mock_deployment.assert_called_with(
+        "common-utils-dev-test/flow-group-1/flow-1",
+        "common-utils-flow-1-dev-test",
+        PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
+        "flow_1",
+        True,
+    )
+    mock_ecs_load.assert_called_with("common-utils-flow-1-dev-test")
+    mock_ecs_save.assert_called_with("common-utils-flow-1-dev-test", overwrite=True)
+    mock_s3_load.assert_called_with("common-utils-dev-test")
 
 
 @patch("common.deployment.DISABLE_FLOW_SPEC", "true")
@@ -169,7 +246,7 @@ def test_flow_spec_bad_docker_env():
 @patch("common.deployment.run_command")
 @patch("common.deployment.S3")
 @patch("common.deployment.FlowSpec.push_deployments")
-def test_flow_project_env(mock_cmd, mock_s3, mock_deployment):
+def test_flow_project_env(mock_deployment, mock_s3, mock_cmd):
     # Test the PrefectProject class, which is called by the cli
     # Mocking methods that make API calls to aid in testing.
     # This uses the test configuration in pyproject.toml.

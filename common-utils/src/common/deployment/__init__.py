@@ -293,11 +293,11 @@ class FlowDeployment(BaseModel):
         """
         schedule = self.schedule
         if isinstance(schedule, CronSchedule):
-            return f"--cron {schedule.cron}"
+            return f"--cron '{schedule.cron}'"
         elif isinstance(schedule, RRuleSchedule):
-            return f"--rrule {schedule.rrule}"
+            return f"--rrule '{schedule.rrule}'"
         elif isinstance(schedule, IntervalSchedule):
-            return f"--interval {schedule.interval.seconds}"
+            return f"--interval '{schedule.interval.seconds}'"
         else:
             return ""
 
@@ -362,6 +362,7 @@ class FlowSpec(BaseModel):
     ephemeral_storage_gb: conint(gt=19, lt=201) = 20  # type: ignore
     deployments: list[FlowDeployment] = []
     _slugified_flow_name: StrictStr = PrivateAttr()
+    _slugified_fn_name: StrictStr = PrivateAttr()
     _project_name: StrictStr = PrivateAttr()
 
     class Config:
@@ -374,8 +375,10 @@ class FlowSpec(BaseModel):
         if DISABLE_FLOW_SPEC != "true":
             super().__init__(**data)
             project_name = PYPROJECT_METADATA.project_name
+            slugified_fn_name = standard_slugify(self.flow.fn.__name__)
             self._project_name = project_name
-            self.flow.name = f"{project_name}.{standard_slugify(self.flow.fn.__name__)}"
+            self._slugified_fn_name = slugified_fn_name
+            self.flow.name = f"{project_name}.{slugified_fn_name}"
 
     @validator("docker_env")
     def docker_env_must_be_registered(cls, v):
@@ -443,7 +446,7 @@ class FlowSpec(BaseModel):
         flow_folder = get_flow_folder(flow_path)
         for d in self.deployments:
             d.push_deployment(
-                f"{s3_block_name}/{flow_folder}/{self._slugified_flow_name}",
+                f"{s3_block_name}/{flow_folder}/{self._slugified_fn_name}",
                 ecs_block_name,  # type: ignore
                 flow_path,
                 self.flow.fn.__name__,
