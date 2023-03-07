@@ -4,8 +4,8 @@
 
 set -e
 
-IMAGE_NAME=$1
-ACCOUNT_ID=$2
+IMAGE_NAME=${1}
+ACCOUNT_ID=${2}
 
 DOCKER_BASE_URL=${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
 GIT_SHA="${CIRCLE_SHA1:=dev}"

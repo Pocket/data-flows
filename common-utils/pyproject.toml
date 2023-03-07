@@ -27,7 +27,13 @@ moto = {extras = ["sts"], version = "^4.1.3"}
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-# this exists for unit testing
+####################################
+### THIS EXISTS FOR UNIT TESTING ###
+####################################
+
+[tool.prefect]
+flows_folder = "tests/test_flows"
+
 [tool.prefect.envs.base]
 python_version = "3.10"
 dockerfile_path=".docker/main/Dockerfile"
