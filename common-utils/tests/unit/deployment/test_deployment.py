@@ -7,7 +7,7 @@ from moto import mock_sts
 from prefect import flow, task
 
 from common.deployment import (
-    LOGGER_NAME,
+    GIT_SHA,
     PYPROJECT_PATH,
     SCRIPT_PATH,
     CronSchedule,
@@ -112,7 +112,7 @@ def test_flow_deployment(mock_cmd):
         skip_upload=True,
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override cpu=1024 --override memory=4096 \\\n        -q prefect-v2-queue-dev-test \\\n        -v dev \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t common-utils -t deployment \\\n        -a \\\n        --interval '120' --skip-upload && \\\n        popd"""
+    call_text = f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override cpu=1024 --override memory=4096 \\\n        -q prefect-v2-queue-dev-test \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t common-utils -t deployment \\\n        -a \\\n        --interval '120' --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 
