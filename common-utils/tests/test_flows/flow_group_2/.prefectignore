@@ -1,17 +1,12 @@
 # prefect artifacts
-*-deployment.yaml
-*-deployment.yml
+.prefectignore
 
 # python artifacts
 __pycache__/
-*__pycache__
 *.py[cod]
 *$py.class
 *.egg-info/
 *.egg
-.pytest_cache
-dist
-.coverage
 
 # Type checking artifacts
 .mypy_cache/
