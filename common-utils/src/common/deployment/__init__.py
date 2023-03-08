@@ -48,12 +48,14 @@ DEPLOYMENT_TYPE = os.getenv("PREFECT_DEPLOYMENT_TYPE", "test").lower()
 GIT_SHA = os.getenv("CIRCLE_SHA1", "dev")[0:7]
 AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1").lower()
 
-# config for supporting using pyproject.toml in flow spec validation
-# with support for circleci working directory.
-CIRCLE_CWD = os.path.join(
-    os.getenv("CIRCLE_WORKING_DIRECTORY", os.getcwd()), "pyproject.toml"
+# config for supporting using different pyproject.toml path when developing flows
+# running deployment cli with this set may result in errors
+# this is actually used in the flow deployment run_command script, because the prefect cli needs to run from the directory of the flow files
+CWD_DIR = os.path.join(os.getcwd(), "pyproject.toml")
+
+PYPROJECT_PATH = os.path.abspath(
+    os.path.expanduser(os.getenv("PREFECT_PYPROJECT_PATH", CWD_DIR))
 )
-PYPROJECT_PATH = os.getenv("PREFECT_PYPROJECT_PATH", CIRCLE_CWD).lower()
 
 # config to disable validation on FlowSpec for flow execution environments
 DISABLE_FLOW_SPEC = os.getenv("PREFECT_DISABLE_FLOW_SPEC", "false").lower()
@@ -327,6 +329,8 @@ class FlowDeployment(BaseModel):
         skip_upload_flag = ""
         if skip_upload:
             skip_upload_flag = "--skip-upload"
+        # We are using the escape hatch envar PREFECT_PYPROJECT_PATH because of limitation in prefect CLI
+        # We may remove this in the future.
         run_command(
             f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\
         pushd {flow_path.parent} && \\
@@ -404,6 +408,7 @@ class FlowSpec(BaseModel):
             image=f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-envs:{self.docker_env}",
             cpu="256",
             memory="512",
+            env={"PREFECT_DISABLE_FLOW_SPEC": "true"},
             stream_output=True,
             configure_cloudwatch_logs=True,
             cluster=f"prefect-v2-agent-{ENVIRONMENT_TYPE}-{DEPLOYMENT_TYPE}",

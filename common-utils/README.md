@@ -107,17 +107,25 @@ This will be explained in more detail on this repository's top level [README.md]
 Finally, this module relies on the existence of a Poetry PyProject path to pull metadata for deployment.  Here is a code sample:
 
 ```python
-CIRCLE_CWD = os.path.join(
-    os.getenv("CIRCLE_WORKING_DIRECTORY", os.getcwd()), "pyproject.toml"
+# config for supporting using different pyproject.toml path when developing flows
+CWD_DIR = os.path.join(os.getcwd(), "pyproject.toml")
+
+PYPROJECT_PATH = os.path.abspath(
+    os.path.expanduser(os.getenv("PREFECT_PYPROJECT_PATH", CWD_DIR))
 )
-PYPROJECT_PATH = os.getenv("PREFECT_PYPROJECT_PATH", CIRCLE_CWD).lower()
 ```
 
-As you can see, since we use CircleCI and will leverage working directory for project deployments, we first check for the pyproject.toml there.  If it does not exist, which it won't in your local environment, then we default to current working directory, which will most likely be the root of the flows project.
+We default to using current working directory, which will most likely be the root of the flows project, to find the pyproject.toml file.
+
+> We recommend that your working directory for flow development be the root of your project.  However, below there is an escape hatch envar you can use for local flow development.
 
 There maybe situation during development where your working directory is not where the pyproject.toml is, you can set the path directly via the `PREFECT_PYPROJECT_PATH` environment variable.
 
-Since the deployment module imports data from the pyproject.toml on import, the module will need access to this file.
+Since the deployment module imports data from the pyproject.toml on import, the module will need access to this file.  The envar helps with that.
+
+We use this escape hatch for running the prefect cli since those commands need to run from the directory of the flow files.
+
+> NOTE: Setting this envar when running the deployment tools will result in errors because all other path config values in the pyproject.toml are expected to be absolute or relative to the current working directory.
 
 The main deliverable here is the `deploy-cli`.  This will be installed in your Poetry Python environment.
 
