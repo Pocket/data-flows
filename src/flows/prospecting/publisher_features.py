@@ -11,7 +11,7 @@ from common_tasks.load_data import dataframe_to_feature_group
 from utils import config
 from utils.flow import get_flow_name, get_interval_schedule
 
-THREE_DAYS_MINS = 3*24*60  # using this to schedule flow update interval for three days
+ONE_DAYS_MINS = 24*60  # using this to schedule flow update interval
 VERSION = 1
 
 FEATURE_GROUP_NAME = f"{config.ENVIRONMENT}-PublisherFeatureGroup-v{VERSION}"
@@ -41,7 +41,7 @@ def transform_publisher_features(input_df: pd.DataFrame) -> pd.DataFrame:
     return input_df
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=THREE_DAYS_MINS), executor=LocalDaskExecutor()) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=ONE_DAYS_MINS), executor=LocalDaskExecutor()) as flow:
 
     logger = prefect.context.get("logger")
     logger.info(f'Querying snowflake for publisher data')
