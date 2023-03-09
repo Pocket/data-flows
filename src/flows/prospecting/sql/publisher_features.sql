@@ -57,6 +57,7 @@ topic_distributions AS (
     c.top_domain_name,
     t.*,
     c.save_count as total_save_count,
+    c.avg_save_age,
     c.save_count / c.num_items as avg_save_count,
     c.num_items as num_items_saved,
     LN(c.SAVE_COUNT) as log_total_saves,

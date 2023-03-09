@@ -33,7 +33,7 @@ def transform_publisher_features(input_df: pd.DataFrame) -> pd.DataFrame:
     # remove extra column from query
     input_df = input_df.drop(columns="APPROVED_SOURCE")
 
-    # deal with rows without approved items
+    # deal with rows for sources without approved items
     approved_cols = [c for c in input_df.columns if c.startswith("NUM_APPROVED")]
     for c in approved_cols:
         input_df[c] = input_df[c].fillna(0).astype(int)
