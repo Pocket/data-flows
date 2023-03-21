@@ -9,7 +9,6 @@ WITH recently_updated_items as (
     AND SCHEDULED_SURFACE_ID = 'NEW_TAB_EN_US'
     AND NOT is_syndicated
     AND NOT is_collection
-    AND approved_corpus_item_external_id <> 'c931d2f5-0205-48f1-a773-dd0e682977b1'  -- See #incidents on 2023-03-21
 ),
 
 recently_scheduled_items as (
@@ -35,6 +34,7 @@ FROM
      UNION ALL
      SELECT * FROM recently_updated_items)
 WHERE TOPIC IN (%(CORPUS_TOPIC_LIST)s)
+AND id <> 'c931d2f5-0205-48f1-a773-dd0e682977b1'  -- See #incidents on 2023-03-21
 AND REVIEW_TIME >= current_date() - %(MAX_AGE_DAYS)s
 QUALIFY row_number() OVER (PARTITION BY ID ORDER BY REVIEW_TIME DESC) = 1
 ORDER BY REVIEW_TIME DESC
