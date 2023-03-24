@@ -8,6 +8,9 @@ parameters:
   common_utils_changes:
     type: boolean
     default: false
+  data_products_changes:
+    type: boolean
+    default: false
 
 # Workflow and job shortcuts
 only_main_v2: &only_main_v2
@@ -143,6 +146,8 @@ jobs:
               name: Install dependencies and run tests
       - no_op
     working_directory: ~/repo/common-utils
+orbs:
+  continuation: circleci/continuation@0.3.1
 workflows:
   aws_changes_workflow:
     jobs: 
@@ -175,6 +180,12 @@ workflows:
       - common_utils_changes_build:
           <<: *not_dev_main_v2
           name: common-utils build
+  data_products_changes_workflow:
+    jobs:
+      - continuation/continue:
+          configuration_path: ./data-products/.circleci/workflows.yml
+          parameters: '{"has_data_products_changes": "<< pipeline.parameters.aws_changes >>"}'
+
       
   
 # VS Code Extension Version: 1.5.1

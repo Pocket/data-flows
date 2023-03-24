@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "data-products"
+version = "0.1.0"
+description = "Main project folder for data products prefect flows"
+authors = ["Braun <breyes@mozilla.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+prefect = "^2.8.6"
+prefect-dask = "^0.2.3"
+prefect-aws = "^0.2.5"
+greenlet = "^2.0.2"
+
+
+[tool.poetry.group.dev.dependencies]
+common-utils = {path = "../common-utils"}
+pytest = "^7.2.2"
+pytest-coverage = "^0.0"
+black = "^23.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.prefect.envs.base]
+python_version = "3.10"
+dockerfile_path=".docker/base/Dockerfile"
+
+
