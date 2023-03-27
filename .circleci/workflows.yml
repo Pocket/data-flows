@@ -11,7 +11,7 @@ parameters:
   data_products_changes:
     type: boolean
     default: false
-
+git
 # Workflow and job shortcuts
 only_main_v2: &only_main_v2
   filters:
@@ -33,10 +33,19 @@ only_dev_v2: &only_dev_v2
         - dev-v2
 
 has_aws_changes: &has_aws_changes
-  when: << pipeline.parameters.aws_changes >>
+  condition: << pipeline.parameters.aws_changes >>
 
 has_common_utils_changes: &has_common_utils_changes
-  when: << pipeline.parameters.common_utils_changes >>
+  condition: << pipeline.parameters.common_utils_changes >>
+
+has_data_products_changes: &has_data_products_changes
+  condition: << pipeline.parameters.has_data_products_changes >>
+
+git_checkout: &git_checkout
+  checkout:
+    path: ~/repo
+
+
 
 # Reusable commands for jobs
 commands:
@@ -46,6 +55,49 @@ commands:
           name: Build Completed
           command: |
             echo "All build steps expected have completed."
+  set_poetry_path:
+    steps:
+      - run:
+          name: Set Poetry Path
+          command: echo "export PATH=/root/.local/bin:$PATH" >> $BASH_ENV
+  install_poetry:
+    steps:
+      - run:
+          name: Install Poetry
+          command: |
+            apt update
+            apt install -y curl
+            curl -sSL https://install.python-poetry.org | python3
+            apt clean && apt autoremove -y
+            rm -rf /var/lib/apt/lists/*
+            poetry config virtualenvs.create false
+  python_changes_build:
+    parameters:
+      dependency_groups:
+        default: "main, dev"
+        type: string
+    steps:
+      - run:
+          command: |
+            poetry install --no-ansi --only <<parameters.dependency_groups>>
+            black --check .
+            python -m pytest --cov=src --cov-report term-missing --cov-fail-under=100
+          name: Python Testing and Validation
+  prefect_project_build:
+    steps:
+      - run:
+          command: |
+            deploy-cli deploy-envs --build-only
+            deploy-cli deploy-flows --validate-only
+          name: Prefect Project Build
+  prefect_project_deploy:
+    steps:
+      - run:
+          command: |
+            deploy-cli deploy-envs
+            deploy-cli deploy-flows
+          name: Prefect Project Deploy
+            
 
 # Jobs to be used by workflows
 # Use of conditionals allow required checks to pass when build steps are not needed
@@ -66,7 +118,7 @@ jobs:
       NODE_ENV: << parameters.node_env >>
     steps:
       - when: 
-          condition: has_aws_changes
+          <<: *has_aws_changes
           steps:
           - checkout:
               path: ~/repo
@@ -103,7 +155,7 @@ jobs:
         NODE_ENV: << parameters.node_env >>
       steps:
         - when: 
-            condition: has_aws_changes
+            <<: *has_aws_changes
             steps:
               - checkout:
                   path: ~/repo
@@ -127,27 +179,52 @@ jobs:
       - image: prefecthq/prefect:2-python3.10
     steps:
       - when: 
-          condition: has_common_utils_changes
+          <<: *has_common_utils_changes
           steps:
-          - checkout:
-              path: ~/repo
-          - run:
-              command: |
-                export PATH=/root/.local/bin:$PATH
-                apt update
-                apt install -y curl
-                curl -sSL https://install.python-poetry.org | python3
-                apt clean && apt autoremove -y
-                rm -rf /var/lib/apt/lists/*
-                poetry config virtualenvs.create false
-                poetry install --no-ansi --only main,dev
-                black --check .
-                python -m pytest --cov=src/common --cov-report term-missing --cov-fail-under=100
-              name: Install dependencies and run tests
+            - <<: *git_checkout
+            - set_poetry_path
+            - install_poetry
+            - changes_build
+      - run:
+          command: poetry build -f wheel
+      - persist_to_workspace:
+          root: common-utils
+          paths:
+            - dist
       - no_op
     working_directory: ~/repo/common-utils
-orbs:
-  continuation: circleci/continuation@0.3.1
+  common_utils_wheel_file:
+    docker:
+      - image: prefecthq/prefect:2-python3.10
+    steps:
+      - when: 
+          <<: *has_data_products_changes
+          steps:
+            - <<: *git_checkout
+            - run:
+                command: poetry build -f wheel
+            - persist_to_workspace:
+                root: common-utils
+                paths:
+                  - dist
+      - no_op
+    working_directory: ~/repo/common-utils
+  data_changes_build:
+    docker:
+      - image: prefecthq/prefect:2-python3.10
+    steps:
+      - when: 
+          <<: *has_data_products_changes
+          steps:
+            - <<: *git_checkout
+            - attach_workspace:
+                at: /tmp/common-utls
+            - set_poetry_path
+            - install_poetry
+            - changes_build
+      - no_op
+    <<: ~/repo/common-utils
+
 workflows:
   aws_changes_workflow:
     jobs: 
@@ -175,16 +252,21 @@ workflows:
           node_env: production
           runner_resource_class: pocket/default-prod
           name: terraform apply production
-  common_utils_changes_workflow:
-    jobs: 
+  prefect_changes_workflow:
+    jobs:
       - common_utils_changes_build:
           <<: *not_dev_main_v2
-          name: common-utils build
-  data_products_changes_workflow:
-    jobs:
-      - continuation/continue:
-          configuration_path: ./data-products/.circleci/workflows.yml
-          parameters: '{"has_data_products_changes": "<< pipeline.parameters.aws_changes >>"}'
+          name: Common Utils Build
+      - common_utils_wheel_file:
+          <<: *not_dev_main_v2
+          name: Generate Common Utils Wheel File
+          requires:
+            - common_utils_changes_build
+      - data_products_changes_build:
+          <<: *not_dev_main_v2
+          name: Data Products Project Build
+          requires:
+            - common_utils_wheel_file
 
       
   
