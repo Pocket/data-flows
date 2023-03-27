@@ -209,7 +209,7 @@ jobs:
                   - dist
       - no_op
     working_directory: ~/repo/common-utils
-  data_changes_build:
+  data_products_changes_build:
     docker:
       - image: prefecthq/prefect:2-python3.10
     steps:
