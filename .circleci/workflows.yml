@@ -254,7 +254,7 @@ workflows:
           <<: *not_dev_main_v2
           name: Data Products Project Build
           requires:
-            - Generate Common Utils Wheel File
+            - Common Utils Build
 
       
   
