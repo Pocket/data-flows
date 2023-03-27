@@ -218,12 +218,12 @@ jobs:
           steps:
             - <<: *git_checkout
             - attach_workspace:
-                at: /tmp/common-utls
+                at: /tmp/common-utils
             - set_poetry_path
             - install_poetry
             - changes_build
       - no_op
-    <<: ~/repo/common-utils
+    working_directory: ~/repo/common-utils
 
 workflows:
   aws_changes_workflow:
