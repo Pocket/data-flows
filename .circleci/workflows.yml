@@ -39,7 +39,7 @@ has_common_utils_changes: &has_common_utils_changes
   condition: << pipeline.parameters.common_utils_changes >>
 
 has_data_products_changes: &has_data_products_changes
-  condition: << pipeline.parameters.has_data_products_changes >>
+  condition: << pipeline.parameters.data_products_changes >>
 
 git_checkout: &git_checkout
   checkout:
