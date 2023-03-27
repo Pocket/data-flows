@@ -215,6 +215,7 @@ jobs:
             - install_poetry
             - python_changes_build
             - common_utils_wheel_file
+            - prefect_project_build
       - no_op
     working_directory: ~/repo/data-products
 
