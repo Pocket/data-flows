@@ -11,7 +11,7 @@ parameters:
   data_products_changes:
     type: boolean
     default: false
-git
+
 # Workflow and job shortcuts
 only_main_v2: &only_main_v2
   filters:
