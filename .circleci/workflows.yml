@@ -261,12 +261,12 @@ workflows:
           <<: *not_dev_main_v2
           name: Generate Common Utils Wheel File
           requires:
-            - common_utils_changes_build
+            - Common Utils Build
       - data_products_changes_build:
           <<: *not_dev_main_v2
           name: Data Products Project Build
           requires:
-            - common_utils_wheel_file
+            - Generate Common Utils Wheel File
 
       
   
