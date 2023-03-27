@@ -211,10 +211,10 @@ jobs:
           <<: *has_data_products_changes
           steps:
             - <<: *git_checkout
-            - common_utils_wheel_file
             - set_poetry_path
             - install_poetry
             - python_changes_build
+            - common_utils_wheel_file
       - no_op
     working_directory: ~/repo/data-products
 
