@@ -1,5 +1,5 @@
 version: 2.1
-setup: true
+
 # Parameters to control monorepo conditionals
 parameters:
   aws_changes:
