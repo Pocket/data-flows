@@ -184,7 +184,7 @@ jobs:
             - <<: *git_checkout
             - set_poetry_path
             - install_poetry
-            - changes_build
+            - python_changes_build
       - run:
           command: poetry build -f wheel
       - persist_to_workspace:
@@ -221,7 +221,7 @@ jobs:
                 at: /tmp/common-utils
             - set_poetry_path
             - install_poetry
-            - changes_build
+            - python_changes_build
       - no_op
     working_directory: ~/repo/common-utils
 
