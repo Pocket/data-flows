@@ -89,6 +89,16 @@ commands:
             black --check .
             python -m pytest --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
+  common_utils_wheel_file:
+    steps:
+      - run:
+          command: |
+            pushd ~/repo/common-utils
+            poetry build -f wheel
+            mkdir -p mkdir -p /tmp/common-utils
+            cp dist/* /tmp/common-utils
+            popd
+
   prefect_project_build:
     steps:
       - run:
@@ -191,28 +201,6 @@ jobs:
             - set_poetry_path
             - install_poetry
             - python_changes_build
-      - run:
-          command: poetry build -f wheel
-      - persist_to_workspace:
-          root: common-utils
-          paths:
-            - dist
-      - no_op
-    working_directory: ~/repo/common-utils
-  common_utils_wheel_file:
-    docker:
-      - image: prefecthq/prefect:2-python3.10
-    steps:
-      - when: 
-          <<: *has_data_products_changes
-          steps:
-            - <<: *git_checkout
-            - run:
-                command: poetry build -f wheel
-            - persist_to_workspace:
-                root: common-utils
-                paths:
-                  - dist
       - no_op
     working_directory: ~/repo/common-utils
   data_products_changes_build:
@@ -223,13 +211,12 @@ jobs:
           <<: *has_data_products_changes
           steps:
             - <<: *git_checkout
-            - attach_workspace:
-                at: /tmp/common-utils
+            - common_utils_wheel_file
             - set_poetry_path
             - install_poetry
             - python_changes_build
       - no_op
-    working_directory: ~/repo/common-utils
+    working_directory: ~/repo/data-products
 
 workflows:
   aws_changes_workflow:
@@ -263,11 +250,6 @@ workflows:
       - common_utils_changes_build:
           <<: *not_dev_main_v2
           name: Common Utils Build
-      - common_utils_wheel_file:
-          <<: *not_dev_main_v2
-          name: Generate Common Utils Wheel File
-          requires:
-            - Common Utils Build
       - data_products_changes_build:
           <<: *not_dev_main_v2
           name: Data Products Project Build
