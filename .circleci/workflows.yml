@@ -74,14 +74,20 @@ commands:
   python_changes_build:
     parameters:
       dependency_groups:
-        default: "main, dev"
+        default: "main,dev"
+        type: string
+      coverage_path:
+        default: src
+        type: string
+      tests_path:
+        default: tests
         type: string
     steps:
       - run:
           command: |
             poetry install --no-ansi --only <<parameters.dependency_groups>>
             black --check .
-            python -m pytest --cov=src --cov-report term-missing --cov-fail-under=100
+            python -m pytest --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
   prefect_project_build:
     steps:
