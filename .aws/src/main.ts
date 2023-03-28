@@ -7,7 +7,7 @@ import { config } from './config';
 import { App, TerraformStack, CloudBackend, NamedCloudWorkspace } from 'cdktf';
 import { DataAwsRegion } from '@cdktf/provider-aws/lib/data-aws-region';
 import { DataAwsCallerIdentity } from '@cdktf/provider-aws/lib/data-aws-caller-identity';
-import { AgentIamPolicies, DataFlowsIamRoles } from './iam';
+import { AgentIamPolicies, DataFlowsIamRoles, CircleCiOIDC } from './iam';
 import { DataAwsSecretsmanagerSecret } from '@cdktf/provider-aws/lib/data-aws-secretsmanager-secret';
 import {
   ApplicationECR,
@@ -58,9 +58,12 @@ class PrefectV2 extends TerraformStack {
     this.getAgentService('live');
 
     // create new data-flows-prefect-envs ECR Repo
-    new ApplicationECR(this, 'data-flows-prefect-envs-ecr', {
+    const ecrRepo = new ApplicationECR(this, 'data-flows-prefect-envs-ecr', {
       name: 'data-flows-prefect-envs'
     });
+
+    // create the CircleCI OpenId Role for Image Upload
+    new CircleCiOIDC(this, 'CircleCiOIDC', ecrRepo);
 
     // create live and test filesystems
     const testFS = this.createDataFlowsBucket('test');

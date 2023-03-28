@@ -9,6 +9,95 @@ import { Construct } from 'constructs';
 import { DataAwsRegion } from '@cdktf/provider-aws/lib/data-aws-region';
 import { S3Bucket } from '@cdktf/provider-aws/lib/s3-bucket';
 import { IamRole } from '@cdktf/provider-aws/lib/iam-role';
+import { DataAwsIamOpenidConnectProvider } from '@cdktf/provider-aws/lib/data-aws-iam-openid-connect-provider';
+import { config } from './config';
+import { ApplicationECR } from '@pocket-tools/terraform-modules';
+
+export class CircleCiOIDC extends Construct {
+  constructor(scope: Construct, name: string, ecr_repo: ApplicationECR) {
+    super(scope, name);
+    const orgId = config.OIDCOrgId;
+    const OIDCProviderId = `oidc.circleci.com/org/${orgId}`;
+    const OIDCProvider = new DataAwsIamOpenidConnectProvider(
+      this,
+      'OIDCProvider',
+      {
+        url: `https://${OIDCProviderId}`
+      }
+    );
+    const trustPolicy = new DataAwsIamPolicyDocument(
+      this,
+      'DataFlowsOIDCTrust',
+      {
+        version: '2012-10-17',
+        statement: [
+          {
+            effect: 'Allow',
+            actions: ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
+            principals: [
+              {
+                type: 'Federated',
+                identifiers: [OIDCProvider.arn]
+              }
+            ],
+            condition: [
+              {
+                test: 'StringEquals',
+                variable: `${OIDCProviderId}:aud`,
+                values: [orgId]
+              },
+              {
+                test: 'ForAnyValue:StringLike',
+                variable: `${OIDCProviderId}:sub`,
+                values: [`org/${orgId}/project/${config.OIDCProjectId}/user/*`]
+              }
+            ]
+          }
+        ]
+      }
+    );
+    const accessPolicy = new DataAwsIamPolicyDocument(
+      this,
+      'DataFlowsOIDCAccess',
+      {
+        version: '2012-10-17',
+        statement: [
+          {
+            effect: 'Allow',
+            actions: [
+              'ecr:BatchCheckLayerAvailability',
+              'ecr:GetRepositoryPolicy',
+              'ecr:DescribeRepositories',
+              'ecr:ListImages',
+              'ecr:DescribeImages',
+              'ecr:BatchGetImage',
+              'ecr:InitiateLayerUpload',
+              'ecr:UploadLayerPart',
+              'ecr:CompleteLayerUpload',
+              'ecr:PutImage'
+            ],
+            resources: [ecr_repo.repo.arn]
+          },
+          {
+            effect: 'Allow',
+            actions: ['ecr:GetAuthorizationToken'],
+            resources: ['*']
+          }
+        ]
+      }
+    );
+    new IamRole(this, 'DataFlowsOIDCRole', {
+      name: 'data-flows-circleci-oidc-role',
+      assumeRolePolicy: trustPolicy.json,
+      inlinePolicy: [
+        {
+          name: 'data-flows-circleci-oidc-policy',
+          policy: accessPolicy.json
+        }
+      ]
+    });
+  }
+}
 
 // Custom construct to create IAM roles needed for a Prefect v2 Agent
 export class AgentIamPolicies extends Construct {

@@ -10,6 +10,8 @@ const agentCpu = 1024;
 const agentMemory = 2048;
 const agentTaskCount = 1;
 const agentImage = 'prefecthq/prefect:2-python3.10';
+const OIDCOrgId = process.env['OIDC_ORG_ID'] || '';
+const OIDCProjectId = process.env['OIDC_PROJECT_ID'] || '';
 
 export const config = {
   workspaceName,
@@ -24,5 +26,7 @@ export const config = {
   agentCpu,
   agentMemory,
   agentTaskCount,
-  agentImage
+  agentImage,
+  OIDCOrgId,
+  OIDCProjectId
 };
