@@ -38,7 +38,8 @@ EXPORT_FIREFOX_TELEMETRY_SQL = """
         FROM impressions_data
         CROSS JOIN UNNEST(impressions_data.tiles) AS flattened_tiles
         GROUP BY TILE_ID
-        HAVING TRAILING_1_DAY_IMPRESSIONS > 1000 -- removes content that isn't actively served but still gets impressions.
+        ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
+        LIMIT 16384 -- Limit to Snowflake's max list size. There are a lot of old items that still get some impressions.
     """
 
 
