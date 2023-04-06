@@ -237,6 +237,7 @@ jobs:
             - <<: *git_checkout
             - aws-cli/setup:
                 role-arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/data-flows-circleci-oidc-role"
+                role-session-name: prefect-agent-docker-image
             - run:
                 command: |
                   docker build --platform linux/amd64 -t prefect-agent -f agent/Dockerfile .
