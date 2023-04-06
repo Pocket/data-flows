@@ -229,7 +229,7 @@ jobs:
           default: false
           type: boolean
     docker:
-      - image: cimg/aws
+      - image: cimg/aws:2023.04
     steps:
       - when: 
           <<: *has_agent_docker_changes
@@ -288,5 +288,5 @@ workflows:
       - common_utils_changes_build:
           <<: *not_dev_main_v2
           name: Common Utils Build
-          
+
 # VS Code Extension Version: 1.5.1
