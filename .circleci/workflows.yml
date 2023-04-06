@@ -288,12 +288,5 @@ workflows:
       - common_utils_changes_build:
           <<: *not_dev_main_v2
           name: Common Utils Build
-      - data_products_changes_build:
-          <<: *not_dev_main_v2
-          name: Data Products Project Build
-          requires:
-            - Common Utils Build
-
-      
-  
+          
 # VS Code Extension Version: 1.5.1
