@@ -14,4 +14,5 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY . /
+RUN poetry config virtualenvs.create false
 RUN poetry install --only dev

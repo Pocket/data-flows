@@ -3,7 +3,8 @@ from pathlib import Path, PosixPath
 from unittest.mock import patch
 
 import pytest
-from moto import mock_sts
+from boto3 import session
+from moto import mock_ecs, mock_sts
 from prefect import flow, task
 
 from common.deployment import (
@@ -64,6 +65,7 @@ def test_get_flow_folder():
 def test_flow_docker_env(mock_cmd):
     # Validate class methods using mock on run_command.
     x = FlowDockerEnv(
+        project_name="common-utils",
         env_name="test",
         dockerfile_path=Path("tests/unit/deployment/testDockerfile"),
         docker_build_context=Path("tests/unit/deployment"),
@@ -112,11 +114,12 @@ def test_flow_deployment(mock_cmd):
         skip_upload=True,
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override cpu=1024 --override memory=4096 \\\n        -q prefect-v2-queue-dev-test \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t common-utils -t deployment \\\n        -a \\\n        --interval '120' --skip-upload && \\\n        popd"""
+    call_text = f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-04478ac1c55709b1f", "subnet-0a6c00fa564f97b10", "subnet-0eb99fe10e08d5d96", "subnet-07854aac95d07bb16"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-069843c3a7b2096af"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-dev-test \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t common-utils -t deployment \\\n        -a \\\n        --interval '120' --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 
 @mock_sts
+@mock_ecs
 @patch("common.deployment.FlowDeployment.push_deployment")
 @patch("common.deployment.ECSTask.save")
 @patch("common.deployment.ECSTask.load")
@@ -156,6 +159,7 @@ def test_flow_spec(mock_s3_load, mock_ecs_load, mock_ecs_save, mock_deployment):
 
 
 @mock_sts
+@mock_ecs
 @patch("common.deployment.FlowDeployment.push_deployment")
 @patch("common.deployment.ECSTask.save")
 @patch("common.deployment.ECSTask.load")
@@ -215,6 +219,262 @@ def test_flow_spec_all_fields(
     mock_ecs_load.assert_called_with("common-utils-flow-1-dev-test")
     mock_ecs_save.assert_called_with("common-utils-flow-1-dev-test", overwrite=True)
     mock_s3_load.assert_called_with("common-utils-dev-test")
+
+
+BASE_TASK_DEF = {
+    "family": "common-utils-flow-1-test",
+    "taskRoleArn": "arn:aws:iam::123456789012:role/data-flows-prefect-test-task-role",
+    "executionRoleArn": "arn:aws:iam::123456789012:role/data-flows-prefect-test-exec-role",
+    "networkMode": "awsvpc",
+    "containerDefinitions": [
+        {
+            "name": "prefect",
+            "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/data-flows-prefect-envs:common-utils-base-py-3.10-dev",
+            "environment": [
+                {"name": "PREFECT_DISABLE_FLOW_SPEC", "value": "True"},
+            ],
+            "secrets": [
+                {
+                    "name": "MY_SECRET_JSON",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:/my/secretsmanager/secret",
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "prefect",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "common-utils-flow-1-test",
+                },
+            },
+        }
+    ],
+    "requiresCompatibilities": [
+        "FARGATE",
+    ],
+    "cpu": "256",
+    "memory": "512",
+    "ephemeralStorage": {"sizeInGiB": 200},
+}
+
+
+@mock_sts
+@mock_ecs
+@patch("common.deployment.FlowDeployment.push_deployment")
+@patch("common.deployment.ECSTask.save")
+@patch("common.deployment.ECSTask.load")
+@patch("common.deployment.S3.load")
+def test_flow_spec_handle_task_definition(
+    mock_s3_load, mock_ecs_load, mock_ecs_save, mock_deployment
+):
+    test_session = session.Session()
+    ecs = test_session.client("ecs")
+    ecs.register_task_definition(**BASE_TASK_DEF)
+
+    # Test basic functionality of Flow Spec.
+    # Mocking methods that make API calls to aid in testing.
+    @task()
+    def task_1():
+        print("hello world")
+
+    @flow()
+    def flow_1():
+        task_1()
+
+    flow_spec = FlowSpec(
+        flow=flow_1,
+        docker_env="base",
+        secrets=[
+            FlowSecret(
+                envar_name="MY_SECRET_JSON", secret_name="/my/secretsmanager/secret"
+            )
+        ],
+        ephemeral_storage_gb=200,
+        deployments=[
+            FlowDeployment(
+                deployment_name="base",
+                cpu="1024",
+                memory="4096",
+                parameters={"param_name": "param_value"},
+                schedule=CronSchedule(cron="0 0 * * *"),
+            ),
+            FlowDeployment(
+                deployment_name="hourly",
+                cpu="1024",
+                memory="4096",
+                parameters={"param_name": "param_value"},
+                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+            ),
+        ],  # type: ignore
+    )
+    flow_spec.push_deployments(Path("tests/test_flows/flow_group_1/example_flow.py"))
+    assert mock_deployment.call_count == 2
+    assert mock_s3_load.call_count == 1
+    assert mock_ecs_load.call_count == 1
+    assert mock_ecs_save.call_count == 1
+    assert flow_1.name == "common-utils.flow-1"
+    mock_deployment.assert_called_with(
+        "common-utils-dev-test/flow-group-1/flow-1",
+        "common-utils-flow-1-dev-test",
+        PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
+        "flow_1",
+        True,
+    )
+    mock_ecs_load.assert_called_with("common-utils-flow-1-dev-test")
+    mock_ecs_save.assert_called_with("common-utils-flow-1-dev-test", overwrite=True)
+    mock_s3_load.assert_called_with("common-utils-dev-test")
+
+    result = ecs.describe_task_definition(taskDefinition="common-utils-flow-1-test")
+    assert (
+        result["taskDefinition"]["taskDefinitionArn"]
+        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-1-test:1"
+    )
+
+@mock_sts
+@mock_ecs
+@patch("common.deployment.FlowDeployment.push_deployment")
+@patch("common.deployment.ECSTask.save")
+@patch("common.deployment.ECSTask.load")
+@patch("common.deployment.S3.load")
+def test_flow_spec_handle_task_definition_container_change(
+    mock_s3_load, mock_ecs_load, mock_ecs_save, mock_deployment
+):
+    test_session = session.Session()
+    ecs = test_session.client("ecs")
+    ecs.register_task_definition(**BASE_TASK_DEF)
+
+    # Test basic functionality of Flow Spec.
+    # Mocking methods that make API calls to aid in testing.
+    @task()
+    def task_1():
+        print("hello world")
+
+    @flow()
+    def flow_1():
+        task_1()
+
+    flow_spec = FlowSpec(
+        flow=flow_1,
+        docker_env="base",
+        secrets=[
+            FlowSecret(
+                envar_name="MY_SECRET_JSON_CHANGED", secret_name="/my/secretsmanager/secret"
+            )
+        ],
+        ephemeral_storage_gb=200,
+        deployments=[
+            FlowDeployment(
+                deployment_name="base",
+                cpu="1024",
+                memory="4096",
+                parameters={"param_name": "param_value"},
+                schedule=CronSchedule(cron="0 0 * * *"),
+            ),
+            FlowDeployment(
+                deployment_name="hourly",
+                cpu="1024",
+                memory="4096",
+                parameters={"param_name": "param_value"},
+                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+            ),
+        ],  # type: ignore
+    )
+    flow_spec.push_deployments(Path("tests/test_flows/flow_group_1/example_flow.py"))
+    assert mock_deployment.call_count == 2
+    assert mock_s3_load.call_count == 1
+    assert mock_ecs_load.call_count == 1
+    assert mock_ecs_save.call_count == 1
+    assert flow_1.name == "common-utils.flow-1"
+    mock_deployment.assert_called_with(
+        "common-utils-dev-test/flow-group-1/flow-1",
+        "common-utils-flow-1-dev-test",
+        PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
+        "flow_1",
+        True,
+    )
+    mock_ecs_load.assert_called_with("common-utils-flow-1-dev-test")
+    mock_ecs_save.assert_called_with("common-utils-flow-1-dev-test", overwrite=True)
+    mock_s3_load.assert_called_with("common-utils-dev-test")
+
+    result = ecs.describe_task_definition(taskDefinition="common-utils-flow-1-test")
+    assert (
+        result["taskDefinition"]["taskDefinitionArn"]
+        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-1-test:2"
+    )
+
+
+@mock_sts
+@mock_ecs
+@patch("common.deployment.FlowDeployment.push_deployment")
+@patch("common.deployment.ECSTask.save")
+@patch("common.deployment.ECSTask.load")
+@patch("common.deployment.S3.load")
+def test_flow_spec_handle_task_definition_state_change(
+    mock_s3_load, mock_ecs_load, mock_ecs_save, mock_deployment, caplog
+):
+    test_session = session.Session()
+    ecs = test_session.client("ecs")
+    ecs.register_task_definition(**BASE_TASK_DEF)
+
+    # Test basic functionality of Flow Spec.
+    # Mocking methods that make API calls to aid in testing.
+    @task()
+    def task_1():
+        print("hello world")
+
+    @flow()
+    def flow_1():
+        task_1()
+
+    flow_spec = FlowSpec(
+        flow=flow_1,
+        docker_env="base",
+        secrets=[
+            FlowSecret(
+                envar_name="MY_SECRET_JSON", secret_name="/my/secretsmanager/secret"
+            )
+        ],
+        ephemeral_storage_gb=50,
+        deployments=[
+            FlowDeployment(
+                deployment_name="base",
+                cpu="1024",
+                memory="4096",
+                parameters={"param_name": "param_value"},
+                schedule=CronSchedule(cron="0 0 * * *"),
+            ),
+            FlowDeployment(
+                deployment_name="hourly",
+                cpu="1024",
+                memory="4096",
+                parameters={"param_name": "param_value"},
+                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+            ),
+        ],  # type: ignore
+    )
+    flow_spec.push_deployments(Path("tests/test_flows/flow_group_1/example_flow.py"))
+    assert mock_deployment.call_count == 2
+    assert mock_s3_load.call_count == 1
+    assert mock_ecs_load.call_count == 1
+    assert mock_ecs_save.call_count == 1
+    assert flow_1.name == "common-utils.flow-1"
+    mock_deployment.assert_called_with(
+        "common-utils-dev-test/flow-group-1/flow-1",
+        "common-utils-flow-1-dev-test",
+        PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
+        "flow_1",
+        True,
+    )
+    mock_ecs_load.assert_called_with("common-utils-flow-1-dev-test")
+    mock_ecs_save.assert_called_with("common-utils-flow-1-dev-test", overwrite=True)
+    mock_s3_load.assert_called_with("common-utils-dev-test")
+
+    result = ecs.describe_task_definition(taskDefinition="common-utils-flow-1-test")
+    assert (
+        result["taskDefinition"]["taskDefinitionArn"]
+        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-1-test:2"
+    )
 
 
 @patch("common.deployment.DISABLE_FLOW_SPEC", "true")

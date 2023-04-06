@@ -15,7 +15,7 @@ deploy-cli = 'common.deployment.cli:main'
 
 [tool.poetry.group.dev.dependencies]
 prefect = "^2.8.2"
-prefect-aws = "^0.2.4"
+prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-prs"}
 pytest = "^7.2.1"
 black = "^23.1.0"
 pytest-cov = "^4.0.0"

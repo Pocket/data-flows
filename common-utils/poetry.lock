@@ -1604,29 +1604,26 @@ files = [
 
 [[package]]
 name = "mypy-boto3-s3"
-version = "1.26.62"
-description = "Type annotations for boto3.S3 1.26.62 service generated with mypy-boto3-builder 7.12.3"
+version = "1.26.104"
+description = "Type annotations for boto3.S3 1.26.104 service generated with mypy-boto3-builder 7.14.5"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "mypy-boto3-s3-1.26.62.tar.gz", hash = "sha256:a817fff28fee6a56d896410ae0a6d848ffe435480ae37ac1c481940d960ecfe5"},
-    {file = "mypy_boto3_s3-1.26.62-py3-none-any.whl", hash = "sha256:43eb37eb7a0e8d88f7e99f4906ce3191bdfaa7baba72011b555105248ba98677"},
+    {file = "mypy-boto3-s3-1.26.104.tar.gz", hash = "sha256:a58d342d72d58fefa2ecd24d926dbc92ae8b97205c59c3144d186857d5f30814"},
+    {file = "mypy_boto3_s3-1.26.104-py3-none-any.whl", hash = "sha256:24ff5ec193659abb0415925e73787a64631de46e59fd0f261a840e6c0611a38e"},
 ]
-
-[package.dependencies]
-typing-extensions = ">=4.1.0"
 
 [[package]]
 name = "mypy-boto3-secretsmanager"
-version = "1.26.49"
-description = "Type annotations for boto3.SecretsManager 1.26.49 service generated with mypy-boto3-builder 7.12.3"
+version = "1.26.89"
+description = "Type annotations for boto3.SecretsManager 1.26.89 service generated with mypy-boto3-builder 7.12.5"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "mypy-boto3-secretsmanager-1.26.49.tar.gz", hash = "sha256:bd5bda2a8b65bf799793bad67c66bcb2662b182b8632ae1561aecc1bd30ac04d"},
-    {file = "mypy_boto3_secretsmanager-1.26.49-py3-none-any.whl", hash = "sha256:2adbf9b5a32975c97479f12bbb5d98ceea30feb6a16012d308eee46fc3dd8b17"},
+    {file = "mypy-boto3-secretsmanager-1.26.89.tar.gz", hash = "sha256:4e08ec1ae81229fb20e16af40004923f86f6fe119fa7730edb289cd851fa9e55"},
+    {file = "mypy_boto3_secretsmanager-1.26.89-py3-none-any.whl", hash = "sha256:b3f008770ef9c580ebf24b9942ced350d0842e58aa8500fadb80925c0dabe9b5"},
 ]
 
 [package.dependencies]
@@ -1862,25 +1859,29 @@ dev = ["autoflake8", "cairosvg", "flake8", "flaky", "ipython", "jinja2", "mike",
 
 [[package]]
 name = "prefect-aws"
-version = "0.2.4"
+version = "0+untagged.291.gad332ec"
 description = "Prefect collection of tasks and subflows to integrate with AWS"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
-files = [
-    {file = "prefect-aws-0.2.4.tar.gz", hash = "sha256:4c5be01f17e16255166cd58e69697f1802bb8b09e43866dc49801b14b7e65e28"},
-    {file = "prefect_aws-0.2.4-py3-none-any.whl", hash = "sha256:e0f1cf34348f06454848b6b3b192052e4cbdec427d6aec38eba90bc1c8f3205c"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 boto3 = ">=1.24.53"
 botocore = ">=1.27.53"
-mypy-boto3-s3 = ">=1.24.94"
-mypy-boto3-secretsmanager = ">=1.26.49"
+mypy_boto3_s3 = ">=1.24.94"
+mypy_boto3_secretsmanager = ">=1.26.49"
 prefect = ">=2.7"
 
 [package.extras]
 dev = ["black", "boto3-stubs (>=1.24.39)", "coverage", "flake8", "interrogate", "isort", "mkdocs", "mkdocs-gen-files", "mkdocs-material", "mkdocstrings-python-legacy", "mock", "moto (>=3.1.16,<=4.0.6)", "mypy", "pillow", "pre-commit", "pytest", "pytest-asyncio", "pytest-lazy-fixture", "types-boto3 (>=1.0.2)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/Pocket/prefect-aws.git"
+reference = "test-prs"
+resolved_reference = "ad332ec68c24e9d59e0e899b4ed34e8acfaa6d9e"
 
 [[package]]
 name = "pyasn1"
@@ -3055,4 +3056,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "8bc64b523123474b6c2a2261521c52ef53814fc9c3d53ea2523db2dcc35600d0"
+content-hash = "eb3d9aab44870e5dfee6b7c97d8657dd347b40f53f55033fcba2cbeaa560ad23"

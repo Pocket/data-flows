@@ -16,13 +16,15 @@ import {
 import { S3Bucket } from '@cdktf/provider-aws/lib/s3-bucket';
 import { S3BucketVersioningA } from '@cdktf/provider-aws/lib/s3-bucket-versioning';
 import { S3BucketPublicAccessBlock } from '@cdktf/provider-aws/lib/s3-bucket-public-access-block';
+import { SecurityGroup } from '@cdktf/provider-aws/lib/security-group';
+import { SecurityGroupRule } from '@cdktf/provider-aws/lib/security-group-rule';
+import { DataAwsVpc } from '@cdktf/provider-aws/lib/data-aws-vpc';
 
 // main Terraform Stack object for Prefect V2 infrastructure
 class PrefectV2 extends TerraformStack {
   // these will enable access to variables in private methods
   private readonly region: DataAwsRegion;
   private readonly caller: DataAwsCallerIdentity;
-  private readonly dockerSecret: DataAwsSecretsmanagerSecret;
   private readonly prefectV2Secret: DataAwsSecretsmanagerSecret;
 
   constructor(scope: Construct, id: string) {
@@ -38,10 +40,6 @@ class PrefectV2 extends TerraformStack {
     // boiler plate for access to region and account id from iam creds
     this.region = new DataAwsRegion(this, 'region');
     this.caller = new DataAwsCallerIdentity(this, 'caller');
-    // need this bypass pull limits on DockerHub by logging into Pocket docker account
-    this.dockerSecret = new DataAwsSecretsmanagerSecret(this, 'dockerSecret', {
-      name: 'Shared/DockerHub'
-    });
     // need this for the Prefect v2 API credentials
     this.prefectV2Secret = new DataAwsSecretsmanagerSecret(
       this,
@@ -69,6 +67,28 @@ class PrefectV2 extends TerraformStack {
     const testFS = this.createDataFlowsBucket('test');
     const liveFS = this.createDataFlowsBucket('live');
 
+    // create data-flows task security group
+
+    const vpcId = new DataAwsVpc(this, 'vpcId', {
+      tags: {
+        Name: 'SharedVpc'
+      }
+    });
+
+    const baseDataFlowsSg = new SecurityGroup(this, 'BaseDataFlowsSg', {
+      name: 'data-flows-prefect-base',
+      vpcId: vpcId.id
+    });
+
+    new SecurityGroupRule(this, 'BaseDataFlowsSgEgress', {
+      type: 'egress',
+      fromPort: 0,
+      toPort: 0,
+      protocol: '-1',
+      cidrBlocks: ['0.0.0.0/0'],
+      securityGroupId: baseDataFlowsSg.id
+    });
+
     // create live and test iam roles
     new DataFlowsIamRoles(
       this,
@@ -77,7 +97,8 @@ class PrefectV2 extends TerraformStack {
       this.caller,
       this.region,
       config.tags.environment,
-      'test'
+      'test',
+      ecrRepo
     );
     new DataFlowsIamRoles(
       this,
@@ -86,7 +107,8 @@ class PrefectV2 extends TerraformStack {
       this.caller,
       this.region,
       config.tags.environment,
-      'live'
+      'live',
+      ecrRepo
     );
   }
 
@@ -133,7 +155,6 @@ class PrefectV2 extends TerraformStack {
     const agentPolicies = new AgentIamPolicies(
       this,
       `agentPolicies${DeploymentTypeProper}`,
-      this.dockerSecret,
       this.prefectV2Secret,
       prefix,
       this.caller,
@@ -151,8 +172,7 @@ class PrefectV2 extends TerraformStack {
       containerConfigs: [
         {
           name: `prefect-v2-agent`,
-          containerImage: config.agentImage,
-          repositoryCredentialsParam: this.dockerSecret.arn,
+          containerImage: `${this.caller.accountId}.dkr.ecr.${this.region.name}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${config.imageTag}`,
           command: [
             'prefect',
             'agent',

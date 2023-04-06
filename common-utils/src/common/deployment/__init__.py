@@ -3,7 +3,6 @@ import glob
 import json
 import logging
 import os
-from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
@@ -47,6 +46,8 @@ ENVIRONMENT_TYPE = os.getenv("PREFECT_ENVIRONMENT_TYPE", "dev").lower()
 DEPLOYMENT_TYPE = os.getenv("PREFECT_DEPLOYMENT_TYPE", "test").lower()
 GIT_SHA = os.getenv("CIRCLE_SHA1", "dev")[0:7]
 AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1").lower()
+AWS_SUBNETS = os.getenv("AWS_SUBNETS", "[]")
+AWS_SECURITY_GROUPS = os.getenv("AWS_SECURITY_GROUPS", "[]")
 
 # config for supporting using different pyproject.toml path when developing flows
 # running deployment cli with this set may result in errors
@@ -57,8 +58,9 @@ PYPROJECT_PATH = os.path.abspath(
     os.path.expanduser(os.getenv("PREFECT_PYPROJECT_PATH", CWD_DIR))
 )
 
-# config to disable validation on FlowSpec for flow execution environments
-DISABLE_FLOW_SPEC = os.getenv("PREFECT_DISABLE_FLOW_SPEC", "false").lower()
+# config to disable flow spec processing logic
+# we do not want to run this during flow execution
+DISABLE_FLOW_SPEC = eval(os.getenv("PREFECT_DISABLE_FLOW_SPEC", "False"))
 
 
 def run_command(command: str) -> str:
@@ -112,9 +114,11 @@ class PyProjectMetadata(BaseModel):
     docker_envs: dict
 
 
-# creating and running a helper function to extract project metadata for rest of the module to use.
+# creating and running a helper function to extract project metadata.
 def get_pyproject_metadata() -> PyProjectMetadata:
-    """Produce a PyProjectMetadata object from PYPROJECT_PATH
+    """Produce a PyProjectMetadata object from PYPROJECT_PATH.
+    This means we do not want to rely on existence of this file
+    for flow executions.
 
     Returns:
         PyProjectMetadata: Model containing the pyproject metadata.
@@ -131,10 +135,7 @@ def get_pyproject_metadata() -> PyProjectMetadata:
     )
 
 
-PYPROJECT_METADATA = get_pyproject_metadata()
-
-
-def create_image_name_str(env_name: str, python_version: str) -> str:
+def create_image_name_str(project_name: str, env_name: str, python_version: str) -> str:
     """Helper function to create image name to enable resuability.
 
     Args:
@@ -144,7 +145,7 @@ def create_image_name_str(env_name: str, python_version: str) -> str:
     Returns:
         str: _description_
     """
-    return f"{PYPROJECT_METADATA.project_name}-{standard_slugify(env_name)}-py-{python_version}"
+    return f"{project_name}-{standard_slugify(env_name)}-py-{python_version}"
 
 
 def get_aws_account_id() -> str:
@@ -175,6 +176,7 @@ def get_flow_folder(flow_path: Path) -> str:
 class FlowDockerEnv(BaseModel):
     """Model that represents a Prefect Docker environment."""
 
+    project_name: StrictStr
     env_name: StrictStr
     dockerfile_path: FilePath
     python_version: Literal["3.10"]
@@ -184,7 +186,7 @@ class FlowDockerEnv(BaseModel):
     def build_image(self) -> None:
         """Build a docker image using model attributes."""
         image_name = create_image_name_str(
-            self.env_name, self.python_version  # type: ignore
+            self.project_name, self.env_name, self.python_version  # type: ignore
         )
         self._image_name = image_name
         dockerfile_path = self.dockerfile_path
@@ -235,8 +237,9 @@ class ProjectEnvs(BaseModel):
         Args:
             build_only (bool, optional): Switch to only run if True. Defaults to False.
         """
+        project_metadata = get_pyproject_metadata()
         if not build_only:
-            project_name = PYPROJECT_METADATA.project_name
+            project_name = project_metadata.project_name
             for deployment_type in ["test", "live"]:
                 bucket_name = (
                     f"data-flows-prefect-fs-{ENVIRONMENT_TYPE}-{deployment_type}"
@@ -320,10 +323,40 @@ class FlowDeployment(BaseModel):
             flow_function_name: (str): Name of the flow function to deploy.
             skip_upload (bool): Whether to skip upload. Will be set to True after first deployment pushed for flow.
         """
-        project_name = PYPROJECT_METADATA.project_name
+        pyproject_metadata = get_pyproject_metadata()
+        project_name = pyproject_metadata.project_name
         deployment_name = standard_slugify(self.deployment_name)
         flow_file_name = flow_path.name
-        overrides = f"--override cpu={self.cpu} --override memory={self.memory}"
+        task_customizations = [
+            {
+                "op": "add",
+                "path": "/overrides/cpu",
+                "value": self.cpu,
+            },
+            {
+                "op": "add",
+                "path": "/overrides/memory",
+                "value": self.memory,
+            },
+            {
+                "op": "add",
+                "path": "/networkConfiguration/awsvpcConfiguration/subnets",
+                "value": json.loads(AWS_SUBNETS),
+            },
+            {
+                "op": "add",
+                "path": "/networkConfiguration/awsvpcConfiguration/securityGroups",
+                "value": json.loads(AWS_SECURITY_GROUPS),
+            },
+            {
+                "op": "add",
+                "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp",
+                "value": "DISABLED",
+            },
+        ]
+        overrides = (
+            f"""--override task_customizations='{json.dumps(task_customizations)}'"""
+        )
         schedule = self._get_schedule_arg()
         params = f"'{json.dumps(self.parameters)}'"
         skip_upload_flag = ""
@@ -361,13 +394,14 @@ class FlowSpec(BaseModel):
     )
     docker_env: StrictStr = Field(
         ...,
-        description="docker environment name from pyproject.toml, which is the key name in '[tool.prefect.envs.base]'",
+        description="docker environment name from pyproject.toml, which is the key name in '[tool.prefect.envs.<>]'",
     )
     ephemeral_storage_gb: conint(gt=19, lt=201) = 20  # type: ignore
     deployments: list[FlowDeployment] = []
     _slugified_flow_name: StrictStr = PrivateAttr()
     _slugified_fn_name: StrictStr = PrivateAttr()
     _project_name: StrictStr = PrivateAttr()
+    _task_definition_arn: StrictStr = PrivateAttr()
 
     class Config:
         arbitrary_types_allowed = True
@@ -376,58 +410,149 @@ class FlowSpec(BaseModel):
         """Set the private fields on intansiation.
         DISABLE_FLOW_SPEC will be set to true to disable validation for ECS execution.
         """
-        if DISABLE_FLOW_SPEC != "true":
+        if not DISABLE_FLOW_SPEC:
             super().__init__(**data)
-            project_name = PYPROJECT_METADATA.project_name
+            pyproject_metadata = get_pyproject_metadata()
+            project_name = pyproject_metadata.project_name
             slugified_fn_name = standard_slugify(self.flow.fn.__name__)
             self._project_name = project_name
             self._slugified_fn_name = slugified_fn_name
             self.flow.name = f"{project_name}.{slugified_fn_name}"
+            self._slugified_flow_name = standard_slugify(self.flow.name)
 
     @validator("docker_env")
     def docker_env_must_be_registered(cls, v):
-        docker_envs = PYPROJECT_METADATA.docker_envs
+        pyproject_metadata = get_pyproject_metadata()
+        docker_envs = pyproject_metadata.docker_envs
+        project_name = pyproject_metadata.project_name
         if v not in docker_envs.keys():
             raise ValueError(
                 "Docker env does not exist in pyproject.toml.  It must be the key name in a '[tool.prefect.envs.<key name>]' configuration."
             )
         else:
             # return image string
-            return create_image_name_str(ENVIRONMENT_TYPE, PYPROJECT_METADATA.docker_envs[v]["python_version"])  # type: ignore
+            return create_image_name_str(project_name, v, docker_envs[v]["python_version"])  # type: ignore
+
+    def _handle_task_definition(self):
+        register = False
+        final_task_def_arn = None
+        task_name = f"{self._slugified_flow_name}-{DEPLOYMENT_TYPE}"
+        account_id = get_aws_account_id()
+        init_session = session.Session()
+        ecs = init_session.client("ecs")
+        image_name = f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-envs:{self.docker_env}-{GIT_SHA}"
+        task_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role"
+        execution_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role"
+        secrets = [
+            {
+                "name": i.envar_name,
+                "valueFrom": f"arn:aws:secretsmanager:{AWS_REGION}:{account_id}:secret:{i.secret_name}",
+            }
+            for i in self.secrets
+        ]
+        ephemeral_storage = self.ephemeral_storage_gb
+        default_cpu = "256"
+        default_memory = "512"
+
+        task_def_compare_keys = [
+            "taskRoleArn",
+            "executionRoleArn",
+            "requiresCompatibilities",
+            "cpu",
+            "memory",
+            "ephemeralStorage",
+        ]
+
+        container_def_compare_keys = [
+            "image",
+            "environment",
+            "secrets",
+            "logConfiguration",
+        ]
+
+        default_container_name = "prefect"
+
+        new_task_def_dict = {
+            "family": task_name,
+            "taskRoleArn": task_role_arn,
+            "executionRoleArn": execution_role_arn,
+            "networkMode": "awsvpc",
+            "containerDefinitions": [
+                {
+                    "name": default_container_name,
+                    "image": image_name,
+                    "environment": [
+                        {"name": "PREFECT_DISABLE_FLOW_SPEC", "value": "True"},
+                    ],
+                    "secrets": secrets,
+                    "logConfiguration": {
+                        "logDriver": "awslogs",
+                        "options": {
+                            "awslogs-create-group": "true",
+                            "awslogs-group": default_container_name,
+                            "awslogs-region": AWS_REGION,
+                            "awslogs-stream-prefix": task_name,
+                        },
+                    },
+                }
+            ],
+            "requiresCompatibilities": [
+                "FARGATE",
+            ],
+            "cpu": default_cpu,
+            "memory": default_memory,
+            "ephemeralStorage": {"sizeInGiB": ephemeral_storage},
+        }
+
+        task_def_arns = ecs.list_task_definitions(familyPrefix=task_name, maxResults=5)
+        if task_def_arns["taskDefinitionArns"]:
+            current_task_def_response = ecs.describe_task_definition(
+                taskDefinition=task_name
+            )
+            current_task_def = current_task_def_response["taskDefinition"]
+            final_task_def_arn = current_task_def["taskDefinitionArn"]
+            if not all(
+                new_task_def_dict.get(key) == current_task_def.get(key)
+                for key in task_def_compare_keys
+            ):
+                LOGGER.info(
+                    f"Task definition state has changed for {task_name}, registering new definition..."
+                )
+                register = True
+            elif not all(
+                new_task_def_dict.get("containerDefinitions", [{}])[0].get(key)
+                == current_task_def.get("containerDefinitions", [{}])[0].get(key)
+                for key in container_def_compare_keys
+            ):
+                LOGGER.info(
+                    f"Task definition state has changed for {task_name}, registering new definition..."
+                )
+                register = True
+
+        else:
+            LOGGER.info(
+                f"Task definition not registered for {task_name}, registering new definition..."
+            )
+            register = True
+
+        if register:
+            response = ecs.register_task_definition(**new_task_def_dict)
+            final_task_def_arn = response["taskDefinition"]["taskDefinitionArn"]
+        else:
+            LOGGER.info(
+                f"Task definition state has not changed {task_name}, new revision not needed..."
+            )
+        return final_task_def_arn
 
     def _create_ecs_task_block(self):
         """This method will create the ECS Task block as supported by common-utils."""
-        slugified_flow_name = standard_slugify(self.flow.name)
-        self._slugified_flow_name = slugified_flow_name
-        task_name = f"{slugified_flow_name}-{DEPLOYMENT_TYPE}"
-        block_name = f"{slugified_flow_name}-{ENVIRONMENT_TYPE}-{DEPLOYMENT_TYPE}"
-        account_id = get_aws_account_id()
+        block_name = f"{self._slugified_flow_name}-{ENVIRONMENT_TYPE}-{DEPLOYMENT_TYPE}"
         ecs_block = ECSTask(
             name=block_name,
-            family=task_name,
-            image=f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-envs:{self.docker_env}",
-            cpu="256",
-            memory="512",
-            env={"PREFECT_DISABLE_FLOW_SPEC": "true"},
-            stream_output=True,
-            configure_cloudwatch_logs=True,
+            task_definition_arn=self._handle_task_definition(),
             cluster=f"prefect-v2-agent-{ENVIRONMENT_TYPE}-{DEPLOYMENT_TYPE}",
-            execution_role_arn=f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role",
-            task_role_arn=f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role",
-            task_definition={
-                "containerDefinitions": [
-                    {
-                        "secrets": [
-                            {
-                                "name": i.envar_name,
-                                "valueFrom": f"arn:aws:secretsmanager:{AWS_REGION}:{account_id}:secret:{i.secret_name}",
-                            }
-                            for i in self.secrets
-                        ],
-                    }
-                ],
-                "ephemeralStorage": {"sizeInGiB": self.ephemeral_storage_gb},
-            },
+            launch_type="FARGATE",
+            allow_task_definition_registration=False,
         )  # type: ignore
         result = ecs_block.save(block_name, overwrite=True)
         LOGGER.info(f"ECS Task Block {block_name} has been pushed with id {result}...")
@@ -463,18 +588,22 @@ class FlowSpec(BaseModel):
 class PrefectProject(BaseModel):
     """Model used for fetching the project configuration and deploying docker envs and flows as needed."""
 
+    _pyproject_metadata: PyProjectMetadata = PrivateAttr()
     _project_docker_envs: list[FlowDockerEnv] = PrivateAttr()
     _prefect_flows_folder: DirectoryPath = PrivateAttr()
 
     def __init__(self, **data) -> None:
         """Set the private fields on intansiation."""
         super().__init__(**data)
+        self._pyproject_metadata = get_pyproject_metadata()
+        pyproject_metadata = self._pyproject_metadata
+        project_name = pyproject_metadata.project_name
         self._project_docker_envs = []
         envs = self._project_docker_envs
-        for k, v in PYPROJECT_METADATA.docker_envs.items():
-            env = FlowDockerEnv(env_name=k, **v)
+        for k, v in pyproject_metadata.docker_envs.items():
+            env = FlowDockerEnv(env_name=k, project_name=project_name, **v)
             envs.append(env)
-        self._prefect_flows_folder = Path(PYPROJECT_METADATA.prefect_flows_folder)
+        self._prefect_flows_folder = Path(pyproject_metadata.prefect_flows_folder)
 
     def process_project_docker_envs(self, build_only: bool = False) -> None:
         """Method to process project docker envs from the project's

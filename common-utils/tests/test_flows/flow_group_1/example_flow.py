@@ -9,8 +9,9 @@ def task_1():
     print("hello world")
 
 
-@flow()
-def flow_1():
+@flow(log_prints=True)
+def flow_1(param_name: str):
+    print(param_name)
     task_1()
 
 
@@ -18,7 +19,9 @@ FLOW_SPEC = FlowSpec(
     flow=flow_1,
     docker_env="base",
     secrets=[
-        FlowSecret(envar_name="MY_SECRET_JSON", secret_name="/my/secretsmanager/secret")
+        FlowSecret(
+            envar_name="MY_SECRET_JSON", secret_name="dpt/dev/data_flows_prefect_test"
+        )
     ],
     ephemeral_storage_gb=200,
     deployments=[

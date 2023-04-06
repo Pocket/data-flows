@@ -1,8 +1,17 @@
 version: 2.1
 
+# Orbs to use for jobs
+orbs:
+  aws-cli: circleci/aws-cli@3.1.4
+
 # Parameters to control monorepo conditionals
+# Each Prefect project or supplemental folder (.aws) will get its own changes boolean
+# This will come from path filtering setup logic in config.yml
 parameters:
   aws_changes:
+    type: boolean
+    default: false
+  agent_docker_changes:
     type: boolean
     default: false
   common_utils_changes:
@@ -12,7 +21,7 @@ parameters:
     type: boolean
     default: false
 
-# Workflow and job shortcuts
+# Branch shortcuts for filtering on workflows
 only_main_v2: &only_main_v2
   filters:
     branches:
@@ -32,8 +41,12 @@ only_dev_v2: &only_dev_v2
       only:
         - dev-v2
 
+# Shortcuts for conditionals based on boolean parameters
 has_aws_changes: &has_aws_changes
   condition: << pipeline.parameters.aws_changes >>
+
+has_agent_docker_changes: &has_agent_docker_changes
+  condition: << pipeline.parameters.agent_docker_changes >>
 
 has_common_utils_changes: &has_common_utils_changes
   condition: << pipeline.parameters.common_utils_changes >>
@@ -41,11 +54,10 @@ has_common_utils_changes: &has_common_utils_changes
 has_data_products_changes: &has_data_products_changes
   condition: << pipeline.parameters.data_products_changes >>
 
+# Shortcut for git checkout command
 git_checkout: &git_checkout
   checkout:
     path: ~/repo
-
-
 
 # Reusable commands for jobs
 commands:
@@ -203,25 +215,50 @@ jobs:
             - python_changes_build
       - no_op
     working_directory: ~/repo/common-utils
-  data_products_changes_build:
+  data_products_docker:
     docker:
-      - image: prefecthq/prefect:2-python3.10
+      - image: cimg/python:3.10
+    steps:
+      - <<: *git_checkout
+      - aws-cli/setup:
+          role-arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/data-flows-circleci-oidc-role"
+    working_directory: ~/repo/data-products
+  prefect_agent_docker:
+    parameters:
+        push_image:
+          default: false
+          type: boolean
+    docker:
+      - image: cimg/aws
     steps:
       - when: 
-          <<: *has_data_products_changes
+          <<: *has_agent_docker_changes
           steps:
             - <<: *git_checkout
-            - set_poetry_path
-            - install_poetry
-            - python_changes_build
-            - common_utils_wheel_file
-            - prefect_project_build
+            - aws-cli/setup:
+                role-arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/data-flows-circleci-oidc-role"
+            - run:
+                command: |
+                  docker build --platform linux/amd64 -t prefect-agent -f agent/Dockerfile .
+            - when:
+                condition: << parameters.push_image >>
+                steps:
+                  - run:
+                      command: |
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                        IMAGE_TAG=${CIRCLE_SHA1:0:7}
+                        docker tag prefect-agent:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${IMAGE_TAG}
+                        docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${IMAGE_TAG}
       - no_op
-    working_directory: ~/repo/data-products
+    working_directory: ~/repo/.docker
 
 workflows:
   aws_changes_workflow:
     jobs: 
+      - prefect_agent_docker:
+          <<: *not_dev_main_v2
+          context: pocket-oidc-dev
+          name: prefect agent docker build
       - aws_changes_build:
           <<: *not_dev_main_v2
           context: pocket

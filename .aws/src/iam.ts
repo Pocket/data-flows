@@ -109,7 +109,6 @@ export class AgentIamPolicies extends Construct {
   constructor(
     scope: Construct,
     name: string,
-    dockerSecret: DataAwsSecretsmanagerSecret,
     prefectV2Secret: DataAwsSecretsmanagerSecret,
     ecsAppPrefix: string,
     caller: DataAwsCallerIdentity,
@@ -128,7 +127,7 @@ export class AgentIamPolicies extends Construct {
           'ssm:GetParameters'
         ],
         effect: 'Allow',
-        resources: [dockerSecret.arn, prefectV2Secret.arn]
+        resources: [prefectV2Secret.arn]
       }
     ];
 
@@ -146,7 +145,15 @@ export class AgentIamPolicies extends Construct {
         'ecs:RegisterTaskDefinition',
         'ecs:ListTaskDefinitions',
         'ecs:DescribeTaskDefinition',
-        'ecs:DeregisterTaskDefinition'
+        'ecs:DeregisterTaskDefinition',
+        'ec2:DescribeVpcs',
+        'ec2:CreateNetworkInterface',
+        'ec2:DescribeNetworkInterfaces',
+        'ec2:DeleteNetworkInterface',
+        'ec2:AssignPrivateIpAddresses',
+        'ec2:UnassignPrivateIpAddresses',
+        'ec2:DescribeSubnets',
+        'ecs:DescribeTasks'
       ],
       effect: 'Allow',
       resources: ['*']
@@ -175,7 +182,8 @@ export class AgentIamPolicies extends Construct {
       actions: ['iam:PassRole'],
       effect: 'Allow',
       resources: [
-        `arn:aws:iam::${this.caller.accountId}:role/${this.ecsAppPrefix}*`
+        `arn:aws:iam::${this.caller.accountId}:role/${this.ecsAppPrefix}*`,
+        `arn:aws:iam::${this.caller.accountId}:role/data-flows-*`
       ]
     };
   }
@@ -192,7 +200,8 @@ export class DataFlowsIamRoles extends Construct {
     caller: DataAwsCallerIdentity,
     region: DataAwsRegion,
     environment: string,
-    deploymentType: string
+    deploymentType: string,
+    ecr_repo: ApplicationECR
   ) {
     super(scope, name);
     this.caller = caller;
@@ -210,6 +219,29 @@ export class DataFlowsIamRoles extends Construct {
         resources: [
           `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${environment}/data_flows_prefect_*`
         ]
+      },
+      {
+        effect: 'Allow',
+        actions: [
+          'ecr:BatchCheckLayerAvailability',
+          'ecr:GetRepositoryPolicy',
+          'ecr:GetDownloadUrlForLayer',
+          'ecr:DescribeRepositories',
+          'ecr:ListImages',
+          'ecr:DescribeImages',
+          'ecr:BatchGetImage'
+        ],
+        resources: [ecr_repo.repo.arn]
+      },
+      {
+        effect: 'Allow',
+        actions: [
+          'ecr:GetAuthorizationToken',
+          'logs:CreateLogStream',
+          'logs:CreateLogGroup',
+          'logs:PutLogEvents'
+        ],
+        resources: ['*']
       }
     ];
 
@@ -241,7 +273,7 @@ export class DataFlowsIamRoles extends Construct {
     return {
       actions: ['s3:*Object'],
       effect: 'Allow',
-      resources: [`${this.fileSystem.arn}/data/*`]
+      resources: [`${this.fileSystem.arn}/*`]
     };
   }
   // build policy statment for S3 object access
