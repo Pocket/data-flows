@@ -46,7 +46,10 @@ has_aws_changes: &has_aws_changes
   condition: << pipeline.parameters.aws_changes >>
 
 has_agent_docker_changes: &has_agent_docker_changes
-  condition: << pipeline.parameters.agent_docker_changes >>
+  condition:
+    and: 
+      - equal:  [ true, << pipeline.parameters.aws_changes >> ]
+      - equal:  [ true, << pipeline.parameters.agent_docker_changes >> ]
 
 has_common_utils_changes: &has_common_utils_changes
   condition: << pipeline.parameters.common_utils_changes >>
@@ -251,7 +254,7 @@ jobs:
                         docker tag prefect-agent:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${IMAGE_TAG}
                         docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${IMAGE_TAG}
       - no_op
-    working_directory: ~/repo/.docker
+    working_directory: ~/repo/.aws/.docker
 
 workflows:
   aws_changes_workflow:
