@@ -219,7 +219,7 @@ jobs:
       - when: 
           <<: *has_common_utils_changes
           steps:
-            - <<: *git_checkou
+            - <<: *git_checkout
             - set_poetry_path
             - install_poetry
             - python_changes_build
