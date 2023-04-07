@@ -105,7 +105,7 @@ commands:
           command: |
             poetry install --no-ansi --only <<parameters.dependency_groups>>
             black --check .
-            python -m pytest --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
+            python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
   common_utils_wheel_file:
     steps:
