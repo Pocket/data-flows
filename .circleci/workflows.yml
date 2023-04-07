@@ -20,6 +20,9 @@ parameters:
   data_products_changes:
     type: boolean
     default: false
+  base_working_directory:
+    type: string
+    default: /tmp/data-flows-v2/repo
 
 # Branch shortcuts for filtering on workflows
 only_main_v2: &only_main_v2
@@ -60,7 +63,7 @@ has_data_products_changes: &has_data_products_changes
 # Shortcut for git checkout command
 git_checkout: &git_checkout
   checkout:
-    path: ~/repo
+    path: << pipeline.parameters.base_working_directory >>
 
 # Reusable commands for jobs
 commands:
@@ -173,7 +176,7 @@ jobs:
                 terraform plan
               name: terraform plan
       - no_op
-    working_directory: ~/repo/.aws
+    working_directory: << pipeline.parameters.base_working_directory >>/.aws
 
   aws_changes_deploy:
       parameters:
@@ -208,7 +211,7 @@ jobs:
                     terraform apply -auto-approve
                   name: terraform deploy
         - no_op
-      working_directory: ~/repo/.aws
+      working_directory: << pipeline.parameters.base_working_directory >>/.aws
   common_utils_changes_build:
     docker:
       - image: prefecthq/prefect:2-python3.10
@@ -216,12 +219,12 @@ jobs:
       - when: 
           <<: *has_common_utils_changes
           steps:
-            - <<: *git_checkout
+            - <<: *git_checkou
             - set_poetry_path
             - install_poetry
             - python_changes_build
       - no_op
-    working_directory: ~/repo/common-utils
+    working_directory: << pipeline.parameters.base_working_directory >>//common-utils
   data_products_docker:
     docker:
       - image: cimg/python:3.10
@@ -229,7 +232,7 @@ jobs:
       - <<: *git_checkout
       - aws-cli/setup:
           role-arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/data-flows-circleci-oidc-role"
-    working_directory: ~/repo/data-products
+    working_directory: << pipeline.parameters.base_working_directory >>/data-products
   prefect_agent_docker:
     parameters:
         push_image:
@@ -260,7 +263,7 @@ jobs:
                         docker tag prefect-agent:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${IMAGE_TAG}
                         docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${IMAGE_TAG}
       - no_op
-    working_directory: ~/repo/.aws/.docker
+    working_directory: << pipeline.parameters.base_working_directory >>/.aws/.docker
 
 workflows:
   aws_changes_workflow:
