@@ -111,7 +111,7 @@ commands:
     steps:
       - run:
           command: |
-            pushd ~/repo/common-utils
+            pushd ${CIRCLE_WORKING_DIRECTORY}/common-utils
             poetry build -f wheel
             mkdir -p mkdir -p /tmp/common-utils
             cp dist/* /tmp/common-utils
@@ -158,8 +158,7 @@ jobs:
       - when: 
           <<: *has_aws_changes
           steps:
-          - checkout:
-              path: ~/repo
+          - <<: *git_checkout
           - run:
               command: |
                 . /home/circleci/.codebuild_shims_wrapper.sh
@@ -195,8 +194,7 @@ jobs:
         - when: 
             <<: *has_aws_changes
             steps:
-              - checkout:
-                  path: ~/repo
+              - <<: *git_checkout
               - run:
                   command: |
                     . /home/circleci/.codebuild_shims_wrapper.sh
@@ -224,7 +222,7 @@ jobs:
             - install_poetry
             - python_changes_build
       - no_op
-    working_directory: << pipeline.parameters.base_working_directory >>//common-utils
+    working_directory: << pipeline.parameters.base_working_directory >>/common-utils
   data_products_docker:
     docker:
       - image: cimg/python:3.10
