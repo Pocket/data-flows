@@ -135,6 +135,18 @@ commands:
             deploy-cli deploy-envs
             deploy-cli deploy-flows
           name: Prefect Project Deploy
+  clean_working_directory_start:
+    steps:
+      - run:
+          command: |
+            rm -rf * .*
+  clean_working_directory_end:
+    steps:
+      - run:
+          command: |
+            cd ~
+            rm -rf ${CIRCLE_WORKING_DIRECTORY}
+          name: Prefect Project Deploy
             
 
 # Jobs to be used by workflows
@@ -158,6 +170,7 @@ jobs:
       - when: 
           <<: *has_aws_changes
           steps:
+          - clean_working_directory_start
           - <<: *git_checkout
           - run:
               command: |
@@ -174,6 +187,7 @@ jobs:
                 terraform init
                 terraform plan
               name: terraform plan
+          - clean_working_directory_end
       - no_op
     working_directory: << pipeline.parameters.base_working_directory >>/.aws
 
@@ -194,6 +208,7 @@ jobs:
         - when: 
             <<: *has_aws_changes
             steps:
+              - clean_working_directory_start
               - <<: *git_checkout
               - run:
                   command: |
@@ -208,6 +223,7 @@ jobs:
                     terraform init
                     terraform apply -auto-approve
                   name: terraform deploy
+              - clean_working_directory_end
         - no_op
       working_directory: << pipeline.parameters.base_working_directory >>/.aws
   common_utils_changes_build:
