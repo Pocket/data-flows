@@ -158,10 +158,11 @@ jobs:
       - when: 
           <<: *has_aws_changes
           steps:
-          - <<: *git_checkout
+          - checkout
           - run:
               command: |
                 . /home/circleci/.codebuild_shims_wrapper.sh
+                cd .aws
                 nvm install
                 npm install
                 [[ ${NODE_ENV} == "development" ]] && npm run prettier-check
@@ -170,13 +171,11 @@ jobs:
               name: install packages, lint, and create tf template
           - run:
               command: |
-                cd cdktf.out/stacks/prefect-v2
+                cd .aws/cdktf.out/stacks/prefect-v2
                 terraform init
                 terraform plan
               name: terraform plan
       - no_op
-    working_directory: << pipeline.parameters.base_working_directory >>/%s/.aws
-    cleanup_working_directory: true
 
   aws_changes_deploy:
     parameters:
@@ -195,23 +194,22 @@ jobs:
       - when: 
           <<: *has_aws_changes
           steps:
-            - <<: *git_checkout
+            - checkout
             - run:
                 command: |
                   . /home/circleci/.codebuild_shims_wrapper.sh
+                  cd .aws
                   nvm install
                   npm install
                   npm run synth
                 name: install packages and create tf template
             - run:
                 command: |
-                  cd cdktf.out/stacks/prefect-v2
+                  cd .aws/cdktf.out/stacks/prefect-v2
                   terraform init
                   terraform apply -auto-approve
                 name: terraform deploy
       - no_op
-    working_directory: << pipeline.parameters.base_working_directory >>/%s/.aws
-    cleanup_working_directory: true
   common_utils_changes_build:
     docker:
       - image: prefecthq/prefect:2-python3.10
