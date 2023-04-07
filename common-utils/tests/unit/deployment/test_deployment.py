@@ -331,6 +331,7 @@ def test_flow_spec_handle_task_definition(
         == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-1-test:1"
     )
 
+
 @mock_sts
 @mock_ecs
 @patch("common.deployment.FlowDeployment.push_deployment")
@@ -359,7 +360,8 @@ def test_flow_spec_handle_task_definition_container_change(
         docker_env="base",
         secrets=[
             FlowSecret(
-                envar_name="MY_SECRET_JSON_CHANGED", secret_name="/my/secretsmanager/secret"
+                envar_name="MY_SECRET_JSON_CHANGED",
+                secret_name="/my/secretsmanager/secret",
             )
         ],
         ephemeral_storage_gb=200,
