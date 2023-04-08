@@ -274,7 +274,6 @@ def test_flow_spec_handle_task_definition(
     result = ecs.describe_task_definition(taskDefinition="common-utils-flow-1-test")
     print(result)
 
-
     # Test basic functionality of Flow Spec.
     # Mocking methods that make API calls to aid in testing.
     @task()
