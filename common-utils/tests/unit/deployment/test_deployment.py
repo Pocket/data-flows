@@ -271,6 +271,9 @@ def test_flow_spec_handle_task_definition(
     test_session = session.Session()
     ecs = test_session.client("ecs")
     ecs.register_task_definition(**BASE_TASK_DEF)
+    result = ecs.describe_task_definition(taskDefinition="common-utils-flow-1-test")
+    print(result)
+
 
     # Test basic functionality of Flow Spec.
     # Mocking methods that make API calls to aid in testing.
@@ -326,6 +329,7 @@ def test_flow_spec_handle_task_definition(
     mock_s3_load.assert_called_with("common-utils-dev-test")
 
     result = ecs.describe_task_definition(taskDefinition="common-utils-flow-1-test")
+    print(result)
     assert (
         result["taskDefinition"]["taskDefinitionArn"]
         == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-1-test:1"
