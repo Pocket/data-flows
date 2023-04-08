@@ -229,7 +229,7 @@ BASE_TASK_DEF = {
     "containerDefinitions": [
         {
             "name": "prefect",
-            "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/data-flows-prefect-envs:common-utils-base-py-3.10-dev",
+            "image": f"123456789012.dkr.ecr.us-east-1.amazonaws.com/data-flows-prefect-envs:common-utils-base-py-3.10-{GIT_SHA}",
             "environment": [
                 {"name": "PREFECT_DISABLE_FLOW_SPEC", "value": "True"},
             ],

@@ -13,6 +13,7 @@ const OIDCOrgId = process.env['OIDC_ORG_ID'] || '';
 const OIDCProjectId = process.env['OIDC_PROJECT_ID'] || '';
 const gitSha = process.env['CIRCLE_SHA1'] || 'dev';
 const imageTag = gitSha.slice(0, 7);
+const vpcName = isDev ? 'SharedVpc' : 'Pocket VPC';
 
 export const config = {
   workspaceName,
@@ -29,5 +30,6 @@ export const config = {
   agentTaskCount,
   OIDCOrgId,
   OIDCProjectId,
-  imageTag
+  imageTag,
+  vpcName
 };

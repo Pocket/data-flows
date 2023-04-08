@@ -71,7 +71,7 @@ class PrefectV2 extends TerraformStack {
 
     const vpcId = new DataAwsVpc(this, 'vpcId', {
       tags: {
-        Name: 'SharedVpc'
+        Name: config.vpcName
       }
     });
 
