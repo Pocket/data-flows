@@ -2,12 +2,11 @@ import re
 import os
 from datetime import timedelta
 
+from utils.config import PREFECT_S3_RESULT_BUCKET, ENVIRONMENT, ENV_PROD
+
 from prefect.engine.results import S3Result
 from prefect.schedules import IntervalSchedule, Schedule
 from prefect.schedules.clocks import CronClock
-
-from utils.config import PREFECT_S3_RESULT_BUCKET, ENVIRONMENT, ENV_PROD
-
 
 def get_flow_name(file_path: str) -> str:
     """
