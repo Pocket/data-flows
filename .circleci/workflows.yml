@@ -247,6 +247,9 @@ jobs:
             - when:
                 condition: << parameters.use_deploy_cli >>
                 steps:
+                  - aws-cli/setup:
+                      role-arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/data-flows-circleci-oidc-role"
+                      role-session-name: prefect-flow-deploy
                   - setup_remote_docker:
                       version: 20.10.18
                   - when:
