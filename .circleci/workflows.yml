@@ -75,18 +75,13 @@ commands:
     steps:
       - run:
           name: Set Poetry Path
-          command: echo "export PATH=/root/.local/bin:$PATH" >> $BASH_ENV
-  install_poetry:
+          command: echo "export PATH=/home/circleci/.local/bin:$PATH" >> $BASH_ENV
+  configure_poetry:
     steps:
       - set_poetry_path
       - run:
-          name: Install Poetry
+          name: Configure Poetry
           command: |
-            apt update
-            apt install -y curl
-            curl -sSL https://install.python-poetry.org | python3
-            apt clean && apt autoremove -y
-            rm -rf /var/lib/apt/lists/*
             poetry config virtualenvs.create false
   python_changes_build:
     parameters:
@@ -207,13 +202,13 @@ jobs:
       - no_op
   common_utils_changes_build:
     docker:
-      - image: prefecthq/prefect:2-python3.10
+      - image: cimg/python:3.10
     steps:
       - when: 
           <<: *has_common_utils_changes
           steps:
             - git_checkout
-            - install_poetry
+            - configure_poetry
             - python_changes_build
       - no_op
     working_directory: << pipeline.parameters.base_working_directory >>/common-utils
@@ -246,7 +241,7 @@ jobs:
           condition: << parameters.has_changes >>
           steps:
             - git_checkout
-            - install_poetry
+            - configure_poetry
             - python_changes_build
             - common_utils_wheel_file
             - when:
