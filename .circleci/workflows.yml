@@ -71,12 +71,6 @@ commands:
           name: Build Completed
           command: |
             echo "All build steps expected have completed."
-  configure_poetry:
-    steps:
-      - run:
-          name: Configure Poetry
-          command: |
-            poetry config virtualenvs.create false
   python_changes_build:
     parameters:
       dependency_groups:
@@ -92,8 +86,8 @@ commands:
       - run:
           command: |
             poetry install --no-ansi --only <<parameters.dependency_groups>>
-            black --check .
-            python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
+            poetry run black --check .
+            poetry run python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
   common_utils_wheel_file:
     steps:
@@ -109,15 +103,15 @@ commands:
     steps:
       - run:
           command: |
-            deploy-cli deploy-envs --build-only
-            deploy-cli deploy-flows --validate-only
+            poetry run deploy-cli deploy-envs --build-only
+            poetry run deploy-cli deploy-flows --validate-only
           name: Prefect Project Build
   prefect_project_deploy:
     steps:
       - run:
           command: |
-            deploy-cli deploy-envs
-            deploy-cli deploy-flows
+            poetry run deploy-cli deploy-envs
+            poetry run deploy-cli deploy-flows
           name: Prefect Project Deploy
             
 
