@@ -56,17 +56,15 @@ has_agent_docker_changes: &has_agent_docker_changes
 
 has_common_utils_changes: &has_common_utils_changes
   condition: << pipeline.parameters.common_utils_changes >>
+    
 
-has_data_products_changes: &has_data_products_changes
-  condition: << pipeline.parameters.data_products_changes >>
-
-# Shortcut for git checkout command
-git_checkout: &git_checkout
-  checkout:
-    path: << pipeline.parameters.base_working_directory >>
 
 # Reusable commands for jobs
 commands:
+  git_checkout:
+    steps:
+      - checkout:
+          path: << pipeline.parameters.base_working_directory >>
   no_op:
     steps:
       - run:
@@ -80,6 +78,7 @@ commands:
           command: echo "export PATH=/root/.local/bin:$PATH" >> $BASH_ENV
   install_poetry:
     steps:
+      - set_poetry_path
       - run:
           name: Install Poetry
           command: |
@@ -88,7 +87,6 @@ commands:
             curl -sSL https://install.python-poetry.org | python3
             apt clean && apt autoremove -y
             rm -rf /var/lib/apt/lists/*
-            poetry config virtualenvs.create false
   python_changes_build:
     parameters:
       dependency_groups:
@@ -105,7 +103,7 @@ commands:
           command: |
             poetry install --no-ansi --only <<parameters.dependency_groups>>
             black --check .
-            python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
+            poetry run python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
   common_utils_wheel_file:
     steps:
@@ -119,8 +117,6 @@ commands:
 
   prefect_project_build:
     steps:
-      - setup_remote_docker:
-          version: 20.10.18
       - run:
           command: |
             deploy-cli deploy-envs --build-only
@@ -128,8 +124,6 @@ commands:
           name: Prefect Project Build
   prefect_project_deploy:
     steps:
-      - setup_remote_docker:
-          version: 20.10.18
       - run:
           command: |
             deploy-cli deploy-envs
@@ -217,20 +211,58 @@ jobs:
       - when: 
           <<: *has_common_utils_changes
           steps:
-            - <<: *git_checkout
-            - set_poetry_path
+            - git_checkout
             - install_poetry
             - python_changes_build
       - no_op
     working_directory: << pipeline.parameters.base_working_directory >>/common-utils
-  data_products_docker:
+  prefect_project_changes:
+    parameters:
+      environment_type:
+        default: dev
+        type: string
+      deployment_type:
+        default: test
+        type: string
+      validate_build_only:
+        default: true
+        type: boolean
+      use_deploy_cli:
+        default: true
+        type: boolean
+      project_folder:
+        type: string
+      has_changes:
+        default: false
+        type: boolean
+    environment: 
+      PREFECT_ENVIRONMENT_TYPE: << parameters.environment_type >>
+      PREFECT_DEPLOYMENT_TYPE: << parameters.deployment_type >>
     docker:
       - image: cimg/python:3.10
     steps:
-      - <<: *git_checkout
-      - aws-cli/setup:
-          role-arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/data-flows-circleci-oidc-role"
-    working_directory: << pipeline.parameters.base_working_directory >>/data-products
+      - when: 
+          condition: << parameters.has_changes >>
+          steps:
+            - git_checkout
+            - install_poetry
+            - python_changes_build
+            - common_utils_wheel_file
+            - when:
+                condition: << parameters.use_deploy_cli >>
+                steps:
+                  - setup_remote_docker:
+                      version: 20.10.18
+                  - when:
+                      condition: << parameters.validate_build_only >>
+                      steps:
+                        - prefect_project_build
+                  - unless:
+                      condition: << parameters.validate_build_only >>
+                      steps:
+                        - prefect_project_deploy
+      - no_op
+    working_directory: << pipeline.parameters.base_working_directory >>/<< parameters.project_folder >>
   prefect_agent_docker:
     parameters:
         push_image:
@@ -242,7 +274,7 @@ jobs:
       - when: 
           <<: *has_agent_docker_changes
           steps:
-            - <<: *git_checkout
+            - git_checkout
             - aws-cli/setup:
                 role-arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/data-flows-circleci-oidc-role"
                 role-session-name: prefect-agent-docker-image
@@ -264,7 +296,7 @@ jobs:
     working_directory: << pipeline.parameters.base_working_directory >>/.aws/.docker
 
 workflows:
-  aws_changes_workflow:
+  aws_changes_pr_workflow:
     jobs: 
       - prefect_agent_docker:
           <<: *not_dev_main_v2
@@ -282,22 +314,76 @@ workflows:
           node_env: production
           runner_resource_class: pocket/default-prod
           name: terraform plan production
+  aws_changes_dev_workflow:
+    jobs: 
+      - prefect_agent_docker:
+          <<: *only_dev_v2
+          context: pocket-oidc-dev
+          push_image: true
+          name: prefect agent docker push
       - aws_changes_deploy:
           <<: *only_dev_v2
           context: pocket
           node_env: development
           runner_resource_class: pocket/default-dev
           name: terraform apply dev
+          requires:
+            - prefect agent docker push
+  aws_changes_main_workflow:
+    jobs: 
+      - prefect_agent_docker:
+          <<: *only_main_v2
+          context: pocket-oidc-prod
+          push_image: true
+          name: prefect agent docker push
       - aws_changes_deploy:
           <<: *only_main_v2
           context: pocket
           node_env: production
           runner_resource_class: pocket/default-prod
           name: terraform apply production
-  prefect_changes_workflow:
+          requires:
+            - prefect agent docker push
+  prefect_changes_pr_workflow:
     jobs:
       - common_utils_changes_build:
           <<: *not_dev_main_v2
-          name: Common Utils Build
+      - data_products_changes_build:
+          <<: *not_dev_main_v2
+          context: pocket-prefect-dev
+          use_deploy_cli: false
+          has_changes: << pipeline.parameters.data_products_changes  >>
+          project_folder: data-products
+          requires:
+            - common_utils_changes_build
+  prefect_changes_dev_workflow:
+    jobs:
+      - common_utils_changes_build:
+          <<: *only_dev_v2
+      - data_products_changes_deploy:
+          <<: *only_dev_v2
+          context: 
+            - pocket-prefect-prod
+            - pocket-oidc-prod
+          has_changes: << pipeline.parameters.data_products_changes  >>
+          project_folder: data-products
+          environment_type: production
+          requires:
+            - common_utils_changes_build
+  prefect_changes_main_workflow:
+    jobs:
+      - common_utils_changes_build:
+          <<: *only_main_v2
+      - data_products_changes_deploy:
+          <<: *only_main_v2
+          context: 
+            - pocket-prefect-prod
+            - pocket-oidc-prod
+          has_changes: << pipeline.parameters.data_products_changes  >>
+          project_folder: data-products
+          deployment_type: live
+          environment_type: production
+          requires:
+            - common_utils_changes_build
 
 # VS Code Extension Version: 1.5.1
