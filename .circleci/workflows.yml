@@ -348,7 +348,7 @@ workflows:
     jobs:
       - common_utils_changes_build:
           <<: *not_dev_main_v2
-      - data_products_changes_build:
+      - prefect_project_changes:
           <<: *not_dev_main_v2
           context: pocket-prefect-dev
           use_deploy_cli: false
@@ -360,7 +360,7 @@ workflows:
     jobs:
       - common_utils_changes_build:
           <<: *only_dev_v2
-      - data_products_changes_deploy:
+      - prefect_project_changes:
           <<: *only_dev_v2
           context: 
             - pocket-prefect-prod
@@ -374,7 +374,7 @@ workflows:
     jobs:
       - common_utils_changes_build:
           <<: *only_main_v2
-      - data_products_changes_deploy:
+      - prefect_project_changes:
           <<: *only_main_v2
           context: 
             - pocket-prefect-prod
