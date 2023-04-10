@@ -71,14 +71,8 @@ commands:
           name: Build Completed
           command: |
             echo "All build steps expected have completed."
-  set_poetry_path:
-    steps:
-      - run:
-          name: Set Poetry Path
-          command: echo "export PATH=/home/circleci/.local/bin:$PATH" >> $BASH_ENV
   configure_poetry:
     steps:
-      - set_poetry_path
       - run:
           name: Configure Poetry
           command: |
