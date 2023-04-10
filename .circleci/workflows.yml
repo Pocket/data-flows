@@ -87,6 +87,7 @@ commands:
             curl -sSL https://install.python-poetry.org | python3
             apt clean && apt autoremove -y
             rm -rf /var/lib/apt/lists/*
+            poetry config virtualenvs.create false
   python_changes_build:
     parameters:
       dependency_groups:
@@ -103,7 +104,7 @@ commands:
           command: |
             poetry install --no-ansi --only <<parameters.dependency_groups>>
             black --check .
-            poetry run python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
+            python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
   common_utils_wheel_file:
     steps:
