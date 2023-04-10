@@ -335,8 +335,10 @@ workflows:
           <<: *not_dev_main_v2
       - prefect_project_changes:
           <<: *not_dev_main_v2
-          context: pocket-prefect-dev
-          use_deploy_cli: false
+          context: 
+            - pocket-prefect-dev
+            - pocket-oidc-dev
+          use_deploy_cli: true
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
           requires:
