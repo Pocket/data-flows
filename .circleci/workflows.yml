@@ -196,7 +196,6 @@ jobs:
           <<: *has_common_utils_changes
           steps:
             - git_checkout
-            - configure_poetry
             - python_changes_build
       - no_op
     working_directory: << pipeline.parameters.base_working_directory >>/common-utils
@@ -229,7 +228,6 @@ jobs:
           condition: << parameters.has_changes >>
           steps:
             - git_checkout
-            - configure_poetry
             - python_changes_build
             - common_utils_wheel_file
             - when:
