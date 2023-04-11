@@ -224,8 +224,8 @@ jobs:
           condition: << parameters.has_changes >>
           steps:
             - git_checkout
-            - python_changes_build
             - common_utils_wheel_file
+            - python_changes_build
             - when:
                 condition: << parameters.use_deploy_cli >>
                 steps:
