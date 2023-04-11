@@ -12,10 +12,10 @@ prefect = "^2.8.6"
 prefect-dask = "^0.2.3"
 prefect-aws = "^0.2.5"
 greenlet = "^2.0.2"
+common-utils = {path = "dist/common_utils-0.1.0-py3-none-any.whl"}
 
 
 [tool.poetry.group.dev.dependencies]
-common-utils = {path = "../common-utils"}
 pytest = "^7.2.2"
 pytest-coverage = "^0.0"
 black = "^23.1.0"

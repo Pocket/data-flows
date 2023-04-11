@@ -93,11 +93,7 @@ commands:
     steps:
       - run:
           command: |
-            pushd << pipeline.parameters.base_working_directory >>/common-utils
-            poetry build -f wheel
-            mkdir -p mkdir -p /tmp/common-utils
-            cp dist/* /tmp/common-utils
-            popd
+            ../common-utils/common_utils_build.sh
 
   prefect_project_build:
     steps:
