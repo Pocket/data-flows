@@ -4,6 +4,7 @@ import sys
 from argparse import ArgumentParser, Namespace, RawTextHelpFormatter
 
 from common.deployment import LOGGER_NAME, PrefectProject
+from common.deployment.check_version import main as cv
 
 # Get deployment logger and setup logging config
 CLI_LOGGER = logging.getLogger(LOGGER_NAME)
@@ -58,6 +59,12 @@ this will also deploy your project's filesystem.
         action="store_true",
         help="set this flag to only validate flow specs.",
     )
+    # add version check functionality
+    parser.add_argument(
+        "--check-version",
+        action="store_true",
+        help="Do a version check against main-v2 for current project.",
+    )
     return parser.parse_args(args)
 
 
@@ -69,3 +76,5 @@ def main() -> None:
         p.process_project_docker_envs(parsed.build_only)
     elif parsed.subparser_name == "deploy-flows":
         p.process_project_flows(parsed.validate_only)
+    elif parsed.check_version:
+        cv()

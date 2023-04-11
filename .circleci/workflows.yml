@@ -1,10 +1,12 @@
+# Full set of parameters, commands, jobs, and workflows used for CI/CD
 version: 2.1
 
-# Orbs to use for jobs
+# CircleCI Orbs to use for jobs
+# The aws-cli orb is needed for ECR login
 orbs:
   aws-cli: circleci/aws-cli@3.1.4
 
-# Parameters to control monorepo conditionals
+# The first 4 parameters to control monorepo conditionals
 # Each Prefect project or supplemental folder (.aws) will get its own changes boolean
 # This will come from path filtering setup logic in config.yml
 parameters:
@@ -20,9 +22,13 @@ parameters:
   data_products_changes:
     type: boolean
     default: false
+  # This is a parameter to help with consistent working directories
   base_working_directory:
     type: string
     default: /tmp/data-flows-v2/repo
+
+# Below are anchors that are used as aliases further down the config
+# https://circleci.com/docs/introduction-to-yaml-configurations/#anchors-and-aliases
 
 # Branch shortcuts for filtering on workflows
 only_main_v2: &only_main_v2
@@ -45,6 +51,7 @@ only_dev_v2: &only_dev_v2
         - dev-v2
 
 # Shortcuts for conditionals based on boolean parameters
+
 has_aws_changes: &has_aws_changes
   condition: << pipeline.parameters.aws_changes >>
 
@@ -61,16 +68,22 @@ has_common_utils_changes: &has_common_utils_changes
 
 # Reusable commands for jobs
 commands:
+  # used to make sure git checkout happens in common base directory
   git_checkout:
     steps:
       - checkout:
           path: << pipeline.parameters.base_working_directory >>
+  # this is used as a final command on all jobs
+  # we need this because of Github branch rules to require builds to pass
   no_op:
     steps:
       - run:
           name: Build Completed
           command: |
             echo "All build steps expected have completed."
+  # common set of commands to run for python projects
+  # currently we run poetry install, black check, and pytest validation with expected 100% coverage
+  # https://github.com/psf/black
   python_changes_build:
     parameters:
       dependency_groups:
@@ -87,14 +100,16 @@ commands:
           command: |
             poetry install --no-ansi --only <<parameters.dependency_groups>>
             poetry run black --check .
+            poetry run deploy-cli --check-version
             poetry run python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
+  # shortcut for the common_utils_build.sh script
   common_utils_wheel_file:
     steps:
       - run:
           command: |
             ../common-utils/common_utils_build.sh
-
+  # steps for using deploy-cli to validate flow configs and build steps
   prefect_project_build:
     steps:
       - run:
@@ -102,6 +117,7 @@ commands:
             poetry run deploy-cli deploy-envs --build-only
             poetry run deploy-cli deploy-flows --validate-only
           name: Prefect Project Build
+  # steps for using the deploy-cli to push dockers envs and flows
   prefect_project_deploy:
     steps:
       - run:
@@ -115,6 +131,10 @@ commands:
 # Use of conditionals allow required checks to pass when build steps are not needed
 # Conditionals will the trigger the appropriate steps for the appropriate folders/files
 jobs:
+  # this will:
+  #  - check code style and syntax
+  #  - synthesize the typescript to a terraform manifest
+  #  - run terraform plan on the environment chosen
   aws_changes_build:
     parameters:
       node_env:
@@ -123,13 +143,14 @@ jobs:
       runner_resource_class:
         default: pocket/default-dev
         type: string
+    # this is so that we can run the cdktf process in a self hosted runner
     machine: true
     resource_class: << parameters.runner_resource_class >>
     environment: 
       CDKTF_LOG_LEVEL: DEBUG
       NODE_ENV: << parameters.node_env >>
     steps:
-      - when: 
+      - when: # using the changes shortcut to trigger a conditional check
           <<: *has_aws_changes
           steps:
           - checkout
@@ -149,9 +170,10 @@ jobs:
                 terraform init
                 terraform plan
               name: terraform plan
-      - no_op
-
+      - no_op # always run no_op so that builds still passes when no actual build steps run
+  # The changes check and no_op pattern is repeated throughout the config
   aws_changes_deploy:
+    # This will do basically everything in aws_changes_build, but will actually deploy the aws changes
     parameters:
       node_env:
         default: "development"
@@ -184,6 +206,7 @@ jobs:
                   terraform apply -auto-approve
                 name: terraform deploy
       - no_op
+  # Steps to run to validate health of the common_utils library
   common_utils_changes_build:
     docker:
       - image: cimg/python:3.10
@@ -194,7 +217,10 @@ jobs:
             - git_checkout
             - python_changes_build
       - no_op
+    # notice the use of the base_working_directory parameter
     working_directory: << pipeline.parameters.base_working_directory >>/common-utils
+  # Collection of steps for building and deploying a data-flows Prefect subproject
+  # Notice we have configs to control whether we need to perform the deploy-cli steps
   prefect_project_changes:
     parameters:
       environment_type:
@@ -209,6 +235,7 @@ jobs:
       use_deploy_cli:
         default: true
         type: boolean
+      # the project_folder and has_changes parameters help us re-use this job for other projects
       project_folder:
         type: string
       has_changes:
@@ -224,9 +251,9 @@ jobs:
           condition: << parameters.has_changes >>
           steps:
             - git_checkout
-            - common_utils_wheel_file
+            - common_utils_wheel_file # run the common_utils_build.sh script on behalf of developer
             - python_changes_build
-            - when:
+            - when: # here is conditional to control when and how we run the deploy-cli
                 condition: << parameters.use_deploy_cli >>
                 steps:
                   - aws-cli/setup:
@@ -244,6 +271,9 @@ jobs:
                         - prefect_project_deploy
       - no_op
     working_directory: << pipeline.parameters.base_working_directory >>/<< parameters.project_folder >>
+  # In order for the common_utils to work properly with the prefect agent... 
+  # we need to temporarily leverage a custom version of Prefect in custom image
+  # This is located at https://github.com/Pocket/prefect-aws.git@test-prs
   prefect_agent_docker:
     parameters:
         push_image:
@@ -276,6 +306,12 @@ jobs:
       - no_op
     working_directory: << pipeline.parameters.base_working_directory >>/.aws/.docker
 
+# Final CI/CD Workflows
+# The branch shortcuts are used to group jobs into specific workflows
+# New contexts were created to make sure that jobs have the proper envars
+# PR workflows are for validating PRs
+# Dev workflows are for deploying to non-prod environments, this mean the dev account for AWS changes and the test deployment type for prefect flows
+# Main workflows are for releasing to a production environment
 workflows:
   aws_changes_pr_workflow:
     jobs: 

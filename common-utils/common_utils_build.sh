@@ -5,6 +5,7 @@
 set -e
 
 CURRENT_DIR=${PWD}
+rm -rf dist
 mkdir -p dist
 pushd ../common-utils
 poetry build -f wheel

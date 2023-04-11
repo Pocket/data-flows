@@ -89,7 +89,7 @@ def run_command(command: str) -> str:
                 sub_process.returncode,
             )
             LOGGER.error(msg)
-            raise Exception("Shell Command Failed!")
+            raise Exception(f"Shell Command Failed with last line: {line}!")
     return line
 
 

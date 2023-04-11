@@ -1,10 +1,15 @@
 version: 2.1
 setup: true
 orbs:
-  path-filtering: circleci/path-filtering@0.1.3
+  path-filtering: circleci/path-filtering@0.1.3 # https://circleci.com/developer/orbs/orb/circleci/path-filtering
 workflows:
   generate-config:
     jobs:
+      # This configuration controls how parameters are passed to workflows.yml
+      # workflows.yml is where the CI/CD jobs and workflows live
+      # These booleans control whether we run certain job steps
+      # This is meant to provide a 'monorepo' build approach
+      # The path regex tell us what change groups we are currently interested in
       - path-filtering/filter:
           base-revision: main
           config-path: .circleci/workflows.yml
@@ -13,5 +18,3 @@ workflows:
             [.]aws/[.]docker/.* agent_docker_changes true
             common-utils/.* common_utils_changes true
             data-products/.* data_products_changes true
-
-# VS Code Extension Version: 1.5.1

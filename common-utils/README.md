@@ -24,43 +24,17 @@ https://python-poetry.org/docs/managing-dependencies/#dependency-groups
 
 ### Package User
 
-To install as part of your data-flows project, you can do one of 
-2 things:
+To install as part of your data-flows project, here are the steps:
 
-- Reference the path in your pyproject.toml and run `poetry install`
+- From the root of your sub-project run `../common-utils/common_utils_build.sh`.  This will create a `dist` folder with the proper wheel file you need to install.
 
-```toml
-[tool.poetry]
-name = "prefect-flows"
-version = "0.1.0"
-description = ""
-authors = ["Braun <breyes@mozilla.com>"]
-readme = "README.md"
+- Finally run `poetry add dist/<wheel file name>.whl`
 
-[tool.poetry.dependencies]
-python = "^3.10"
-common-utils = {path = "../common-utils"}
+The dist folder is in the .gitignore because the CI/CD job will run the `../common-utils/common_utils_build.sh` for you.  This means that your poetry install will work as expected.  It also means the build will fail if you have not installed the latest version of the library.
 
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-```
-
-- Build a .whl file and install it directly.  The Poetry build command will create a `dist` folder with the .whl file in it.
-
-```bash
-# From the common-utils directory
-poetry build
-```
-
-```
-dist
-├── common_utils-0.1.0-py3-none-any.whl
-└── common_utils-0.1.0.tar.gz
-```
-
-> :heavy_exclamation_mark: This package will not install with any external dependencies.  It is meant to be used with the versions of Prefect and Prefect-AWS that you are using in your project.  However, you can install the `dev` dependency group to install the libraries used for development.
+> :heavy_exclamation_mark: This library currently requires the use of our custom Prefect-AWS package at https://github.com/Pocket/prefect-aws.git@test-prs.  We needed the changes outlined in these PRs: https://github.com/PrefectHQ/prefect-aws/pull/236 and 
+https://github.com/PrefectHQ/prefect-aws/pull/233 (released).
+Once both of these changes are released through the main project, we can revert back to the main library.
 
 ### Package Developer
 
@@ -92,7 +66,7 @@ Below is a high level overview of the current modules available.
 
 This module provides tooling for deploying your project and flow resources to AWS and Prefect respectively.
 
-Per the [Prefect v2 docs](https://docs.prefect.io/), you will need to have your `PREFECT_API_KEY` and `PREFECT_API_URL` environment variables set.
+Per the [Prefect v2 docs](https://docs.prefect.io/), you will need to have your `PREFECT_API_KEY` and `PREFECT_API_URL` environment variables set when using the module for pushing flows to Prefect Cloud.
 
 You will also need to have your AWS credentials set either via Environment Variables, credientials file,  or SSO.  With SSO, you will most likely need your `AWS_DEFAULT_REGION` environment variable set.
 
@@ -121,13 +95,13 @@ We default to using current working directory, which will most likely be the roo
 
 There maybe situation during development where your working directory is not where the pyproject.toml is, you can set the path directly via the `PREFECT_PYPROJECT_PATH` environment variable.
 
-Since the deployment module imports data from the pyproject.toml on import, the module will need access to this file.  The envar helps with that.
+Since the deployment module imports data from the pyproject.toml for usage, the module will need access to this file.  The envar helps with that.
 
 We use this escape hatch for running the prefect cli since those commands need to run from the directory of the flow files.
 
 > NOTE: Setting this envar when running the deployment tools will result in errors because all other path config values in the pyproject.toml are expected to be absolute or relative to the current working directory.
 
-The main deliverable here is the `deploy-cli`.  This will be installed in your Poetry Python environment.
+The main deliverable here is the `deploy-cli`.  This will be installed in your Poetry Python environment.  This provides the commands needed to leverage the deployment tools capabilities.
 
 Here is the help text:
 
@@ -190,13 +164,14 @@ RUN apt update && \
 
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
+COPY dist /src/repo/dist 
 COPY pyproject.toml /src/repo/
 COPY poetry.lock /src/repo/
 
 WORKDIR /src/repo
 
 RUN $HOME/.local/bin/poetry config virtualenvs.create false
-RUN $HOME/.local/bin/poetry install --no-root --only dev
+RUN $HOME/.local/bin/poetry install --no-root --only main
 ```
 
 As you can see, we want to make sure we are using supported Prefect Docker Images.  This is useful even though your own project may install a different version of Prefect.
@@ -235,6 +210,7 @@ The purpose of this `deploy-flows` is to:
 
 - Using the `tool.prefect.flows_folder` configuration, find Python files that end in `_flow.py` and attempt to deploy them to Prefect.
 - The deployment of a flow consists of:
+    - Registering the proper ECS Task Definition.
     - Creating an ECS Task Block in Prefect that defines the flow's task definition.
     - Loading the flow files to the S3 filessystem.
     - Registering the flow's deployment configurations with Prefect.  A flow can have multiple deployment configurations.  Deployment documentation is found [here](https://docs.prefect.io/concepts/deployments/).
@@ -298,11 +274,13 @@ Screenshots can be found [here](https://getpocket.atlassian.net/wiki/spaces/PE/p
 
 ## Contributing
 
-PRs from the Pocket Team are welcomed given that changes to made with the understanding that this is meant to be **shared** for code Prefect v2 flows.
+PRs from the Pocket Team are welcomed given that changes are made with the understanding that this is meant to be **shared** code Prefect v2 flows.
 
 ## Notes
 
-More context will be available on how this project works in the wild once we have the flow deployment tools added with the [prefect-flows](../prefect-flows/) subproject built out as an example.
+A subproject example can be found in the [data-products](../data-products) project folder at the root of the git repo.  This is where the Pocket Data Products Team will author flows.
+
+In order for the common_utils and Prefect agent to work
 
 ## Links
 
