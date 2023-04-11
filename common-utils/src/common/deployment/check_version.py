@@ -35,7 +35,6 @@ def get_main_version_tag():
 
 
 def version_compare(v1, v2):
-
     # This will split both the versions by '.'
     arr1 = v1.split(".")
     arr2 = v2.split(".")
