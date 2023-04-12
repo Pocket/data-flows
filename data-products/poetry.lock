@@ -650,7 +650,7 @@ category = "main"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "common_utils-0.1.1-py3-none-any.whl", hash = "sha256:0f80c080a2dfa0b59f1d59629ed94d9c010ea32d3c7b5928b246cda3c3069c49"},
+    {file = "common_utils-0.1.1-py3-none-any.whl", hash = "sha256:7a158d99ba8b2fd41dd3d17bfd1d58be7a89ca455a76017da1dc0235d9f70c36"},
 ]
 
 [package.dependencies]
