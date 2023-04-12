@@ -230,8 +230,11 @@ jobs:
       deployment_type:
         default: test
         type: string
-      validate_build_only:
-        default: true
+      push_flows:
+        default: false
+        type: boolean
+      build_flows:
+        default: false
         type: boolean
       use_deploy_cli:
         default: true
@@ -263,11 +266,11 @@ jobs:
                   - setup_remote_docker:
                       version: 20.10.18
                   - when:
-                      condition: << parameters.validate_build_only >>
+                      condition: << parameters.build_flows >>
                       steps:
                         - prefect_project_build
-                  - unless:
-                      condition: << parameters.validate_build_only >>
+                  - when:
+                      condition: << parameters.push_flows >>
                       steps:
                         - prefect_project_deploy
       - no_op
@@ -373,6 +376,7 @@ workflows:
             - pocket-oidc-dev
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
+          build_flows: true
           requires:
             - common_utils_changes_build
   prefect_changes_dev_workflow:
@@ -387,7 +391,7 @@ workflows:
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
           environment_type: production
-          validate_build_only: false
+          push_flows: true
           requires:
             - common_utils_changes_build
   prefect_changes_main_workflow:
@@ -403,8 +407,6 @@ workflows:
           project_folder: data-products
           deployment_type: live
           environment_type: production
-          validate_build_only: false
+          push_flows: true
           requires:
             - common_utils_changes_build
-
-# VS Code Extension Version: 1.5.1
