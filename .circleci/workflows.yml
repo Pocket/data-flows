@@ -371,7 +371,6 @@ workflows:
           context: 
             - pocket-prefect-dev
             - pocket-oidc-dev
-          use_deploy_cli: true
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
           requires:
@@ -388,6 +387,7 @@ workflows:
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
           environment_type: production
+          validate_build_only: false
           requires:
             - common_utils_changes_build
   prefect_changes_main_workflow:
@@ -403,6 +403,7 @@ workflows:
           project_folder: data-products
           deployment_type: live
           environment_type: production
+          validate_build_only: false
           requires:
             - common_utils_changes_build
 
