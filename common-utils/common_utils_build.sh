@@ -8,6 +8,8 @@ CURRENT_DIR=${PWD}
 rm -rf dist
 mkdir -p dist
 pushd ../common-utils
+rm -rf dist
+mkdir -p dist
 poetry build -f wheel
 cp dist/*.whl ${CURRENT_DIR}/dist/
 popd
