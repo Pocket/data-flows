@@ -22,7 +22,7 @@ def test_get_main_version_tag(mock_cmd):
     mock_cmd.return_value = "base 0.0.1"
     x = get_main_version_tag()
     assert x == ["base", "0.0.1"]
-    assert mock_cmd.call_count == 2
+    assert mock_cmd.call_count == 1
 
 
 @patch("common.deployment.check_version.get_poetry_version")
@@ -81,11 +81,25 @@ def test_main_bump_less(mock_current, mock_new):
 @patch("common.deployment.check_version.run_command")
 def test_main_bump_new(mock_cmd, mock_new):
     mock_new.return_value = ["base", "0.0.1"]
-    mock_cmd.side_effect = Exception("Poetry could not find a pyproject.toml file")
+    mock_cmd.side_effect = Exception("Invalid TOML file")
+    with open("/tmp/common-utils/pyproject.toml", "w") as f:
+        f.write("404: Not Found")
+    main()
+    assert mock_new.call_count == 1
+    assert mock_cmd.call_count == 1
+
+
+@patch("common.deployment.check_version.get_poetry_version")
+@patch("common.deployment.check_version.run_command")
+def test_main_bad_file(mock_cmd, mock_new):
+    mock_new.return_value = ["base", "0.0.1"]
+    mock_cmd.side_effect = Exception("Invalid TOML file")
+    with open("/tmp/common-utils/pyproject.toml", "w") as f:
+        f.write("bad file")
     with pytest.raises(Exception):
         main()
     assert mock_new.call_count == 1
-    assert mock_cmd.call_count == 2
+    assert mock_cmd.call_count == 1
 
 
 @patch("common.deployment.check_version.get_poetry_version")
@@ -96,4 +110,4 @@ def test_main_exception(mock_cmd, mock_new):
     with pytest.raises(Exception):
         main()
     assert mock_new.call_count == 1
-    assert mock_cmd.call_count == 2
+    assert mock_cmd.call_count == 1

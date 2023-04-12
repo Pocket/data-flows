@@ -644,13 +644,13 @@ files = [
 
 [[package]]
 name = "common-utils"
-version = "0.1.3"
+version = "0.1.1"
 description = "Shared modules for prefect flow development and deployment"
 category = "main"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "common_utils-0.1.3-py3-none-any.whl", hash = "sha256:5fdadf7044188c955bf14f5bda62a2ae4034ed3100ac8b598510e42d937b4e4c"},
+    {file = "common_utils-0.1.1-py3-none-any.whl", hash = "sha256:28c6e11be6a2b2cc79decb6b6231031b11816bd140317a1c8e7579b34426512e"},
 ]
 
 [package.dependencies]
@@ -660,7 +660,7 @@ s3fs = ">=2023.1.0,<2024.0.0"
 
 [package.source]
 type = "file"
-url = "dist/common_utils-0.1.3-py3-none-any.whl"
+url = "dist/common_utils-0.1.1-py3-none-any.whl"
 
 [[package]]
 name = "coolname"
@@ -2035,8 +2035,8 @@ develop = false
 [package.dependencies]
 boto3 = ">=1.24.53"
 botocore = ">=1.27.53"
-mypy_boto3_s3 = ">=1.24.94"
-mypy_boto3_secretsmanager = ">=1.26.49"
+mypy-boto3-s3 = ">=1.24.94"
+mypy-boto3-secretsmanager = ">=1.26.49"
 prefect = ">=2.7"
 
 [package.extras]
@@ -3286,4 +3286,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "732e57af980e0712027902fcf49749284a2183433b1739349c11b1ffa005eef5"
+content-hash = "eee87af28bd247d91926f130bcfcaf86ae8929a4cf5ff88e56073188a2591ada"

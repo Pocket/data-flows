@@ -10,28 +10,30 @@ def get_poetry_version():
 
 
 def get_main_version_tag():
+    dir_name = Path(os.getcwd()).name
     try:
         tag_data = run_command(
             f"""
             set -e
-            rm -rf /tmp/data-flows-clone
-            git clone ../ /tmp/data-flows-clone
-            cd /tmp/data-flows-clone/{Path(os.getcwd()).name}
-            echo $PWD
-            git checkout main-v2
-            poetry version
+            rm -rf /tmp/{dir_name}
+            mkdir -p /tmp/{dir_name}
+            curl -o /tmp/{dir_name}/pyproject.toml https://raw.githubusercontent.com/Pocket/data-flows/main-v2/{dir_name}/pyproject.toml 
+            poetry version -C /tmp/{dir_name}
             """
         )
+        print(tag_data)
         return tag_data.strip().split()
     except Exception as e:
-        if "Poetry could not find a pyproject.toml file" in str(e):
-            LOGGER.info("no existing project...")
-            LOGGER.info("returning 0.0.0 as version...")
-            return "new-project 0.0.0".strip().split()
+        if "Invalid TOML file" in str(e):
+            with open(f"/tmp/{dir_name}/pyproject.toml") as f:
+                data = f.read()
+            if "404: Not Found" in data:
+                LOGGER.info("no existing project...")
+                LOGGER.info("returning 0.0.0 as version...")
+                return "new-project 0.0.0".strip().split()
+            raise Exception(str(e))
         else:
             raise Exception(str(e))
-    finally:
-        run_command("rm -rf /tmp/data-flows-clone")
 
 
 def version_compare(v1, v2):
@@ -73,3 +75,7 @@ def main():
         raise Exception(f"{v1} is not bigger than {v2}, please bump version.")
     else:
         LOGGER.info(f"{v1} is bigger than {v2}...version check passed.")
+
+
+if __name__ == "__main__":
+    main()
