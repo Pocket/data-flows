@@ -50,6 +50,12 @@ only_dev_v2: &only_dev_v2
       only:
         - dev-v2
 
+only_test_v2: &only_test_v2
+  filters:
+    branches:
+      only:
+        - test-v2
+
 # Shortcuts for conditionals based on boolean parameters
 
 has_aws_changes: &has_aws_changes
@@ -382,12 +388,27 @@ workflows:
       - prefect_project_changes:
           <<: *only_dev_v2
           context: 
+            - pocket-prefect-dev
+            - pocket-oidc-dev
+          has_changes: << pipeline.parameters.data_products_changes  >>
+          project_folder: data-products
+          validate_build_only: false
+          deployment_type: live
+          requires:
+            - common_utils_changes_build
+  prefect_changes_test_workflow:
+    jobs:
+      - common_utils_changes_build:
+          <<: *only_test_v2
+      - prefect_project_changes:
+          <<: *only_test_v2
+          context: 
             - pocket-prefect-prod
             - pocket-oidc-prod
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
-          environment_type: production
           validate_build_only: false
+          environment_type: production
           requires:
             - common_utils_changes_build
   prefect_changes_main_workflow:
