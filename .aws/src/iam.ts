@@ -14,7 +14,12 @@ import { config } from './config';
 import { ApplicationECR } from '@pocket-tools/terraform-modules';
 
 export class CircleCiOIDC extends Construct {
-  constructor(scope: Construct, name: string, ecr_repo: ApplicationECR) {
+  constructor(
+    scope: Construct,
+    name: string,
+    ecr_repo: ApplicationECR,
+    caller: DataAwsCallerIdentity
+  ) {
     super(scope, name);
     const orgId = config.OIDCOrgId;
     const OIDCProviderId = `oidc.circleci.com/org/${orgId}`;
@@ -80,8 +85,22 @@ export class CircleCiOIDC extends Construct {
           },
           {
             effect: 'Allow',
-            actions: ['ecr:GetAuthorizationToken'],
+            actions: [
+              'ecr:GetAuthorizationToken',
+              'ecs:RegisterTaskDefinition',
+              'ecs:ListTaskDefinitions',
+              'ecs:DescribeTaskDefinition',
+              'ecs:DeregisterTaskDefinition'
+            ],
             resources: ['*']
+          },
+          {
+            effect: 'Allow',
+            actions: ['iam:PassRole'],
+            resources: [
+              `arn:aws:iam::${caller.accountId}:role/prefect-*`,
+              `arn:aws:iam::${caller.accountId}:role/data-flows-*`
+            ]
           }
         ]
       }

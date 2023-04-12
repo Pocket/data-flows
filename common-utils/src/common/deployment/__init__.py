@@ -78,7 +78,9 @@ def run_command(command: str) -> str:
         str: Last line from stdout.
     """
     line = "Running Shell Command..."
-    with Popen(command, stdout=PIPE, stderr=STDOUT, shell=True) as sub_process:
+    with Popen(
+        command, stdout=PIPE, stderr=STDOUT, shell=True, executable="/bin/bash"
+    ) as sub_process:
         for raw_line in iter(sub_process.stdout.readline, b""):  # type: ignore
             line = raw_line.decode("utf-8").rstrip()
             LOGGER.info(line)

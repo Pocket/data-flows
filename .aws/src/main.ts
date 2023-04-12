@@ -61,7 +61,7 @@ class PrefectV2 extends TerraformStack {
     });
 
     // create the CircleCI OpenId Role for Image Upload
-    new CircleCiOIDC(this, 'CircleCiOIDC', ecrRepo);
+    new CircleCiOIDC(this, 'CircleCiOIDC', ecrRepo, this.caller);
 
     // create live and test filesystems
     const testFS = this.createDataFlowsBucket('test');
