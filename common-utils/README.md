@@ -106,22 +106,21 @@ The main deliverable here is the `deploy-cli`.  This will be installed in your P
 Here is the help text:
 
 ```
-usage: deploy-cli [-h]  ...
+usage: deploy-cli [-h] [--check-version]  ...
 
 basic CLI setup for running deployment utils as needed.
     
 
 options:
-  -h, --help    show this help message and exit
+  -h, --help       show this help message and exit
+  --check-version  Do a version check against main-v2 for current project.
 
 subcommands:
-                these are the subcommands to use for deploying flows and environments as needed
-    deploy-envs
-                use this command to deploy the docker envs configured in your pyproject.toml
-                this will also deploy your project's filesystem.
-                        
-    deploy-flows
-                use this command to deploy flows from the flows_folder configured in your pyproject.toml
+                   these are the subcommands to use for deploying flows and environments as needed
+    deploy-envs    use this command to deploy the docker envs configured in your pyproject.toml
+                   this will also deploy your project's filesystem.
+                           
+    deploy-flows   use this command to deploy flows from the flows_folder configured in your pyproject.toml
 ```
 
 As you can see, there are 2 subcommands:
@@ -146,7 +145,13 @@ options:
   --validate-only  set this flag to only validate flow specs.
 ```
 
-The purpose of this `deploy-envs` is to:
+There is also a top level flag called `--check-version`
+
+This will pull down a project `pyproject.toml` file and make sure the version is update as needed if there are changes.
+
+We leverage this in our CICD process.
+
+The purpose of `deploy-envs` is to:
 
 - Accept and create a series of environment configurations that will used as Docker environments for your flow runs.
 - Create a [Prefect Filesystem](https://docs.prefect.io/concepts/filesystems/#s3) for your Project.  This filesystem is used as [Remote Storage](https://docs.prefect.io/concepts/storage/) for your flow code.  You will also be able to use this filesystem in your flow logic for storing files as needed.
@@ -280,7 +285,6 @@ PRs from the Pocket Team are welcomed given that changes are made with the under
 
 A subproject example can be found in the [data-products](../data-products) project folder at the root of the git repo.  This is where the Pocket Data Products Team will author flows.
 
-In order for the common_utils and Prefect agent to work
 
 ## Links
 

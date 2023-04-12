@@ -84,6 +84,7 @@ commands:
   # common set of commands to run for python projects
   # currently we run poetry install, black check, and pytest validation with expected 100% coverage
   # https://github.com/psf/black
+  # we also run a a project version check via the deploy-cli to make sure pyproject.toml is version bumped as needed
   python_changes_build:
     parameters:
       dependency_groups:
