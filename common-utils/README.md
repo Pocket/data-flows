@@ -70,11 +70,11 @@ Per the [Prefect v2 docs](https://docs.prefect.io/), you will need to have your 
 
 You will also need to have your AWS credentials set either via Environment Variables, credientials file,  or SSO.  With SSO, you will most likely need your `AWS_DEFAULT_REGION` environment variable set.
 
-There 2 more important environment variables: `ENVIRONMENT_TYPE` (dev or prod) and `DEPLOYMENT_TYPE` (test or live).
+There 2 more important environment variables: `ENVIRONMENT_TYPE` (dev or production) and `DEPLOYMENT_TYPE` (test or live).
 
-`ENVIRONMENT_TYPE` has to do with the environment that we are deploying underlying resources to.  For example, Infrastructure and common-utils will be developed and tested in the `dev` environment and then deployed using the `prod` environment.  These resources make up the "Platform".
+`ENVIRONMENT_TYPE` has to do with the environment that we are deploying underlying resources to.  For example, Infrastructure and common-utils will be developed and tested in the `dev` environment and then deployed using the `production` environment.  These resources make up the "Platform".
 
-`DEPLOYMENT_TYPE` has to do with Prefect Flow development.  Flows merged to `main-v2` will be considered `live` and flows optionally merged to `dev-v2` will be considered `test`.  There will be deployment and infrastructure resources available to support both in the Prefect Environment.
+`DEPLOYMENT_TYPE` has to do with Prefect Flow development.  Flows merged to `main-v2` will be considered `live` and flows optionally merged to `test-v2` will be considered `test`.  There will be deployment and infrastructure resources available to support both in the Prefect Environment.
 
 This will be explained in more detail on this repository's top level [README.md](../README.md)
 
@@ -201,15 +201,17 @@ These are project level images that can be leveraged by any flow.
 Each project will get 2 filesystems:
 
 ```python
-f"{project_name}-prod-test"
+f"{project_name}-production-test"
 ```
 ```python
-f"{project_name}-prod-live"
+f"{project_name}-production-live"
 ```
 
-`test` will be used for flows pushed to the `dev-v2` branch.
+`test` will be used for flows pushed to the `test-v2` branch.
 
-`prod` will be used for flows pushed to the `main-v2` branch.
+`production` will be used for flows pushed to the `main-v2` branch.
+
+The `dev-v2` will be reserved for testing platform components like `.aws` and CICD.
 
 The purpose of this `deploy-flows` is to:
 

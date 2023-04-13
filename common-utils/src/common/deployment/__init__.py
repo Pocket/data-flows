@@ -299,7 +299,12 @@ class FlowDeployment(BaseModel):
             str: Command line argument to use for setting the deployment's schedule.
         """
         schedule = self.schedule
-        if isinstance(schedule, CronSchedule):
+        # we should only schedule for production-live
+        if ENVIRONMENT_TYPE == "dev":
+            return ""
+        elif DEPLOYMENT_TYPE == "test":
+            return ""
+        elif isinstance(schedule, CronSchedule):
             return f"--cron '{schedule.cron}'"
         elif isinstance(schedule, RRuleSchedule):
             return f"--rrule '{schedule.rrule}'"
@@ -327,7 +332,7 @@ class FlowDeployment(BaseModel):
         """
         pyproject_metadata = get_pyproject_metadata()
         project_name = pyproject_metadata.project_name
-        deployment_name = standard_slugify(self.deployment_name)
+        deployment_name = f"{standard_slugify(self.deployment_name)}-{ENVIRONMENT_TYPE}-{DEPLOYMENT_TYPE}"
         flow_file_name = flow_path.name
         task_customizations = [
             {
@@ -377,7 +382,7 @@ class FlowDeployment(BaseModel):
         -q prefect-v2-queue-{ENVIRONMENT_TYPE}-{DEPLOYMENT_TYPE} \\
         -v {GIT_SHA} \\
         --params {params} \\
-        -t {project_name} -t {get_flow_folder(flow_path)} \\
+        -t {project_name} -t {get_flow_folder(flow_path)} -t {ENVIRONMENT_TYPE} -t {DEPLOYMENT_TYPE} \\
         -a \\
         {schedule} {skip_upload_flag} && \\
         popd"""

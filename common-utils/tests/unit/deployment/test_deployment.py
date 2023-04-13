@@ -4,9 +4,6 @@ from unittest.mock import patch
 
 import pytest
 from boto3 import session
-from moto import mock_ecs, mock_sts
-from prefect import flow, task
-
 from common.deployment import (
     GIT_SHA,
     PYPROJECT_PATH,
@@ -23,6 +20,8 @@ from common.deployment import (
     get_flow_folder,
     run_command,
 )
+from moto import mock_ecs, mock_sts
+from prefect import flow, task
 
 
 @mock_sts
@@ -79,6 +78,8 @@ def test_flow_docker_env(mock_cmd):
     )
 
 
+@patch("common.deployment.ENVIRONMENT_TYPE", "production")
+@patch("common.deployment.DEPLOYMENT_TYPE", "live")
 @patch("common.deployment.run_command")
 def test_flow_deployment(mock_cmd):
     # Test schedule method return cli arg as expected.
@@ -114,7 +115,82 @@ def test_flow_deployment(mock_cmd):
         skip_upload=True,
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-dev-test \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t common-utils -t deployment \\\n        -a \\\n        --interval '120' --skip-upload && \\\n        popd"""
+    call_text = f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-production-live \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-production-live \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t common-utils -t deployment -t production -t live \\\n        -a \\\n        --interval '120' --skip-upload && \\\n        popd"""
+    mock_cmd.assert_called_with(call_text)
+
+
+@patch("common.deployment.ENVIRONMENT_TYPE", "production")
+@patch("common.deployment.DEPLOYMENT_TYPE", "test")
+@patch("common.deployment.run_command")
+def test_flow_deployment_prod_test(mock_cmd):
+    # Test schedule method return cli arg as expected.
+    d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
+    x1 = d1._get_schedule_arg()
+    assert x1 == ""
+    d2 = FlowDeployment(deployment_name="test", schedule=IntervalSchedule(interval=60))  # type: ignore
+    x2 = d2._get_schedule_arg()
+    assert x2 == ""
+    d3 = FlowDeployment(deployment_name="test", schedule=RRuleSchedule(rrule="FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17"))  # type: ignore
+    x3 = d3._get_schedule_arg()
+    assert x3 == ""
+    d4 = FlowDeployment(deployment_name="test")  # type: ignore
+    x4 = d4._get_schedule_arg()
+    assert x4 == ""
+
+    # Validate push deployment method using mock on run_command.
+    d5 = FlowDeployment(
+        deployment_name="test",
+        schedule=IntervalSchedule(interval=120),  # type: ignore
+        cpu="1024",
+        memory="4096",
+        parameters={"test_param": "test_value"},
+    )
+    d5.push_deployment(
+        storage_path="test-bucket/test-folder",
+        infrastructure="test-ECS-block",
+        flow_path=Path("tests/unit/deployment/test_deployment.py"),
+        flow_function_name="test_function",
+        skip_upload=True,
+    )
+    assert mock_cmd.call_count == 1
+    call_text = f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-production-test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-production-test \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t common-utils -t deployment -t production -t test \\\n        -a \\\n         --skip-upload && \\\n        popd"""
+    mock_cmd.assert_called_with(call_text)
+
+
+@patch("common.deployment.DEPLOYMENT_TYPE", "test")
+@patch("common.deployment.run_command")
+def test_flow_deployment_dev_test(mock_cmd):
+    # Test schedule method return cli arg as expected.
+    d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
+    x1 = d1._get_schedule_arg()
+    assert x1 == ""
+    d2 = FlowDeployment(deployment_name="test", schedule=IntervalSchedule(interval=60))  # type: ignore
+    x2 = d2._get_schedule_arg()
+    assert x2 == ""
+    d3 = FlowDeployment(deployment_name="test", schedule=RRuleSchedule(rrule="FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17"))  # type: ignore
+    x3 = d3._get_schedule_arg()
+    assert x3 == ""
+    d4 = FlowDeployment(deployment_name="test")  # type: ignore
+    x4 = d4._get_schedule_arg()
+    assert x4 == ""
+
+    # Validate push deployment method using mock on run_command.
+    d5 = FlowDeployment(
+        deployment_name="test",
+        schedule=IntervalSchedule(interval=120),  # type: ignore
+        cpu="1024",
+        memory="4096",
+        parameters={"test_param": "test_value"},
+    )
+    d5.push_deployment(
+        storage_path="test-bucket/test-folder",
+        infrastructure="test-ECS-block",
+        flow_path=Path("tests/unit/deployment/test_deployment.py"),
+        flow_function_name="test_function",
+        skip_upload=True,
+    )
+    assert mock_cmd.call_count == 1
+    call_text = f"""export PREFECT_PYPROJECT_PATH={PYPROJECT_PATH} && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-dev-test \\\n        -sb s3/test-bucket/test-folder \\\n        -ib ecs-task/test-ECS-block \\\n        --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-dev-test \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t common-utils -t deployment -t dev -t test \\\n        -a \\\n         --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 

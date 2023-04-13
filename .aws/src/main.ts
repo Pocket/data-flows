@@ -60,12 +60,19 @@ class PrefectV2 extends TerraformStack {
       name: 'data-flows-prefect-envs'
     });
 
-    // create the CircleCI OpenId Role for Image Upload
-    new CircleCiOIDC(this, 'CircleCiOIDC', ecrRepo, this.caller);
-
     // create live and test filesystems
     const testFS = this.createDataFlowsBucket('test');
     const liveFS = this.createDataFlowsBucket('live');
+
+    // create the CircleCI OpenId Role for Image Upload
+    new CircleCiOIDC(
+      this,
+      'CircleCiOIDC',
+      ecrRepo,
+      this.caller,
+      testFS,
+      liveFS
+    );
 
     // create data-flows task security group
 
