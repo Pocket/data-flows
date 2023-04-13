@@ -381,6 +381,21 @@ workflows:
           project_folder: data-products
           requires:
             - common_utils_changes_build
+  prefect_changes_dev_workflow:
+    jobs:
+      - common_utils_changes_build:
+          <<: *only_dev_v2
+      - prefect_project_changes:
+          <<: *only_dev_v2
+          context: 
+            - pocket-prefect-dev
+            - pocket-oidc-dev
+          has_changes: << pipeline.parameters.data_products_changes  >>
+          project_folder: data-products
+          validate_build_only: false
+          deployment_type: live
+          requires:
+            - common_utils_changes_build
   prefect_changes_test_workflow:
     jobs:
       - common_utils_changes_build:
