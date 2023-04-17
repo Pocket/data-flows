@@ -37,10 +37,11 @@ only_main_v2: &only_main_v2
       only:
         - main-v2
 
-not_dev_main_v2: &not_dev_main_v2
+not_dev_main_stg_v2: &not_dev_main_stg_v2
   filters:
     branches:
       ignore:
+        - staging-v2
         - dev-v2
         - main-v2
 
@@ -50,11 +51,11 @@ only_dev_v2: &only_dev_v2
       only:
         - dev-v2
 
-only_test_v2: &only_test_v2
+only_stg_v2: &only_stg_v2
   filters:
     branches:
       only:
-        - test-v2
+        - staging-v2
 
 # Shortcuts for conditionals based on boolean parameters
 
@@ -230,11 +231,8 @@ jobs:
   # Notice we have configs to control whether we need to perform the deploy-cli steps
   prefect_project_changes:
     parameters:
-      environment_type:
-        default: dev
-        type: string
       deployment_type:
-        default: test
+        default: dev
         type: string
       validate_build_only:
         default: true
@@ -249,7 +247,6 @@ jobs:
         default: false
         type: boolean
     environment: 
-      PREFECT_ENVIRONMENT_TYPE: << parameters.environment_type >>
       PREFECT_DEPLOYMENT_TYPE: << parameters.deployment_type >>
     docker:
       - image: cimg/python:3.10
@@ -317,23 +314,24 @@ jobs:
 # The branch shortcuts are used to group jobs into specific workflows
 # New contexts were created to make sure that jobs have the proper envars
 # PR workflows are for validating PRs
-# Dev workflows are for deploying to non-prod environments, this mean the dev account for AWS changes and the test deployment type for prefect flows
-# Main workflows are for releasing to a production environment
+# Dev workflows are for deploying to AWS dev based environments, this means the dev account for AWS changes and flows deployed will run on AWS Dev inf prefect flows
+# Staging workflows to allow for deploying flows to the production platform in 'pre-release' state - still need to define how pre-release will work though.
+# Main workflows are for releasing to a production environment, this means the production account for AWS changes and flows deployed will run on AWS Production inf prefect flows
 workflows:
   aws_changes_pr_workflow:
     jobs: 
       - prefect_agent_docker:
-          <<: *not_dev_main_v2
+          <<: *not_dev_main_stg_v2
           context: pocket-oidc-dev
           name: prefect agent docker build
       - aws_changes_build:
-          <<: *not_dev_main_v2
+          <<: *not_dev_main_stg_v2
           context: pocket
           node_env: development
           runner_resource_class: pocket/default-dev
           name: terraform plan dev
       - aws_changes_build:
-          <<: *not_dev_main_v2
+          <<: *not_dev_main_stg_v2
           context: pocket
           node_env: production
           runner_resource_class: pocket/default-prod
@@ -371,9 +369,9 @@ workflows:
   prefect_changes_pr_workflow:
     jobs:
       - common_utils_changes_build:
-          <<: *not_dev_main_v2
+          <<: *not_dev_main_stg_v2
       - prefect_project_changes:
-          <<: *not_dev_main_v2
+          <<: *not_dev_main_stg_v2
           context: 
             - pocket-prefect-dev
             - pocket-oidc-dev
@@ -381,34 +379,19 @@ workflows:
           project_folder: data-products
           requires:
             - common_utils_changes_build
-  prefect_changes_dev_workflow:
+  prefect_changes_staging_workflow:
     jobs:
       - common_utils_changes_build:
-          <<: *only_dev_v2
+          <<: *only_stg_v2
       - prefect_project_changes:
-          <<: *only_dev_v2
-          context: 
-            - pocket-prefect-dev
-            - pocket-oidc-dev
-          has_changes: << pipeline.parameters.data_products_changes  >>
-          project_folder: data-products
-          validate_build_only: false
-          deployment_type: live
-          requires:
-            - common_utils_changes_build
-  prefect_changes_test_workflow:
-    jobs:
-      - common_utils_changes_build:
-          <<: *only_test_v2
-      - prefect_project_changes:
-          <<: *only_test_v2
+          <<: *only_stg_v2
           context: 
             - pocket-prefect-prod
             - pocket-oidc-prod
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
+          deployment_type: staging
           validate_build_only: false
-          environment_type: production
           requires:
             - common_utils_changes_build
   prefect_changes_main_workflow:
@@ -422,8 +405,7 @@ workflows:
             - pocket-oidc-prod
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
-          deployment_type: live
-          environment_type: production
+          deployment_type: main
           validate_build_only: false
           requires:
             - common_utils_changes_build

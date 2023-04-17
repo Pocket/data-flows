@@ -70,38 +70,19 @@ Per the [Prefect v2 docs](https://docs.prefect.io/), you will need to have your 
 
 You will also need to have your AWS credentials set either via Environment Variables, credientials file,  or SSO.  With SSO, you will most likely need your `AWS_DEFAULT_REGION` environment variable set.
 
-There 2 more important environment variables: `ENVIRONMENT_TYPE` (dev or production) and `DEPLOYMENT_TYPE` (test or live).
+Another important environment variable is `DEPLOYMENT_TYPE`.  This determines what infrastructure flows run on as well as what access it will have.
 
-`ENVIRONMENT_TYPE` has to do with the environment that we are deploying underlying resources to.  For example, Infrastructure and common-utils will be developed and tested in the `dev` environment and then deployed using the `production` environment.  These resources make up the "Platform".
+`DEPLOYMENT_TYPE` has to do with Prefect Flow development and underlying AWS infrastructure.  Flows merged to `main-v2` will be considered a `main` deployment type and flows optionally merged to `staging-v2` will be considered a `staging` deployment type.  There will be deployment and infrastructure resources available to support both in the Prefect Environment.  There will be the option to push flows to a `dev` deployment type powered by the AWS development account.  This is no automation for this, so though flow code will be pulled from `dev-v2`, a push to the `dev-v2` branch will not trigger a flow deployment.  However, there will be an option to deploy flows locally as needed to the `dev` deployment type.
 
-`DEPLOYMENT_TYPE` has to do with Prefect Flow development.  Flows merged to `main-v2` will be considered `live` and flows optionally merged to `test-v2` will be considered `test`.  There will be deployment and infrastructure resources available to support both in the Prefect Environment.
-
-This will be explained in more detail on this repository's top level [README.md](../README.md)
+The main deliverable here is the `deploy-cli`.  This will be installed in your Poetry Python environment.  This provides the commands needed to leverage the deployment tools capabilities.
 
 Finally, this module relies on the existence of a Poetry PyProject path to pull metadata for deployment.  Here is a code sample:
 
 ```python
-# config for supporting using different pyproject.toml path when developing flows
-CWD_DIR = os.path.join(os.getcwd(), "pyproject.toml")
-
-PYPROJECT_PATH = os.path.abspath(
-    os.path.expanduser(os.getenv("PREFECT_PYPROJECT_PATH", CWD_DIR))
-)
+PYPROJECT_FILE_PATH = os.path.expanduser(os.path.join(os.getcwd(), "pyproject.toml"))
 ```
 
-We default to using current working directory, which will most likely be the root of the flows project, to find the pyproject.toml file.
-
-> We recommend that your working directory for flow development be the root of your project.  However, below there is an escape hatch envar you can use for local flow development.
-
-There maybe situation during development where your working directory is not where the pyproject.toml is, you can set the path directly via the `PREFECT_PYPROJECT_PATH` environment variable.
-
-Since the deployment module imports data from the pyproject.toml for usage, the module will need access to this file.  The envar helps with that.
-
-We use this escape hatch for running the prefect cli since those commands need to run from the directory of the flow files.
-
-> NOTE: Setting this envar when running the deployment tools will result in errors because all other path config values in the pyproject.toml are expected to be absolute or relative to the current working directory.
-
-The main deliverable here is the `deploy-cli`.  This will be installed in your Poetry Python environment.  This provides the commands needed to leverage the deployment tools capabilities.
+We default to using current working directory to find the pyproject.toml file.  For the `deploy-cli` to work, you must execute it from the subproject root.
 
 Here is the help text:
 
@@ -151,12 +132,9 @@ This will pull down a project `pyproject.toml` file and make sure the version is
 
 We leverage this in our CICD process.
 
-The purpose of `deploy-envs` is to:
-
-- Accept and create a series of environment configurations that will used as Docker environments for your flow runs.
-- Create a [Prefect Filesystem](https://docs.prefect.io/concepts/filesystems/#s3) for your Project.  This filesystem is used as [Remote Storage](https://docs.prefect.io/concepts/storage/) for your flow code.  You will also be able to use this filesystem in your flow logic for storing files as needed.
-
 #### **Docker Environments**
+
+The purpose of `deploy-envs` is to accept and create a series of environment configurations that will used as Docker environments for your flow runs.
 
 This is the environment that your flow will run in.  It can be defined however you want given it has the proper top level template for deriving from a support Prefect v2 Docker Images.
 
@@ -196,22 +174,7 @@ docker_build_context="<code directory>"  # this is optional and will default to 
 
 These are project level images that can be leveraged by any flow.
 
-#### **Filesystems**
-
-Each project will get 2 filesystems:
-
-```python
-f"{project_name}-production-test"
-```
-```python
-f"{project_name}-production-live"
-```
-
-`test` will be used for flows pushed to the `test-v2` branch.
-
-`production` will be used for flows pushed to the `main-v2` branch.
-
-The `dev-v2` will be reserved for testing platform components like `.aws` and CICD.
+#### **Flow Deployment and Deployment Configurations**
 
 The purpose of this `deploy-flows` is to:
 
@@ -219,10 +182,16 @@ The purpose of this `deploy-flows` is to:
 - The deployment of a flow consists of:
     - Registering the proper ECS Task Definition.
     - Creating an ECS Task Block in Prefect that defines the flow's task definition.
-    - Loading the flow files to the S3 filessystem.
     - Registering the flow's deployment configurations with Prefect.  A flow can have multiple deployment configurations.  Deployment documentation is found [here](https://docs.prefect.io/concepts/deployments/).
 
-#### **Flow Deployment and Deployment Configurations**
+We will be leveraging Github for flow storage.  This works well because we can map our deployments and agent queues to Github branches.
+
+Branch `main-v2` will be used for releasing production ready flow deployments.  These will run on AWS production infrastructure using the `main` Prefect agent.
+
+Branch `staging-v2` will be used for pre-release flow deployments.  These will run on AWS production infrastructure using the `staging` Prefect agent.  The idea here is that these flows should only have access to leverage resources approved for staging.  This will be done via a combination of IAM access and loading certain credentials via secrets manager.
+
+The `dev-v2` can be used to test deployments locally against a local Prefect instance or Prefect Cloud via the `dev` agent.  Flow deployments submitted via this agent will run in the AWS development account.
+
 
 The folder to look for flows is defined in the pyproject.toml.
 
@@ -239,7 +208,7 @@ This variable must be an instantiated `FlowSpec` object.
 from prefect import flow, task
 from prefect.server.schemas.schedules import CronSchedule
 
-from common.deployment import FlowDeployment, FlowSecret, FlowSpec
+from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 
 
 @task()
@@ -256,7 +225,7 @@ FLOW_SPEC = FlowSpec(
     flow=flow_1,
     docker_env="base",
     secrets=[
-        FlowSecret(envar_name="MY_SECRET_JSON", secret_name="/my/secretsmanager/secret")
+        FlowEnvar(envar_name="MY_SECRET_JSON", envar_value="/my/secretsmanager/secret")
     ],
     ephemeral_storage_gb=200,
     deployments=[
@@ -266,14 +235,17 @@ FLOW_SPEC = FlowSpec(
             memory="4096",
             parameters={"param_name": "param_value"},
             schedule=CronSchedule(cron="0 0 * * *"),
+            envars=[
+            FlowEnvar(envar_name="EXTRA_PIP_PACKAGES", envar_value="pandas")
+    ],
         )
     ],  # type: ignore
 )
 ```
 
-They models are Pydantic models, so the inputs are validated.
+The models are Pydantic models, so the inputs are validated.
 
-`FlowSpec` fields `[flow, docker_env, secrets, ephemeral_storage_gb]` control how the task definition is created.  Any AWS ARN/URI specifics are added for you.  The `docker_env` must exist in the pyproject.toml.
+`FlowSpec` fields as a whole, control how the task definition is created.  Any AWS ARN/URI specifics are added for you.  The `docker_env` must exist in the pyproject.toml.
 
 `FlowDeployment` controls how the Prefect Deployments are registered.
 

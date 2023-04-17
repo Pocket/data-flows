@@ -1,7 +1,7 @@
 from prefect import flow, task
 from prefect.server.schemas.schedules import CronSchedule
 
-from common.deployment import FlowDeployment, FlowSecret, FlowSpec
+from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 
 
 @task()
@@ -19,8 +19,8 @@ FLOW_SPEC = FlowSpec(
     flow=flow_1,
     docker_env="base",
     secrets=[
-        FlowSecret(
-            envar_name="MY_SECRET_JSON", secret_name="dpt/dev/data_flows_prefect_test"
+        FlowEnvar(
+            envar_name="MY_SECRET_JSON", envar_value="dpt/dev/data_flows_prefect_test"
         )
     ],
     ephemeral_storage_gb=200,

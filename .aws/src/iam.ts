@@ -18,9 +18,7 @@ export class CircleCiOIDC extends Construct {
     scope: Construct,
     name: string,
     ecr_repo: ApplicationECR,
-    caller: DataAwsCallerIdentity,
-    testFS: S3Bucket,
-    liveFS: S3Bucket
+    caller: DataAwsCallerIdentity
   ) {
     super(scope, name);
     const orgId = config.OIDCOrgId;
@@ -103,16 +101,6 @@ export class CircleCiOIDC extends Construct {
               `arn:aws:iam::${caller.accountId}:role/prefect-*`,
               `arn:aws:iam::${caller.accountId}:role/data-flows-*`
             ]
-          },
-          {
-            actions: ['s3:ListBucket'],
-            effect: 'Allow',
-            resources: [testFS.arn, liveFS.arn]
-          },
-          {
-            actions: ['s3:PutObject'],
-            effect: 'Allow',
-            resources: [`${testFS.arn}/*`, `${liveFS.arn}/*`]
           }
         ]
       }

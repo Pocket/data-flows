@@ -51,28 +51,58 @@ class PrefectV2 extends TerraformStack {
     // Custom construct to implement the IAM roles needed for the agent
     // Abstracting IAM stuff into iam.ts module
 
-    // we need an agent per queue...so we create 2 agent services
-    this.getAgentService('test');
-    this.getAgentService('live');
-
     // create new data-flows-prefect-envs ECR Repo
     const ecrRepo = new ApplicationECR(this, 'data-flows-prefect-envs-ecr', {
       name: 'data-flows-prefect-envs'
     });
 
-    // create live and test filesystems
-    const testFS = this.createDataFlowsBucket('test');
-    const liveFS = this.createDataFlowsBucket('live');
+    // we need an agent per queue
+    // AWS dev will have the dev agent
+    // AWS production will have the staging and main agent
+    // we also need an s3 bucket per queue and set of iam roles
+    // these map to github branch strategy of dev-v2, staging-v2, and main-v2
+    if (config.isDev) {
+      this.getAgentService('dev');
+      const devS3Bucket = this.createDataFlowsBucket('dev');
+      new DataFlowsIamRoles(
+        this,
+        'dataFlowDevRoles',
+        devS3Bucket,
+        this.caller,
+        this.region,
+        config.tags.environment,
+        'dev',
+        ecrRepo
+      );
+    } else {
+      this.getAgentService('staging');
+      const stagingS3Bucket = this.createDataFlowsBucket('staging');
+      new DataFlowsIamRoles(
+        this,
+        'dataFlowStagingRoles',
+        stagingS3Bucket,
+        this.caller,
+        this.region,
+        config.tags.environment,
+        'staging',
+        ecrRepo
+      );
+      this.getAgentService('main');
+      const mainS3Bucket = this.createDataFlowsBucket('main');
+      new DataFlowsIamRoles(
+        this,
+        'dataFlowMainRoles',
+        mainS3Bucket,
+        this.caller,
+        this.region,
+        config.tags.environment,
+        'main',
+        ecrRepo
+      );
+    }
 
     // create the CircleCI OpenId Role for Image Upload
-    new CircleCiOIDC(
-      this,
-      'CircleCiOIDC',
-      ecrRepo,
-      this.caller,
-      testFS,
-      liveFS
-    );
+    new CircleCiOIDC(this, 'CircleCiOIDC', ecrRepo, this.caller);
 
     // create data-flows task security group
 
@@ -95,28 +125,6 @@ class PrefectV2 extends TerraformStack {
       cidrBlocks: ['0.0.0.0/0'],
       securityGroupId: baseDataFlowsSg.id
     });
-
-    // create live and test iam roles
-    new DataFlowsIamRoles(
-      this,
-      'dataFlowTestRoles',
-      testFS,
-      this.caller,
-      this.region,
-      config.tags.environment,
-      'test',
-      ecrRepo
-    );
-    new DataFlowsIamRoles(
-      this,
-      'dataFlowLiveRoles',
-      liveFS,
-      this.caller,
-      this.region,
-      config.tags.environment,
-      'live',
-      ecrRepo
-    );
   }
 
   // create new data-flows-prefect-filesystem S3 buckets
@@ -126,7 +134,7 @@ class PrefectV2 extends TerraformStack {
       this,
       `dataFlowsPrefectFs${deploymentType}`,
       {
-        bucket: `data-flows-prefect-fs-${config.tags.environment}-${deploymentType}`
+        bucket: `data-flows-prefect-fs-${deploymentType}`
       }
     );
     new S3BucketVersioningA(
@@ -155,7 +163,7 @@ class PrefectV2 extends TerraformStack {
 
   // create a task definition and service using private methods and params
   private getAgentService(deploymentType: string) {
-    const prefix = `prefect-v2-agent-${config.tags.environment}-${deploymentType}`;
+    const prefix = `prefect-v2-agent-${deploymentType}`;
     const DeploymentTypeProper =
       deploymentType.charAt(0).toUpperCase() + deploymentType.slice(1);
 
@@ -185,7 +193,7 @@ class PrefectV2 extends TerraformStack {
             'agent',
             'start',
             '-q',
-            `prefect-v2-queue-${config.tags.environment}-${deploymentType}`
+            `prefect-v2-queue-${deploymentType}`
           ],
           secretEnvVars: [
             {

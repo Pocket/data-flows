@@ -9,11 +9,12 @@ The guide for how we leverage environments and different kinds of agents can be 
 Prefect flow execution needs the following infrastructure components:
 
 - ECS Clusters for Fargate Tasks.
-- Custome docker image for the Prefect Agent.
+- Custom docker image for the Prefect Agent.
 - ECS Services for the Prefect Agent:
 
     - These services will need to have the proper IAM access to submit and monitor ECS tasks.
-    - This will run on ECS Fargate.  We will deploy a `test` and `live` agent.  We call these `deployment_types`.  Flows pushed to the `dev-v2` branch will use the `test` agent and flows pushed to the `main-v2` branch will use the `live` agent.  This is how we provide development and production capabilities in a production grade Prefect environment.
+    - This will run on ECS Fargate.  We will deploy a `staging` and `main` agent.  We call these `deployment_types`.  Flows pushed to the `staging-v2` branch will use the `staging` agent and flows pushed to the `main-v2` branch will use the `main` agent.  This is how we provide development and production capabilities in a production grade Prefect environment.
+    - There will be an option to leverage a `dev` agent where flows will run on AWS development infrastructure.
 
 - IAM roles and S3 resources for flows:
     
