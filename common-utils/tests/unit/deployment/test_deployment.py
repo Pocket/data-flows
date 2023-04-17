@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from pathlib import Path, PosixPath
 from unittest.mock import MagicMock, call, patch
@@ -60,30 +61,11 @@ def test_get_flow_folder():
     assert x == "flow-group-2"
 
 
-# @mock_sts
-# @patch("common.deployment.run_command")
-# def test_flow_docker_env(mock_cmd):
-#     # Validate class methods using mock on run_command.
-#     x = FlowDockerEnv(
-#         env_name="test",
-#         dockerfile_path=Path("tests/unit/deployment/testDockerfile"),
-#         docker_build_context=Path("tests/unit/deployment"),
-#         python_version="3.10",
-#     )
-#     x.build_image(
-#         project_name="common-utils",
-#     )
-#     x.push_image()
-#     assert mock_cmd.call_count == 2
-#     mock_cmd.assert_called_with(
-#         f"{SCRIPT_PATH}/push_image.sh common-utils-test-py-3.10 123456789012"
-#     )
-
-
 @mock_sts
 @patch("common.deployment.run_command")
 def test_project_envs(mock_cmd):
     # Validate class methods using mock on run_command.
+    cwd = os.path.expanduser(os.getcwd())
     pyproject_metadata = get_pyproject_metadata()
     x = ProjectEnvs(
         docker_envs=[
@@ -108,16 +90,16 @@ def test_project_envs(mock_cmd):
     assert mock_cmd.call_count == 4
     assert mock_cmd.call_args_list == [
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/build_image.sh common-utils-test-1-py-3.10 tests/unit/deployment/testDockerfile1 3.10 tests/unit/deployment"
+            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-1-py-3.10 tests/unit/deployment/testDockerfile1 3.10 tests/unit/deployment"
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/push_image.sh common-utils-test-1-py-3.10 123456789012"
+            f"{cwd}/src/common/deployment/push_image.sh common-utils-test-1-py-3.10 123456789012"
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/build_image.sh common-utils-test-2-py-3.10 tests/unit/deployment/testDockerfile2 3.10 tests/unit/deployment"
+            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-2-py-3.10 tests/unit/deployment/testDockerfile2 3.10 tests/unit/deployment"
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/push_image.sh common-utils-test-2-py-3.10 123456789012"
+            f"{cwd}/src/common/deployment/push_image.sh common-utils-test-2-py-3.10 123456789012"
         ),
     ]
 
