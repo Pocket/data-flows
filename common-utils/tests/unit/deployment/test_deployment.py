@@ -107,6 +107,7 @@ def test_project_envs(mock_cmd):
 @mock_sts
 @patch("common.deployment.run_command")
 def test_project_envs_build_only(mock_cmd):
+    cwd = os.path.expanduser(os.getcwd())
     # Validate class methods using mock on run_command.
     pyproject_metadata = get_pyproject_metadata()
     x = ProjectEnvs(
@@ -132,10 +133,10 @@ def test_project_envs_build_only(mock_cmd):
     assert mock_cmd.call_count == 2
     assert mock_cmd.call_args_list == [
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/build_image.sh common-utils-test-1-py-3.10 tests/unit/deployment/testDockerfile1 3.10 tests/unit/deployment"
+            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-1-py-3.10 tests/unit/deployment/testDockerfile1 3.10 tests/unit/deployment"
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/build_image.sh common-utils-test-2-py-3.10 tests/unit/deployment/testDockerfile2 3.10 tests/unit/deployment"
+            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-2-py-3.10 tests/unit/deployment/testDockerfile2 3.10 tests/unit/deployment"
         ),
     ]
 
