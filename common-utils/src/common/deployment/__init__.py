@@ -291,7 +291,7 @@ class FlowDeployment(BaseModel):
         infrastructure: str,
         flow_path: Path,
         flow_function_name: str,
-        flow_name: str
+        flow_name: str,
     ) -> None:
         """This method will push a Prefect deployment to Prefect using the deployment cli.
 
@@ -615,7 +615,7 @@ class FlowSpec(BaseModel):
                 ecs_block_name,
                 flow_path,
                 self.flow.fn.__name__,
-                flow_name
+                flow_name,
             )
 
 
