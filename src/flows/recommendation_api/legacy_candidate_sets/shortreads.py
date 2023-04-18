@@ -21,6 +21,7 @@ JOIN "ANALYTICS"."DBT"."CONTENT" AS c
 WHERE a.REVIEWED_CORPUS_ITEM_UPDATED_AT >= DATEADD("day", -90, current_timestamp())
 AND c.WORD_COUNT <= 900
 AND a.CORPUS_REVIEW_STATUS = 'recommendation'
+AND a.SCHEDULED_SURFACE_ID = %(SURFACE_ID)s
 AND a.LANGUAGE = %(LANG)s
 AND a.IS_SYNDICATED = 0
 ORDER BY REVIEWED_CORPUS_ITEM_UPDATED_AT desc
@@ -45,9 +46,9 @@ with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=180)) as flow:
     )
 
     set_params = [{"LANG": "EN", "CANDIDATE_SET_ID": CURATED_SHORTREADS_CANDIDATE_SET_ID_EN,
-                   "FEED_ID": int(NewTabFeedID.en_US)},
+                   "SURFACE_ID": "NEW_TAB_EN_US", "FEED_ID": int(NewTabFeedID.en_US)},
                   {"LANG": "DE", "CANDIDATE_SET_ID": CURATED_SHORTREADS_CANDIDATE_SET_ID_DE,
-                   "FEED_ID": int(NewTabFeedID.de_DE)}]
+                   "SURFACE_ID": "NEW_TAB_DE_DE", "FEED_ID": int(NewTabFeedID.de_DE)}]
 
     # Fetch the most recent curated shortreads per langauge
     shortreads_candidate_items = query.map(data=set_params, query=unmapped(EXPORT_SHORTREADS_ITEMS_SQL))
