@@ -309,7 +309,7 @@ jobs:
 # Staging workflows to allow for deploying flows to the production platform in 'pre-release' state - still need to define how pre-release will work though.
 # Main workflows are for releasing to a production environment, this means the production account for AWS changes and flows deployed will run on AWS Production inf prefect flows
 workflows:
-  aws_changes_pr_workflow:
+  pr_workflow:
     jobs: 
       - prefect_agent_docker:
           <<: *not_dev_main_stg_v2
@@ -327,7 +327,18 @@ workflows:
           node_env: production
           runner_resource_class: pocket/default-prod
           name: terraform plan production
-  aws_changes_dev_workflow:
+      - common_utils_changes_build:
+          <<: *not_dev_main_stg_v2
+      - prefect_project_changes:
+          <<: *not_dev_main_stg_v2
+          context: 
+            - pocket-prefect-dev
+            - pocket-oidc-dev
+          has_changes: << pipeline.parameters.data_products_changes  >>
+          project_folder: data-products
+          requires:
+            - common_utils_changes_build
+  dev_workflow:
     jobs: 
       - prefect_agent_docker:
           <<: *only_dev_v2
@@ -342,7 +353,7 @@ workflows:
           name: terraform apply dev
           requires:
             - prefect agent docker push
-  aws_changes_main_workflow:
+  main_workflow:
     jobs: 
       - prefect_agent_docker:
           <<: *only_main_v2
@@ -357,20 +368,21 @@ workflows:
           name: terraform apply production
           requires:
             - prefect agent docker push
-  prefect_changes_pr_workflow:
-    jobs:
       - common_utils_changes_build:
-          <<: *not_dev_main_stg_v2
+          <<: *only_main_v2
       - prefect_project_changes:
-          <<: *not_dev_main_stg_v2
+          <<: *only_main_v2
           context: 
-            - pocket-prefect-dev
-            - pocket-oidc-dev
+            - pocket-prefect-prod
+            - pocket-oidc-prod
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
+          deployment_type: main
+          validate_build_only: false
           requires:
+            - terraform apply production
             - common_utils_changes_build
-  prefect_changes_staging_workflow:
+  staging_workflow:
     jobs:
       - common_utils_changes_build:
           <<: *only_stg_v2
@@ -382,21 +394,6 @@ workflows:
           has_changes: << pipeline.parameters.data_products_changes  >>
           project_folder: data-products
           deployment_type: staging
-          validate_build_only: false
-          requires:
-            - common_utils_changes_build
-  prefect_changes_main_workflow:
-    jobs:
-      - common_utils_changes_build:
-          <<: *only_main_v2
-      - prefect_project_changes:
-          <<: *only_main_v2
-          context: 
-            - pocket-prefect-prod
-            - pocket-oidc-prod
-          has_changes: << pipeline.parameters.data_products_changes  >>
-          project_folder: data-products
-          deployment_type: main
           validate_build_only: false
           requires:
             - common_utils_changes_build
