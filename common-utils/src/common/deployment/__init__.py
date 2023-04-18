@@ -291,7 +291,7 @@ class FlowDeployment(BaseModel):
         infrastructure: str,
         flow_path: Path,
         flow_function_name: str,
-        flow_name: str,
+        flow_name: str
     ) -> None:
         """This method will push a Prefect deployment to Prefect using the deployment cli.
 
@@ -603,7 +603,7 @@ class FlowSpec(BaseModel):
 
         # process deployments
         # create ECS task definition and Prefect Block
-        slugified_flow_name = standard_slugify(self.flow.name)
+        slugified_flow_name = standard_slugify(flow_name)
         ecs_block_name = self._create_ecs_task_block(
             account_id, ecs_client, slugified_flow_name
         )
@@ -615,7 +615,7 @@ class FlowSpec(BaseModel):
                 ecs_block_name,
                 flow_path,
                 self.flow.fn.__name__,
-                flow_name,
+                flow_name
             )
 
 
