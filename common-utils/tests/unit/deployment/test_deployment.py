@@ -174,9 +174,10 @@ def test_flow_deployment(mock_cmd):
         infrastructure="test-ECS-block",
         flow_path=Path("tests/unit/deployment/test_deployment.py"),
         flow_function_name="test_function",
+        flow_name="test.test.test",
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/unit/deployment \\\n        -ib ecs-task/test-ECS-block \\\n         --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t deployment -t main \\\n        -a \\\n        --interval \'120\' --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/unit/deployment \\\n        -ib ecs-task/test-ECS-block \\\n         --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t deployment -t main \\\n        -a \\\n        --interval \'120\' --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 
@@ -210,9 +211,10 @@ def test_flow_deployment_prod_test(mock_cmd):
         infrastructure="test-ECS-block",
         flow_path=Path("tests/unit/deployment/test_deployment.py"),
         flow_function_name="test_function",
+        flow_name="test.test.test",
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-staging \\\n        -sb github/data-flows-staging/common-utils/tests/unit/deployment \\\n        -ib ecs-task/test-ECS-block \\\n         --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-staging \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t deployment -t staging \\\n        -a \\\n         --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-staging \\\n        -sb github/data-flows-staging/common-utils/tests/unit/deployment \\\n        -ib ecs-task/test-ECS-block \\\n         --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-staging \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t deployment -t staging \\\n        -a \\\n         --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 
@@ -246,9 +248,10 @@ def test_flow_deployment_dev_test(mock_cmd):
         infrastructure="test-ECS-block",
         flow_path=Path("tests/unit/deployment/test_deployment.py"),
         flow_function_name="test_function",
+        flow_name="test.test.test",
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-dev \\\n        -sb github/data-flows-dev/common-utils/tests/unit/deployment \\\n        -ib ecs-task/test-ECS-block \\\n         --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-dev \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t deployment -t dev \\\n        -a \\\n         --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        pushd tests/unit/deployment && \\\n        prefect deployment build test_deployment.py:test_function \\\n        -n test-dev \\\n        -sb github/data-flows-dev/common-utils/tests/unit/deployment \\\n        -ib ecs-task/test-ECS-block \\\n         --override task_customizations=\'[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-dev \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t deployment -t dev \\\n        -a \\\n         --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 
@@ -280,12 +283,13 @@ def test_flow_spec(mock_ecs_save, mock_deployment):
     )
     assert mock_deployment.call_count == 1
     assert mock_ecs_save.call_count == 1
-    assert flow_1.name == "common-utils/flow-group-1/flow-1"
+    assert flow_1.name == "common-utils.flow-group-1.flow-1"
     mock_deployment.assert_called_with(
         "common-utils",
         "common-utils-flow-group-1-flow-1-dev",
         PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
         "flow_1",
+        "common-utils.flow-group-1.flow-1",
     )
     mock_ecs_save.assert_called_with(
         "common-utils-flow-group-1-flow-1-dev", overwrite=True
@@ -343,12 +347,13 @@ def test_flow_spec_all_fields(mock_ecs_save, mock_deployment):
     )
     assert mock_deployment.call_count == 2
     assert mock_ecs_save.call_count == 1
-    assert flow_1.name == "common-utils/flow-group-1/flow-1"
+    assert flow_1.name == "common-utils.flow-group-1.flow-1"
     mock_deployment.assert_called_with(
         "common-utils",
         "common-utils-flow-group-1-flow-1-dev",
         PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
         "flow_1",
+        "common-utils.flow-group-1.flow-1",
     )
     mock_ecs_save.assert_called_with(
         "common-utils-flow-group-1-flow-1-dev", overwrite=True
@@ -404,12 +409,13 @@ def test_flow_spec_bad_env(mock_ecs_save, mock_deployment):
     )
     assert mock_deployment.call_count == 2
     assert mock_ecs_save.call_count == 1
-    assert flow_1.name == "common-utils/flow-group-1/flow-1"
+    assert flow_1.name == "common-utils.flow-group-1.flow-1"
     mock_deployment.assert_called_with(
         "common-utils",
         "common-utils-flow-group-1-flow-1-dev",
         PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
         "flow_1",
+        "common-utils.flow-group-1.flow-1",
     )
     mock_ecs_save.assert_called_with(
         "common-utils-flow-group-1-flow-1-dev", overwrite=True
@@ -510,12 +516,13 @@ def test_flow_spec_handle_task_definition(mock_ecs_save, mock_deployment):
     )
     assert mock_deployment.call_count == 2
     assert mock_ecs_save.call_count == 1
-    assert flow_1.name == "common-utils/flow-group-1/flow-1"
+    assert flow_1.name == "common-utils.flow-group-1.flow-1"
     mock_deployment.assert_called_with(
         "common-utils",
         "common-utils-flow-group-1-flow-1-dev",
         PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
         "flow_1",
+        "common-utils.flow-group-1.flow-1",
     )
     mock_ecs_save.assert_called_with(
         "common-utils-flow-group-1-flow-1-dev", overwrite=True
@@ -586,12 +593,13 @@ def test_flow_spec_handle_task_definition_container_change(
     )
     assert mock_deployment.call_count == 2
     assert mock_ecs_save.call_count == 1
-    assert flow_1.name == "common-utils/flow-group-1/flow-1"
+    assert flow_1.name == "common-utils.flow-group-1.flow-1"
     mock_deployment.assert_called_with(
         "common-utils",
         "common-utils-flow-group-1-flow-1-dev",
         PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
         "flow_1",
+        "common-utils.flow-group-1.flow-1",
     )
     mock_ecs_save.assert_called_with(
         "common-utils-flow-group-1-flow-1-dev", overwrite=True
@@ -661,12 +669,13 @@ def test_flow_spec_handle_task_definition_state_change(
     )
     assert mock_deployment.call_count == 2
     assert mock_ecs_save.call_count == 1
-    assert flow_1.name == "common-utils/flow-group-1/flow-1"
+    assert flow_1.name == "common-utils.flow-group-1.flow-1"
     mock_deployment.assert_called_with(
         "common-utils",
         "common-utils-flow-group-1-flow-1-dev",
         PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
         "flow_1",
+        "common-utils.flow-group-1.flow-1",
     )
     mock_ecs_save.assert_called_with(
         "common-utils-flow-group-1-flow-1-dev", overwrite=True

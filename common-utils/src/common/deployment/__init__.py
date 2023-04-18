@@ -291,6 +291,7 @@ class FlowDeployment(BaseModel):
         infrastructure: str,
         flow_path: Path,
         flow_function_name: str,
+        flow_name: str,
     ) -> None:
         """This method will push a Prefect deployment to Prefect using the deployment cli.
 
@@ -299,6 +300,8 @@ class FlowDeployment(BaseModel):
             infrastructure (str): ECS Task block name to use for the flow execution environment.
             flow_path (Path): Relative path to the flow python file.
             flow_function_name: (str): Name of the flow function to deploy.
+            flow_name: (str): Properly enforced flow name for deployment.
+
         """
         # start building the cli arguments
         deployment_name = f"{standard_slugify(self.deployment_name)}-{DEPLOYMENT_TYPE}"
@@ -351,7 +354,8 @@ class FlowDeployment(BaseModel):
         )
         # run deployment cli using helper function
         run_command(
-            f"""pushd {flow_path.parent} && \\
+            f"""export POCKET_PREFECT_FLOW_NAME={flow_name} && \\
+        pushd {flow_path.parent} && \\
         prefect deployment build {flow_file_name}:{flow_function_name} \\
         -n {deployment_name} \\
         -sb github/{github_block}/{PROJECT_ROOT}/{flow_path.parent} \\
@@ -390,6 +394,12 @@ class FlowSpec(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+    def __init__(self, **data) -> None:
+        """Set the flow name on deployment."""
+        super().__init__(**data)
+        if x := os.getenv("POCKET_PREFECT_FLOW_NAME"):
+            self.flow.name = x
 
     def _handle_task_definition(
         self, account_id: str, ecs_client: object, slugified_flow_name: str
@@ -580,10 +590,7 @@ class FlowSpec(BaseModel):
         project_name = pyproject_metadata.project_name
         slugified_fn_name = standard_slugify(self.flow.fn.__name__)
         # setting flow name to "<subproject name>/<parent directory>/<flow function name>
-        self.flow.name = (
-            f"{project_name}/{get_flow_folder(flow_path)}/{slugified_fn_name}"
-        )
-        #
+        flow_name = f"{project_name}.{get_flow_folder(flow_path)}.{slugified_fn_name}"
 
         # update docker_env to proper image name
         orig_docker_env = self.docker_env
@@ -608,6 +615,7 @@ class FlowSpec(BaseModel):
                 ecs_block_name,
                 flow_path,
                 self.flow.fn.__name__,
+                flow_name,
             )
 
 
