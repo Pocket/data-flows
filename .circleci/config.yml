@@ -15,6 +15,5 @@ workflows:
           config-path: .circleci/workflows.yml
           mapping: |
             [.]aws/.* aws_changes true
-            [.]aws/[.]docker/.* agent_docker_changes true
             common-utils/.* common_utils_changes true
             data-products/.* data_products_changes true

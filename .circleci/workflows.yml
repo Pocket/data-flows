@@ -13,9 +13,6 @@ parameters:
   aws_changes:
     type: boolean
     default: false
-  agent_docker_changes:
-    type: boolean
-    default: false
   common_utils_changes:
     type: boolean
     default: false
@@ -61,12 +58,6 @@ only_stg_v2: &only_stg_v2
 
 has_aws_changes: &has_aws_changes
   condition: << pipeline.parameters.aws_changes >>
-
-has_agent_docker_changes: &has_agent_docker_changes
-  condition:
-    and: 
-      - equal:  [ true, << pipeline.parameters.aws_changes >> ]
-      - equal:  [ true, << pipeline.parameters.agent_docker_changes >> ]
 
 has_common_utils_changes: &has_common_utils_changes
   condition: << pipeline.parameters.common_utils_changes >>
@@ -287,7 +278,7 @@ jobs:
       - image: cimg/aws:2023.04
     steps:
       - when: 
-          <<: *has_agent_docker_changes
+          <<: *has_aws_changes
           steps:
             - git_checkout
             - aws-cli/setup:
