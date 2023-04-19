@@ -286,9 +286,9 @@ class FlowDeployment(BaseModel):
             return ""
         else:
             if isinstance(schedule, CronSchedule):
-                return shlex.join(['--cron', schedule.cron])
+                return shlex.join(["--cron", schedule.cron])
             elif isinstance(schedule, RRuleSchedule):
-                return shlex.join(['--rrule', schedule.rrule])
+                return shlex.join(["--rrule", schedule.rrule])
             elif isinstance(schedule, IntervalSchedule):
                 return shlex.join(["--interval", str(schedule.interval.seconds)])
             else:
