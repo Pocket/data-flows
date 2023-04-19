@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+import shlex
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
@@ -176,9 +177,9 @@ class FlowDockerEnv(BaseModel):
         dockerfile_path = self.dockerfile_path
         python_version = self.python_version
         docker_build_context = self.docker_build_context
-        run_command(
-            f"{SCRIPT_PATH}/build_image.sh {image_name} {dockerfile_path} {python_version} {docker_build_context}"
-        )
+        run_command(shlex.join([
+            f"{SCRIPT_PATH}/build_image.sh", image_name, dockerfile_path, python_version, docker_build_context
+        ]))
 
     def push_image(self) -> str:
         """Push built image to ECR
@@ -193,9 +194,9 @@ class FlowDockerEnv(BaseModel):
         account_id = get_aws_account_id(init_session)
         image_name = self._image_name
         # push image to ECR using stored image name and AWS account id
-        pushed_image = run_command(
-            f"{SCRIPT_PATH}/push_image.sh {image_name} {account_id}"
-        )
+        pushed_image = run_command(shlex.join([
+            f"{SCRIPT_PATH}/push_image.sh", image_name, account_id
+        ]))
         return pushed_image
 
 
@@ -335,7 +336,7 @@ class FlowDeployment(BaseModel):
         ]
         env_overrides = " ".join(
             [
-                f"--override env.{i.dict()['envar_name']}='{i.dict()['envar_value']}'"
+                "--override " + shlex.quote(f"env.{i.dict()['envar_name']}='{i.dict()['envar_value']}'")
                 for i in self.envars
             ]
         )
@@ -354,21 +355,22 @@ class FlowDeployment(BaseModel):
         )
         # run deployment cli using helper function
         run_command(
-            f"""export POCKET_PREFECT_FLOW_NAME={flow_name} && \\
-        pushd {flow_path.parent} && \\
-        prefect deployment build {flow_file_name}:{flow_function_name} \\
-        -n {deployment_name} \\
-        -sb github/{github_block}/{PROJECT_ROOT}/{flow_path.parent} \\
-        {infra_arg} \\
-        {overrides} \\
-        -q prefect-v2-queue-{DEPLOYMENT_TYPE} \\
-        -v {GIT_SHA} \\
-        --params {params} \\
-        -t {project_name} -t {get_flow_folder(flow_path)} -t {DEPLOYMENT_TYPE} \\
+            f"""export POCKET_PREFECT_FLOW_NAME={shlex.quote(flow_name)} && \\
+        pushd {shlex.quote(str(flow_path.parent))} && \\
+        prefect deployment build {shlex.quote(f'{flow_file_name}:{flow_function_name}')} \\
+        -n {shlex.quote(deployment_name)} \\
+        -sb {shlex.quote(f'github/{github_block}/{PROJECT_ROOT}/{flow_path.parent}')} \\
+        {shlex.quote(infra_arg)} \\
+        {shlex.quote(overrides)} \\
+        -q {shlex.quote('prefect-v2-queue-' + DEPLOYMENT_TYPE)} \\
+        -v {shlex.quote(GIT_SHA)} \\
+        --params {shlex.quote(params)} \\
+        -t {shlex.quote(project_name)} -t {shlex.quote(get_flow_folder(flow_path))} -t {shlex.quote(DEPLOYMENT_TYPE)} \\
         -a \\
-        {schedule} --skip-upload && \\
+        {shlex.quote(schedule)} --skip-upload && \\
         popd"""
         )
+
         LOGGER.info(
             f"Deployment: {deployment_name} for flow: {flow_path} applied successfully..."
         )
