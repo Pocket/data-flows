@@ -154,7 +154,8 @@ export class AgentIamPolicies extends Construct {
     this.agentTaskPolicyStatements = [
       this.getAgentTaskAllAccess(),
       this.getAgentTaskEcsAccess(),
-      this.getAgentTaskIamAccess()
+      this.getAgentTaskIamAccess(),
+      this.getAgentTaskTagKeyBasedAccess()
     ];
   }
   // build policy statment for resources "*"
@@ -168,14 +169,27 @@ export class AgentIamPolicies extends Construct {
         'ec2:DescribeVpcs',
         'ec2:CreateNetworkInterface',
         'ec2:DescribeNetworkInterfaces',
-        'ec2:DeleteNetworkInterface',
         'ec2:AssignPrivateIpAddresses',
-        'ec2:UnassignPrivateIpAddresses',
         'ec2:DescribeSubnets',
         'ecs:DescribeTasks'
       ],
       effect: 'Allow',
       resources: ['*']
+    };
+  }
+  // build policy statment for TagKeys conditions
+  private getAgentTaskTagKeyBasedAccess(): DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: ['ec2:DeleteNetworkInterface', 'ec2:UnassignPrivateIpAddresses'],
+      effect: 'Allow',
+      resources: ['*'],
+      condition: [
+        {
+          test: 'StringLike',
+          variable: 'aws:ResourceTag/prefect.io/flow-run-id',
+          values: ['*']
+        }
+      ]
     };
   }
   // build policy statment for ECS task actions
