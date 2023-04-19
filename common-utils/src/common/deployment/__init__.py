@@ -177,9 +177,17 @@ class FlowDockerEnv(BaseModel):
         dockerfile_path = self.dockerfile_path
         python_version = self.python_version
         docker_build_context = self.docker_build_context
-        run_command(shlex.join([
-            f"{SCRIPT_PATH}/build_image.sh", image_name, dockerfile_path, python_version, docker_build_context
-        ]))
+        run_command(
+            shlex.join(
+                [
+                    f"{SCRIPT_PATH}/build_image.sh",
+                    image_name,
+                    dockerfile_path,
+                    python_version,
+                    docker_build_context,
+                ]
+            )
+        )
 
     def push_image(self) -> str:
         """Push built image to ECR
@@ -194,9 +202,9 @@ class FlowDockerEnv(BaseModel):
         account_id = get_aws_account_id(init_session)
         image_name = self._image_name
         # push image to ECR using stored image name and AWS account id
-        pushed_image = run_command(shlex.join([
-            f"{SCRIPT_PATH}/push_image.sh", image_name, account_id
-        ]))
+        pushed_image = run_command(
+            shlex.join([f"{SCRIPT_PATH}/push_image.sh", image_name, account_id])
+        )
         return pushed_image
 
 
@@ -336,7 +344,10 @@ class FlowDeployment(BaseModel):
         ]
         env_overrides = " ".join(
             [
-                "--override " + shlex.quote(f"env.{i.dict()['envar_name']}='{i.dict()['envar_value']}'")
+                "--override "
+                + shlex.quote(
+                    f"env.{i.dict()['envar_name']}='{i.dict()['envar_value']}'"
+                )
                 for i in self.envars
             ]
         )
