@@ -41,3 +41,10 @@ def test_main_envs_run(mock_process):
 def test_main_flows_run(mock_process):
     main()
     mock_process.assert_called_with(False)
+
+
+@patch("sys.argv", ["deploy-cli", "--check-version"])
+@patch("common.deployment.cli.cv")
+def test_check_version(mock_process):
+    main()
+    assert mock_process.call_count == 1

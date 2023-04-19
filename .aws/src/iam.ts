@@ -9,6 +9,114 @@ import { Construct } from 'constructs';
 import { DataAwsRegion } from '@cdktf/provider-aws/lib/data-aws-region';
 import { S3Bucket } from '@cdktf/provider-aws/lib/s3-bucket';
 import { IamRole } from '@cdktf/provider-aws/lib/iam-role';
+import { DataAwsIamOpenidConnectProvider } from '@cdktf/provider-aws/lib/data-aws-iam-openid-connect-provider';
+import { config } from './config';
+import { ApplicationECR } from '@pocket-tools/terraform-modules';
+
+export class CircleCiOIDC extends Construct {
+  constructor(
+    scope: Construct,
+    name: string,
+    ecr_repo: ApplicationECR,
+    caller: DataAwsCallerIdentity
+  ) {
+    super(scope, name);
+    const orgId = config.OIDCOrgId;
+    const OIDCProviderId = `oidc.circleci.com/org/${orgId}`;
+    const OIDCProvider = new DataAwsIamOpenidConnectProvider(
+      this,
+      'OIDCProvider',
+      {
+        url: `https://${OIDCProviderId}`
+      }
+    );
+    const trustPolicy = new DataAwsIamPolicyDocument(
+      this,
+      'DataFlowsOIDCTrust',
+      {
+        version: '2012-10-17',
+        statement: [
+          {
+            effect: 'Allow',
+            actions: ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
+            principals: [
+              {
+                type: 'Federated',
+                identifiers: [OIDCProvider.arn]
+              }
+            ],
+            condition: [
+              {
+                test: 'StringEquals',
+                variable: `${OIDCProviderId}:aud`,
+                values: [orgId]
+              },
+              {
+                test: 'ForAnyValue:StringLike',
+                variable: `${OIDCProviderId}:sub`,
+                values: [`org/${orgId}/project/${config.OIDCProjectId}/user/*`]
+              }
+            ]
+          }
+        ]
+      }
+    );
+    const accessPolicy = new DataAwsIamPolicyDocument(
+      this,
+      'DataFlowsOIDCAccess',
+      {
+        version: '2012-10-17',
+        statement: [
+          {
+            effect: 'Allow',
+            actions: [
+              'ecr:BatchCheckLayerAvailability',
+              'ecr:GetRepositoryPolicy',
+              'ecr:DescribeRepositories',
+              'ecr:ListImages',
+              'ecr:DescribeImages',
+              'ecr:BatchGetImage',
+              'ecr:InitiateLayerUpload',
+              'ecr:UploadLayerPart',
+              'ecr:CompleteLayerUpload',
+              'ecr:PutImage'
+            ],
+            resources: [ecr_repo.repo.arn]
+          },
+          {
+            effect: 'Allow',
+            actions: [
+              'ecr:GetAuthorizationToken',
+              'ecs:RegisterTaskDefinition',
+              'ecs:ListTaskDefinitions',
+              'ecs:DescribeTaskDefinition',
+              'ecs:DeregisterTaskDefinition'
+            ],
+            resources: ['*']
+          },
+          {
+            effect: 'Allow',
+            actions: ['iam:PassRole'],
+            resources: [
+              `arn:aws:iam::${caller.accountId}:role/prefect-*`,
+              `arn:aws:iam::${caller.accountId}:role/data-flows-*`
+            ]
+          }
+        ]
+      }
+    );
+    new IamRole(this, 'DataFlowsOIDCRole', {
+      name: 'data-flows-circleci-oidc-role',
+      assumeRolePolicy: trustPolicy.json,
+      inlinePolicy: [
+        {
+          name: 'data-flows-circleci-oidc-policy',
+          policy: accessPolicy.json
+        }
+      ]
+    });
+  }
+}
 
 // Custom construct to create IAM roles needed for a Prefect v2 Agent
 export class AgentIamPolicies extends Construct {
@@ -20,7 +128,6 @@ export class AgentIamPolicies extends Construct {
   constructor(
     scope: Construct,
     name: string,
-    dockerSecret: DataAwsSecretsmanagerSecret,
     prefectV2Secret: DataAwsSecretsmanagerSecret,
     ecsAppPrefix: string,
     caller: DataAwsCallerIdentity,
@@ -39,7 +146,7 @@ export class AgentIamPolicies extends Construct {
           'ssm:GetParameters'
         ],
         effect: 'Allow',
-        resources: [dockerSecret.arn, prefectV2Secret.arn]
+        resources: [prefectV2Secret.arn]
       }
     ];
 
@@ -47,7 +154,8 @@ export class AgentIamPolicies extends Construct {
     this.agentTaskPolicyStatements = [
       this.getAgentTaskAllAccess(),
       this.getAgentTaskEcsAccess(),
-      this.getAgentTaskIamAccess()
+      this.getAgentTaskIamAccess(),
+      this.getAgentTaskTagKeyBasedAccess()
     ];
   }
   // build policy statment for resources "*"
@@ -57,10 +165,31 @@ export class AgentIamPolicies extends Construct {
         'ecs:RegisterTaskDefinition',
         'ecs:ListTaskDefinitions',
         'ecs:DescribeTaskDefinition',
-        'ecs:DeregisterTaskDefinition'
+        'ecs:DeregisterTaskDefinition',
+        'ec2:DescribeVpcs',
+        'ec2:CreateNetworkInterface',
+        'ec2:DescribeNetworkInterfaces',
+        'ec2:AssignPrivateIpAddresses',
+        'ec2:DescribeSubnets',
+        'ecs:DescribeTasks'
       ],
       effect: 'Allow',
       resources: ['*']
+    };
+  }
+  // build policy statment for TagKeys conditions
+  private getAgentTaskTagKeyBasedAccess(): DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: ['ec2:DeleteNetworkInterface', 'ec2:UnassignPrivateIpAddresses'],
+      effect: 'Allow',
+      resources: ['*'],
+      condition: [
+        {
+          test: 'StringLike',
+          variable: 'aws:ResourceTag/prefect.io/flow-run-id',
+          values: ['*']
+        }
+      ]
     };
   }
   // build policy statment for ECS task actions
@@ -86,7 +215,8 @@ export class AgentIamPolicies extends Construct {
       actions: ['iam:PassRole'],
       effect: 'Allow',
       resources: [
-        `arn:aws:iam::${this.caller.accountId}:role/${this.ecsAppPrefix}*`
+        `arn:aws:iam::${this.caller.accountId}:role/${this.ecsAppPrefix}*`,
+        `arn:aws:iam::${this.caller.accountId}:role/data-flows-*`
       ]
     };
   }
@@ -103,7 +233,8 @@ export class DataFlowsIamRoles extends Construct {
     caller: DataAwsCallerIdentity,
     region: DataAwsRegion,
     environment: string,
-    deploymentType: string
+    deploymentType: string,
+    ecr_repo: ApplicationECR
   ) {
     super(scope, name);
     this.caller = caller;
@@ -121,6 +252,29 @@ export class DataFlowsIamRoles extends Construct {
         resources: [
           `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${environment}/data_flows_prefect_*`
         ]
+      },
+      {
+        effect: 'Allow',
+        actions: [
+          'ecr:BatchCheckLayerAvailability',
+          'ecr:GetRepositoryPolicy',
+          'ecr:GetDownloadUrlForLayer',
+          'ecr:DescribeRepositories',
+          'ecr:ListImages',
+          'ecr:DescribeImages',
+          'ecr:BatchGetImage'
+        ],
+        resources: [ecr_repo.repo.arn]
+      },
+      {
+        effect: 'Allow',
+        actions: [
+          'ecr:GetAuthorizationToken',
+          'logs:CreateLogStream',
+          'logs:CreateLogGroup',
+          'logs:PutLogEvents'
+        ],
+        resources: ['*']
       }
     ];
 
@@ -152,7 +306,7 @@ export class DataFlowsIamRoles extends Construct {
     return {
       actions: ['s3:*Object'],
       effect: 'Allow',
-      resources: [`${this.fileSystem.arn}/data/*`]
+      resources: [`${this.fileSystem.arn}/*`]
     };
   }
   // build policy statment for S3 object access

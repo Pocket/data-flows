@@ -1,7 +1,3 @@
-####################################
-### THIS EXISTS FOR UNIT TESTING ###
-####################################
-
 ARG PYTHON_VERSION
 FROM prefecthq/prefect:2-python${PYTHON_VERSION}
 
@@ -13,6 +9,9 @@ RUN apt update && \
     apt clean && apt autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-COPY . /
+    
+COPY dist dist
+COPY poetry.lock poetry.lock
+COPY pyproject.toml pyproject.toml
 RUN poetry config virtualenvs.create false
-RUN poetry install --only dev
+RUN poetry install --only main
