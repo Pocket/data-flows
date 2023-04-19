@@ -182,9 +182,9 @@ class FlowDockerEnv(BaseModel):
                 [
                     f"{SCRIPT_PATH}/build_image.sh",
                     image_name,
-                    dockerfile_path,
+                    str(dockerfile_path),
                     python_version,
-                    docker_build_context,
+                    str(docker_build_context),
                 ]
             )
         )
@@ -286,11 +286,11 @@ class FlowDeployment(BaseModel):
             return ""
         else:
             if isinstance(schedule, CronSchedule):
-                return f"--cron '{schedule.cron}'"
+                return shlex.join(['--cron', schedule.cron])
             elif isinstance(schedule, RRuleSchedule):
-                return f"--rrule '{schedule.rrule}'"
+                return shlex.join(['--rrule', schedule.rrule])
             elif isinstance(schedule, IntervalSchedule):
-                return f"--interval '{schedule.interval.seconds}'"
+                return shlex.join(["--interval", str(schedule.interval.seconds)])
             else:
                 return ""
 
@@ -356,7 +356,6 @@ class FlowDeployment(BaseModel):
         )
         overrides = env_overrides + " " + task_overrides
         schedule = self._get_schedule_arg()
-        params = f"'{json.dumps(self.parameters)}'"
         # envars here are used for local testing purposes
         infra_arg = os.getenv(
             "POCKET_PREFECT_INFRASTRUCTURE_BLOCK", f"-ib ecs-task/{infrastructure}"
@@ -371,14 +370,14 @@ class FlowDeployment(BaseModel):
         prefect deployment build {shlex.quote(f'{flow_file_name}:{flow_function_name}')} \\
         -n {shlex.quote(deployment_name)} \\
         -sb {shlex.quote(f'github/{github_block}/{PROJECT_ROOT}/{flow_path.parent}')} \\
-        {shlex.quote(infra_arg)} \\
-        {shlex.quote(overrides)} \\
+        {shlex.join(shlex.split(infra_arg))} \\
+        {shlex.join(shlex.split(overrides))} \\
         -q {shlex.quote('prefect-v2-queue-' + DEPLOYMENT_TYPE)} \\
         -v {shlex.quote(GIT_SHA)} \\
-        --params {shlex.quote(params)} \\
+        {shlex.join(['--params', json.dumps(self.parameters)])} \\
         -t {shlex.quote(project_name)} -t {shlex.quote(get_flow_folder(flow_path))} -t {shlex.quote(DEPLOYMENT_TYPE)} \\
         -a \\
-        {shlex.quote(schedule)} --skip-upload && \\
+        {schedule} --skip-upload && \\
         popd"""
         )
 
