@@ -290,8 +290,6 @@ workflows:
           runner_resource_class: pocket/default-dev
           stack_name: prefect-oidc
           name: terraform plan oidc dev
-          requires:
-            - terraform synth
       - aws_changes_build:
           <<: *not_dev_main_stg_v2
           context: pocket
