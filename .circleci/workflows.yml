@@ -133,38 +133,8 @@ jobs:
   # this will:
   #  - check code style and syntax
   #  - synthesize the typescript to a terraform manifest
-  #  - copy stack terraform to workspace
+  #  - plan or apply based on parameters
   aws_changes_build:
-    parameters:
-      node_env:
-        default: "development"
-        type: string
-      runner_resource_class:
-        default: pocket/default-dev
-        type: string
-    # this is so that we can run the cdktf process in a self hosted runner
-    machine: true
-    resource_class: << parameters.runner_resource_class >>
-    environment: 
-      CDKTF_LOG_LEVEL: DEBUG
-      NODE_ENV: << parameters.node_env >>
-    steps:
-      - when: # using the changes shortcut to trigger a conditional check
-          <<: *has_aws_changes
-          steps:
-          - checkout
-          - run:
-              command: |
-                . /home/circleci/.codebuild_shims_wrapper.sh
-                cd .aws
-                nvm install
-                npm install
-                [[ ${NODE_ENV} == "development" ]] && npm run prettier-check
-                [[ ${NODE_ENV} == "development" ]] && npm run lint
-                npm run synth
-              name: install packages, lint, and test synth
-      - no_op # always run no_op so that builds still passes when no actual build steps run
-  aws_changes_tf:
     parameters:
       node_env:
         default: "development"
@@ -190,14 +160,21 @@ jobs:
           steps:
           - checkout
           - run:
-              # run the specific stack for plan or apply based on params
               command: |
                 . /home/circleci/.codebuild_shims_wrapper.sh
                 cd .aws
                 nvm install
                 npm install
-                [[ ${APPLY_STACK} == "false" ]] && npm diff << parameters.stack_name >>
-                [[ ${APPLY_STACK} == "true" ]] && npm deploy << parameters.stack_name >>
+                [[ ${NODE_ENV} == "development" ]] && npm run prettier-check
+                [[ ${NODE_ENV} == "development" ]] && npm run lint
+                npm run synth
+              name: install packages, lint, and create tf template
+          - run:
+              command: |
+                cd .aws/cdktf.out/stacks/<< parameters.stack_name >>
+                terraform init
+                [[ ${APPLY_STACK} == "false" ]] && terraform plan
+                [[ ${APPLY_STACK} == "true" ]] && terraform apply -auto-approve
               name: terraform plan/apply
       - no_op # always run no_op so that builds still passes when no actual build steps run
   # Steps to run to validate health of the common_utils library
@@ -311,38 +288,30 @@ workflows:
           context: pocket
           node_env: development
           runner_resource_class: pocket/default-dev
-          name: terraform synth
-      - aws_changes_tf:
-          <<: *not_dev_main_stg_v2
-          context: pocket
-          node_env: production
-          runner_resource_class: pocket/default-prod
           stack_name: prefect-oidc
           name: terraform plan oidc dev
           requires:
             - terraform synth
-      - aws_changes_tf:
+      - aws_changes_build:
           <<: *not_dev_main_stg_v2
           context: pocket
           node_env: production
           runner_resource_class: pocket/default-prod
           stack_name: prefect-oidc
           name: terraform plan oidc production
-          requires:
-            - terraform synth
       - prefect_agent_docker:
           <<: *not_dev_main_stg_v2
           name: prefect agent docker build
-      - aws_changes_tf:
+      - aws_changes_build:
           <<: *not_dev_main_stg_v2
           context: pocket
-          node_env: production
-          runner_resource_class: pocket/default-prod
+          node_env: development
+          runner_resource_class: pocket/default-dev
           stack_name: prefect-v2
           name: terraform plan prefect dev
           requires:
             - terraform plan oidc dev
-      - aws_changes_tf:
+      - aws_changes_build:
           <<: *not_dev_main_stg_v2
           context: pocket
           node_env: production
@@ -369,17 +338,9 @@ workflows:
           context: pocket
           node_env: development
           runner_resource_class: pocket/default-dev
-          name: terraform synth
-      - aws_changes_tf:
-          <<: *only_dev_v2
-          context: pocket
-          node_env: development
-          runner_resource_class: pocket/default-dev
           stack_name: prefect-oidc
           apply_stack: true
           name: terraform apply oidc dev
-          requires:
-            - terraform synth
       - prefect_agent_docker:
           <<: *only_dev_v2
           context: pocket-oidc-dev
@@ -387,7 +348,7 @@ workflows:
           name: prefect agent docker push
           requires:
             - terraform apply oidc dev
-      - aws_changes_tf:
+      - aws_changes_build:
           <<: *only_dev_v2
           context: pocket
           node_env: development
@@ -404,17 +365,9 @@ workflows:
           context: pocket
           node_env: production
           runner_resource_class: pocket/default-prod
-          name: terraform synth
-      - aws_changes_tf:
-          <<: *only_main_v2
-          context: pocket
-          node_env: production
-          runner_resource_class: pocket/default-prod
           stack_name: prefect-oidc
           apply_stack: true
           name: terraform apply oidc production
-          requires:
-            - terraform synth
       - prefect_agent_docker:
           <<: *only_main_v2
           context: pocket-oidc-prod
@@ -422,7 +375,7 @@ workflows:
           name: prefect agent docker push
           requires:
             - terraform apply oidc production
-      - aws_changes_tf:
+      - aws_changes_build:
           <<: *only_main_v2
           context: pocket
           node_env: production
