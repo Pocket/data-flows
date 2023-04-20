@@ -173,8 +173,12 @@ jobs:
               command: |
                 cd .aws/cdktf.out/stacks/<< parameters.stack_name >>
                 terraform init
-                [[ ${APPLY_STACK} == "false" ]] && terraform plan
-                [[ ${APPLY_STACK} == "true" ]] && terraform apply -auto-approve
+                if [[ ${APPLY_STACK} == "false" ]]
+                then
+                  terraform plan
+                else
+                 terraform apply -auto-approve
+                fi
               name: terraform plan/apply
       - no_op # always run no_op so that builds still passes when no actual build steps run
   # Steps to run to validate health of the common_utils library
