@@ -272,8 +272,8 @@ jobs:
                       command: |
                         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
                         IMAGE_TAG=${CIRCLE_SHA1:0:7}
-                        docker tag prefect-agent:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${IMAGE_TAG}
-                        docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${IMAGE_TAG}
+                        docker tag prefect-agent:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:prefect-agent-${IMAGE_TAG}
+                        docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:prefect-agent-${IMAGE_TAG}
       - no_op
     working_directory: << pipeline.parameters.base_working_directory >>/.aws/.docker
 
