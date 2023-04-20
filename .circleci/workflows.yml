@@ -192,11 +192,11 @@ jobs:
           - run:
               # run the specific stack for plan or apply based on params
               command: |
-                cd .aws
-                nvm install
-                npm install
-                [[ ${APPLY_STACK} == "false" ]] && npm diff << parameters.stack_name >>
-                [[ ${APPLY_STACK} == "true" ]] && npm deploy << parameters.stack_name >>
+                . /home/circleci/.codebuild_shims_wrapper.sh
+                cd .aws/cdktf.out/stacks/<< parameters.stack_name >>
+                terraform init
+                [[ ${APPLY_STACK} == "false" ]] && terraform plan << parameters.stack_name >>
+                [[ ${APPLY_STACK} == "true" ]] && terraform apply -auto-approve 
               name: terraform plan/apply
       - no_op # always run no_op so that builds still passes when no actual build steps run
   # Steps to run to validate health of the common_utils library
