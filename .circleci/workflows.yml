@@ -193,6 +193,8 @@ jobs:
               # run the specific stack for plan or apply based on params
               command: |
                 cd .aws
+                nvm install
+                npm install
                 [[ ${APPLY_STACK} == "false" ]] && npm diff << parameters.stack_name >>
                 [[ ${APPLY_STACK} == "true" ]] && npm deploy << parameters.stack_name >>
               name: terraform plan/apply
