@@ -162,12 +162,7 @@ jobs:
                 [[ ${NODE_ENV} == "development" ]] && npm run prettier-check
                 [[ ${NODE_ENV} == "development" ]] && npm run lint
                 npm run synth
-              name: install packages, lint, and create tf template
-          # persist synthesized terraform to workspace
-          - persist_to_workspace:
-              root: .aws
-              paths:
-                - cdktf.out
+              name: install packages, lint, and test synth
       - no_op # always run no_op so that builds still passes when no actual build steps run
   aws_changes_tf:
     parameters:
@@ -193,17 +188,16 @@ jobs:
       - when: # using the changes shortcut to trigger a conditional check
           <<: *has_aws_changes
           steps:
-          # attach the synthesized code
-          - attach_workspace:
-              at: .aws
+          - checkout
           - run:
               # run the specific stack for plan or apply based on params
               command: |
                 . /home/circleci/.codebuild_shims_wrapper.sh
-                cd .aws/cdktf.out/stacks/<< parameters.stack_name >>
-                terraform init
-                [[ ${APPLY_STACK} == "false" ]] && terraform plan
-                [[ ${APPLY_STACK} == "true" ]] && terraform apply -auto-approve
+                cd .aws
+                nvm install
+                npm install
+                [[ ${APPLY_STACK} == "false" ]] && npm diff << parameters.stack_name >>
+                [[ ${APPLY_STACK} == "true" ]] && npm deploy << parameters.stack_name >>
               name: terraform plan/apply
       - no_op # always run no_op so that builds still passes when no actual build steps run
   # Steps to run to validate health of the common_utils library
