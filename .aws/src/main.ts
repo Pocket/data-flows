@@ -48,13 +48,6 @@ class PrefectV2 extends TerraformStack {
         name: `dpt/${config.tags.environment}/prefect_v2`
       }
     );
-    // Custom construct to implement the IAM roles needed for the agent
-    // Abstracting IAM stuff into iam.ts module
-
-    // create new data-flows-prefect-envs ECR Repo
-    const ecrRepo = new ApplicationECR(this, 'data-flows-prefect-envs-ecr', {
-      name: 'data-flows-prefect-envs'
-    });
 
     // we need an agent per queue
     // AWS dev will have the dev agent
@@ -71,8 +64,7 @@ class PrefectV2 extends TerraformStack {
         this.caller,
         this.region,
         config.tags.environment,
-        'dev',
-        ecrRepo
+        'dev'
       );
     } else {
       this.getAgentService('staging');
@@ -84,8 +76,7 @@ class PrefectV2 extends TerraformStack {
         this.caller,
         this.region,
         config.tags.environment,
-        'staging',
-        ecrRepo
+        'staging'
       );
       this.getAgentService('main');
       const mainS3Bucket = this.createDataFlowsBucket('main');
@@ -96,14 +87,9 @@ class PrefectV2 extends TerraformStack {
         this.caller,
         this.region,
         config.tags.environment,
-        'main',
-        ecrRepo
+        'main'
       );
     }
-
-    // create the CircleCI OpenId Role for Image Upload
-    new CircleCiOIDC(this, 'CircleCiOIDC', ecrRepo, this.caller);
-
     // create data-flows task security group
 
     const vpcId = new DataAwsVpc(this, 'vpcId', {
@@ -187,7 +173,7 @@ class PrefectV2 extends TerraformStack {
       containerConfigs: [
         {
           name: `prefect-v2-agent`,
-          containerImage: `${this.caller.accountId}.dkr.ecr.${this.region.name}.amazonaws.com/data-flows-prefect-envs:prefect-agent-${config.imageTag}`,
+          containerImage: `${this.caller.accountId}.dkr.ecr.${this.region.name}.amazonaws.com/data-flows-prefect-v2-envs:prefect-agent-${config.imageTag}`,
           command: [
             'prefect',
             'agent',
@@ -219,13 +205,47 @@ class PrefectV2 extends TerraformStack {
   }
 }
 
+class PrefectOidc extends TerraformStack {
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
+
+    new AwsProvider(this, 'AWS', {
+      region: config.region,
+      defaultTags: {
+        tags: config.tags
+      }
+    });
+
+    // boiler plate for access to region and account id from iam creds
+    const region = new DataAwsRegion(this, 'region');
+    const caller = new DataAwsCallerIdentity(this, 'caller');
+
+    // create new data-flows-prefect-v2-envs ECR Repo
+    new ApplicationECR(this, 'data-flows-prefect-v2-envs-ecr', {
+      name: 'data-flows-prefect-v2-envs'
+    });
+
+    // create the CircleCI OpenId Role for Image Upload
+    new CircleCiOIDC(this, 'CircleCiOIDC', region, caller);
+  }
+}
+
 // setup our App and add our stack(s)
 const app = new App();
 const prefectStack = new PrefectV2(app, 'prefect-v2');
+const prefectOidc = new PrefectOidc(app, 'prefect-oidc');
+
 new CloudBackend(prefectStack, {
   hostname: 'app.terraform.io',
   organization: 'Pocket',
-  workspaces: new NamedCloudWorkspace(config.workspaceName)
+  workspaces: new NamedCloudWorkspace(`prefect-v2-${config.tags.environment}`)
+});
+new CloudBackend(prefectOidc, {
+  hostname: 'app.terraform.io',
+  organization: 'Pocket',
+  workspaces: new NamedCloudWorkspace(
+    `prefect-v2-circleci-${config.tags.environment}`
+  )
 });
 
 app.synth();

@@ -11,7 +11,7 @@ workflows:
       # This is meant to provide a 'monorepo' build approach
       # The path regex tell us what change groups we are currently interested in
       - path-filtering/filter:
-          base-revision: main
+          base-revision: main-v2
           config-path: .circleci/workflows.yml
           mapping: |
             [.]aws/.* aws_changes true
