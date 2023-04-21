@@ -363,13 +363,14 @@ class FlowDeployment(BaseModel):
         github_block = os.getenv(
             "POCKET_PREFECT_GITHUB_BLOCK", f"data-flows-{DEPLOYMENT_TYPE}"
         )
+        project_root_flow_path = f"{PROJECT_ROOT}/{flow_path.parent}"
         # run deployment cli using helper function
         run_command(
             f"""export POCKET_PREFECT_FLOW_NAME={shlex.quote(flow_name)} && \\
-        pushd {shlex.quote(str(flow_path.parent))} && \\
-        prefect deployment build {shlex.quote(f'{flow_file_name}:{flow_function_name}')} \\
+        pushd {shlex.quote("../")} && \\
+        prefect deployment build {shlex.quote(f'{project_root_flow_path}/{flow_file_name}:{flow_function_name}')} \\
         -n {shlex.quote(deployment_name)} \\
-        -sb {shlex.quote(f'github/{github_block}/{PROJECT_ROOT}/{flow_path.parent}')} \\
+        -sb {shlex.quote(f'github/{github_block}/{project_root_flow_path}')} \\
         {shlex.join(shlex.split(infra_arg))} \\
         {shlex.join(shlex.split(overrides))} \\
         -q {shlex.quote('prefect-v2-queue-' + DEPLOYMENT_TYPE)} \\

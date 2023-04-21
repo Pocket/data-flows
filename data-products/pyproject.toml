@@ -10,7 +10,7 @@ readme = "README.md"
 python = "^3.10"
 prefect = "^2.8.6"
 prefect-dask = "^0.2.3"
-common-utils = {path = "dist/common_utils-0.1.1-py3-none-any.whl"}
+common-utils = {path = "dist/common_utils-0.1.2-py3-none-any.whl"}
 
 
 [tool.poetry.group.dev.dependencies]
