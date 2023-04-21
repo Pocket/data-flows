@@ -438,13 +438,13 @@ files = [
 
 [[package]]
 name = "common-utils"
-version = "0.1.1"
+version = "0.1.2"
 description = "Shared modules for prefect flow development and deployment"
 category = "main"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "common_utils-0.1.1-py3-none-any.whl", hash = "sha256:85df16033f1e8825bedf06d98f05fcf95d5f3349c2c12a6deb51318623afac4f"},
+    {file = "common_utils-0.1.2-py3-none-any.whl", hash = "sha256:45e90c2cea2efb24cff5c0e43cd377cbefbcd50745fdc7c3f4166499775749f5"},
 ]
 
 [package.dependencies]
@@ -452,7 +452,7 @@ prefect = ">=2.8.2,<3.0.0"
 
 [package.source]
 type = "file"
-url = "dist/common_utils-0.1.1-py3-none-any.whl"
+url = "dist/common_utils-0.1.2-py3-none-any.whl"
 
 [[package]]
 name = "coolname"
@@ -2633,4 +2633,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "eee87af28bd247d91926f130bcfcaf86ae8929a4cf5ff88e56073188a2591ada"
+content-hash = "dd95f6b71145d6d94c1a45f3821aee556a2d2abe34ca1e15f226fec22d30a96e"

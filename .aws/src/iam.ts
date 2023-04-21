@@ -11,13 +11,12 @@ import { S3Bucket } from '@cdktf/provider-aws/lib/s3-bucket';
 import { IamRole } from '@cdktf/provider-aws/lib/iam-role';
 import { DataAwsIamOpenidConnectProvider } from '@cdktf/provider-aws/lib/data-aws-iam-openid-connect-provider';
 import { config } from './config';
-import { ApplicationECR } from '@pocket-tools/terraform-modules';
 
 export class CircleCiOIDC extends Construct {
   constructor(
     scope: Construct,
     name: string,
-    ecr_repo: ApplicationECR,
+    region: DataAwsRegion,
     caller: DataAwsCallerIdentity
   ) {
     super(scope, name);
@@ -81,7 +80,9 @@ export class CircleCiOIDC extends Construct {
               'ecr:CompleteLayerUpload',
               'ecr:PutImage'
             ],
-            resources: [ecr_repo.repo.arn]
+            resources: [
+              `arn:aws:ecr:${region.name}:${caller.accountId}:repository/data-flows-prefect-v2-envs`
+            ]
           },
           {
             effect: 'Allow',
@@ -106,11 +107,11 @@ export class CircleCiOIDC extends Construct {
       }
     );
     new IamRole(this, 'DataFlowsOIDCRole', {
-      name: 'data-flows-circleci-oidc-role',
+      name: 'data-flows-ci-oidc-role',
       assumeRolePolicy: trustPolicy.json,
       inlinePolicy: [
         {
-          name: 'data-flows-circleci-oidc-policy',
+          name: 'data-flows-ci-oidc-policy',
           policy: accessPolicy.json
         }
       ]
@@ -233,8 +234,7 @@ export class DataFlowsIamRoles extends Construct {
     caller: DataAwsCallerIdentity,
     region: DataAwsRegion,
     environment: string,
-    deploymentType: string,
-    ecr_repo: ApplicationECR
+    deploymentType: string
   ) {
     super(scope, name);
     this.caller = caller;
@@ -250,7 +250,8 @@ export class DataFlowsIamRoles extends Construct {
         ],
         effect: 'Allow',
         resources: [
-          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${environment}/data_flows_prefect_*`
+          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${environment}/data_flows_prefect_*`,
+          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${environment}/*`
         ]
       },
       {
@@ -264,7 +265,9 @@ export class DataFlowsIamRoles extends Construct {
           'ecr:DescribeImages',
           'ecr:BatchGetImage'
         ],
-        resources: [ecr_repo.repo.arn]
+        resources: [
+          `arn:aws:ecr:${region.name}:${caller.accountId}:repository/data-flows-prefect-v2-envs`
+        ]
       },
       {
         effect: 'Allow',

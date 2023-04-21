@@ -363,13 +363,14 @@ class FlowDeployment(BaseModel):
         github_block = os.getenv(
             "POCKET_PREFECT_GITHUB_BLOCK", f"data-flows-{DEPLOYMENT_TYPE}"
         )
+        project_root_flow_path = f"{PROJECT_ROOT}/{flow_path.parent}"
         # run deployment cli using helper function
         run_command(
             f"""export POCKET_PREFECT_FLOW_NAME={shlex.quote(flow_name)} && \\
-        pushd {shlex.quote(str(flow_path.parent))} && \\
-        prefect deployment build {shlex.quote(f'{flow_file_name}:{flow_function_name}')} \\
+        pushd {shlex.quote("../")} && \\
+        prefect deployment build {shlex.quote(f'{project_root_flow_path}/{flow_file_name}:{flow_function_name}')} \\
         -n {shlex.quote(deployment_name)} \\
-        -sb {shlex.quote(f'github/{github_block}/{PROJECT_ROOT}/{flow_path.parent}')} \\
+        -sb {shlex.quote(f'github/{github_block}/{project_root_flow_path}')} \\
         {shlex.join(shlex.split(infra_arg))} \\
         {shlex.join(shlex.split(overrides))} \\
         -q {shlex.quote('prefect-v2-queue-' + DEPLOYMENT_TYPE)} \\
@@ -434,7 +435,7 @@ class FlowSpec(BaseModel):
         # start building the task definition elements from FlowSpec and globals
         # these values plus other defaults will be the basis for task def diff analysis
         task_name = f"{slugified_flow_name}-{DEPLOYMENT_TYPE}"
-        image_name = f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-envs:{self.docker_env}-{GIT_SHA}"
+        image_name = f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:{self.docker_env}-{GIT_SHA}"
         task_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role"
         execution_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role"
         secrets = [

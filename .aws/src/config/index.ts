@@ -1,7 +1,6 @@
 // NODE_ENV envar will control what TF Workspace we are using
 const isDev = process.env['NODE_ENV'] === 'development';
 const region = process.env['AWS_REGION'];
-const workspaceName = isDev ? 'prefect-v2-dev' : 'prefect-v2-production';
 const environment = isDev ? 'dev' : 'production';
 const service = 'Prefect v2';
 const team = 'Data Products';
@@ -16,7 +15,6 @@ const imageTag = gitSha.slice(0, 7);
 const vpcName = isDev ? 'SharedVpc' : 'Pocket VPC';
 
 export const config = {
-  workspaceName,
   isDev,
   region,
   tags: {

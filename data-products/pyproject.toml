@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.1.0"
+version = "0.1.2"
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -10,7 +10,7 @@ readme = "README.md"
 python = "^3.10"
 prefect = "^2.8.6"
 prefect-dask = "^0.2.3"
-common-utils = {path = "dist/common_utils-0.1.1-py3-none-any.whl"}
+common-utils = {path = "dist/common_utils-0.1.2-py3-none-any.whl"}
 
 
 [tool.poetry.group.dev.dependencies]
