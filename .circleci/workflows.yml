@@ -99,7 +99,10 @@ commands:
           command: |
             poetry install --no-ansi --only <<parameters.dependency_groups>>
             poetry run black --check .
-            poetry run deploy-cli --check-version
+            if [[ ${CIRCLE_BRANCH} != 'main-v2']]
+            then
+              poetry run deploy-cli --check-version
+            fi
             poetry run python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
   # shortcut for the common_utils_build.sh script
@@ -173,11 +176,9 @@ jobs:
               command: |
                 cd .aws/cdktf.out/stacks/<< parameters.stack_name >>
                 terraform init
-                if [[ ${APPLY_STACK} == "false" ]]
+                if [[ ${CIRCLE_BRANCH} != "main-v2" ]] 
                 then
-                  terraform plan
-                else
-                 terraform apply -auto-approve
+                  poetry run deploy-cli --check-version 
                 fi
               name: terraform plan/apply
       - no_op # always run no_op so that builds still passes when no actual build steps run
