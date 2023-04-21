@@ -435,7 +435,7 @@ class FlowSpec(BaseModel):
         # start building the task definition elements from FlowSpec and globals
         # these values plus other defaults will be the basis for task def diff analysis
         task_name = f"{slugified_flow_name}-{DEPLOYMENT_TYPE}"
-        image_name = f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-envs:{self.docker_env}-{GIT_SHA}"
+        image_name = f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:{self.docker_env}-{GIT_SHA}"
         task_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role"
         execution_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role"
         secrets = [

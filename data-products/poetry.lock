@@ -444,7 +444,7 @@ category = "main"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "common_utils-0.1.2-py3-none-any.whl", hash = "sha256:2d96529b570375c508f69399bd8817fea879f830d3f7507e01452535bdd14987"},
+    {file = "common_utils-0.1.2-py3-none-any.whl", hash = "sha256:45e90c2cea2efb24cff5c0e43cd377cbefbcd50745fdc7c3f4166499775749f5"},
 ]
 
 [package.dependencies]
