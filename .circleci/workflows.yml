@@ -99,7 +99,7 @@ commands:
           command: |
             poetry install --no-ansi --only <<parameters.dependency_groups>>
             poetry run black --check .
-            if [[ ${CIRCLE_BRANCH} != 'main-v2']]
+            if [[ ${CIRCLE_BRANCH} != "main-v2" ]]
             then
               poetry run deploy-cli --check-version
             fi
@@ -176,9 +176,11 @@ jobs:
               command: |
                 cd .aws/cdktf.out/stacks/<< parameters.stack_name >>
                 terraform init
-                if [[ ${CIRCLE_BRANCH} != "main-v2" ]] 
+                if [[ ${APPLY_STACK} == "false" ]]
                 then
-                  poetry run deploy-cli --check-version 
+                  terraform plan
+                else
+                 terraform apply -auto-approve
                 fi
               name: terraform plan/apply
       - no_op # always run no_op so that builds still passes when no actual build steps run
