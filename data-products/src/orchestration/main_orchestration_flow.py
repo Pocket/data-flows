@@ -6,6 +6,7 @@ from prefect import flow, get_run_logger, task
 def orchestrate_flows():
     logger = get_run_logger()
     logger.info("Orchestrating some flows yall!")
+    raise Exception("testing!")
 
 
 @flow
