@@ -617,9 +617,12 @@ class FlowSpec(BaseModel):
         # process deployments
         # create ECS task definition and Prefect Block
         slugified_flow_name = standard_slugify(flow_name)
-        ecs_block_name = self._create_ecs_task_block(
-            account_id, ecs_client, slugified_flow_name
-        )
+        if not os.getenv("POCKET_PREFECT_INFRASTRUCTURE_BLOCK"):
+            ecs_block_name = self._create_ecs_task_block(
+                account_id, ecs_client, slugified_flow_name
+            )
+        else:
+            ecs_block_name = "overridden"
         LOGGER.info(f"Using ECS Block: {ecs_block_name}...")
         # loop through deployments and push
         for d in self.deployments:
@@ -693,13 +696,14 @@ class PrefectProject(BaseModel):
         if not validate_only:
             # command type used for DRY logging
             command_type = "deployment"
-            # only need AWS for deployment
-            # single account_id and ecs client for entire deployment workflow
-            from boto3 import session
+            if not os.getenv("POCKET_PREFECT_INFRASTRUCTURE_BLOCK"):
+                # only need AWS for deployment to ECS
+                # single account_id and ecs client for entire deployment workflow
+                from boto3 import session
 
-            init_session = session.Session()
-            account_id = get_aws_account_id(init_session)
-            ecs_client = init_session.client("ecs")
+                init_session = session.Session()
+                account_id = get_aws_account_id(init_session)
+                ecs_client = init_session.client("ecs")
 
         else:
             # set command type to validation to skip deployment

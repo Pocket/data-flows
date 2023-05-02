@@ -16,7 +16,7 @@ prefect-dask = "^0.2.3"
 pytest = "^7.2.2"
 pytest-coverage = "^0.0"
 black = "^23.1.0"
-common-utils = {path = "../common-utils"}
+common-utils = {path = "../common-utils", develop = true}
 
 [build-system]
 requires = ["poetry-core"]

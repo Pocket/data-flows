@@ -444,7 +444,7 @@ category = "dev"
 optional = false
 python-versions = "^3.10"
 files = []
-develop = false
+develop = true
 
 [package.dependencies]
 prefect = "^2.8.2"
@@ -2632,4 +2632,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "ad51a3803c63cd148305189a4f1a1987a9fa3531444b16ffdee0ca09dadd8495"
+content-hash = "ed937c29d26b3d3466a437892af5d3ad6d7f389a72f1a9ee9bc2f89bf45940b5"
