@@ -1,3 +1,5 @@
+import datetime
+
 from prefect import Flow, task
 from prefect.tasks.dbt import dbt
 from prefect.tasks.prefect import create_flow_run, wait_for_flow_run
@@ -19,7 +21,9 @@ DBT_DOWNSTREAM_FLOW_NAMES = [
 ]
 
 
-@task(timeout=15 * 60)
+# Set max_retries to 1 because this flow has a long timeout.
+# TODO: Set a concurrency-limit to prevent using more than one Dbt job resource.
+@task(timeout=15 * 60, max_retries=1, retry_delay=datetime.timedelta(seconds=60))
 def transform():
     return dbt.DbtCloudRunJob().run(cause=FLOW_NAME, job_id=DBT_CLOUD_JOB_ID, wait_for_job_run_completion=True)
 

@@ -158,7 +158,7 @@ def filter_user_deltas_by_trigger(user_deltas: List[UserDelta], trigger: str) ->
     return filtered_user_deltas
 
 
-@task(max_retries=3, retry_delay=datetime.timedelta(seconds=2))
+@task(max_retries=3, retry_delay=datetime.timedelta(seconds=30))
 def delete_user_profiles(users_to_delete: List[UserDelta]):
     """
     Deletes Braze user profiles
@@ -176,7 +176,7 @@ def delete_user_profiles(users_to_delete: List[UserDelta]):
         ))
 
 
-@task(max_retries=3, retry_delay=datetime.timedelta(seconds=2))
+@task(max_retries=3, retry_delay=datetime.timedelta(seconds=30))
 def identify_users(user_deltas: List[UserDelta]):
     """
     Identifies a previously created alias-only user with an external id.
@@ -202,7 +202,7 @@ def identify_users(user_deltas: List[UserDelta]):
         ))
 
 
-@task(max_retries=3, retry_delay=datetime.timedelta(seconds=2))
+@task(max_retries=3, retry_delay=datetime.timedelta(seconds=30))
 def create_email_aliases(user_deltas: List[UserDelta]):
     """
     Creates aliases for users
@@ -238,7 +238,7 @@ def group_user_deltas_by_newsletter_subscription_name(user_deltas: List[UserDelt
     return user_deltas_by_subscription_group_name
 
 
-@task(max_retries=3, retry_delay=datetime.timedelta(seconds=2))
+@task(max_retries=3, retry_delay=datetime.timedelta(seconds=30))
 def subscribe_users(subscription_group_user_deltas: Tuple[str, List[UserDelta]]):
     """
     Subscribe users to a particular subscription group
@@ -262,7 +262,7 @@ def subscribe_users(subscription_group_user_deltas: Tuple[str, List[UserDelta]])
         )
 
 
-@task(max_retries=3, retry_delay=datetime.timedelta(seconds=2))
+@task(max_retries=3, retry_delay=datetime.timedelta(seconds=30))
 def track_users(user_deltas: List[UserDelta]):
     """
     Sends attributes and events to Braze based on UserDelta objects. Also creates new users who have an external_id.
