@@ -1,11 +1,12 @@
-from unittest.mock import Mock, patch
+import os
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from common.deployment.check_version import (
     get_main_version_tag,
     get_poetry_version,
     main,
-    version_compare,
 )
 
 
@@ -82,7 +83,9 @@ def test_main_bump_less(mock_current, mock_new):
 def test_main_bump_new(mock_cmd, mock_new):
     mock_new.return_value = ["base", "0.0.1"]
     mock_cmd.side_effect = Exception("Invalid TOML file")
-    with open("/tmp/common-utils/pyproject.toml", "w") as f:
+    p = Path("/tmp/common-utils")
+    p.mkdir(exist_ok=True)
+    with open(os.path.join(p, "pyproject.toml"), "w") as f:
         f.write("404: Not Found")
     main()
     assert mock_new.call_count == 1
@@ -94,7 +97,9 @@ def test_main_bump_new(mock_cmd, mock_new):
 def test_main_bad_file(mock_cmd, mock_new):
     mock_new.return_value = ["base", "0.0.1"]
     mock_cmd.side_effect = Exception("Invalid TOML file")
-    with open("/tmp/common-utils/pyproject.toml", "w") as f:
+    p = Path("/tmp/common-utils")
+    p.mkdir(exist_ok=True)
+    with open(os.path.join(p, "pyproject.toml"), "w") as f:
         f.write("bad file")
     with pytest.raises(Exception):
         main()
