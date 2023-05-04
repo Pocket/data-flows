@@ -217,7 +217,7 @@ jobs:
         default: false
         type: boolean
     environment: 
-      PREFECT_DEPLOYMENT_TYPE: << parameters.deployment_type >>
+      POCKET_PREFECT_DEPLOYMENT_TYPE: << parameters.deployment_type >>
     docker:
       - image: cimg/python:3.10
     steps:
