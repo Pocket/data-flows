@@ -449,6 +449,12 @@ BASE_TASK_DEF = {
                     "awslogs-stream-prefix": "common-utils-flow-group-1-flow-1-dev",
                 },
             },
+            "mountPoints": [
+                {
+                    "sourceVolume": "prefect-scratch",
+                    "containerPath": "/var/prefect-scratch",
+                }
+            ],
         }
     ],
     "requiresCompatibilities": [
@@ -457,6 +463,11 @@ BASE_TASK_DEF = {
     "cpu": "256",
     "memory": "512",
     "ephemeralStorage": {"sizeInGiB": 200},
+    "volumes": [
+        {
+            "name": "prefect-scratch",
+        }
+    ],
 }
 
 
@@ -618,9 +629,7 @@ def test_flow_spec_handle_task_definition_container_change(
 @mock_ecs
 @patch("common.deployment.FlowDeployment.push_deployment")
 @patch("prefect_aws.ecs.ECSTask.save")
-def test_flow_spec_handle_task_definition_state_change(
-    mock_ecs_save, mock_deployment, caplog
-):
+def test_flow_spec_handle_task_definition_state_change(mock_ecs_save, mock_deployment):
     test_session = session.Session()
     ecs = test_session.client("ecs")
     ecs.register_task_definition(**BASE_TASK_DEF)
