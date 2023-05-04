@@ -459,6 +459,7 @@ class FlowSpec(BaseModel):
             "cpu",
             "memory",
             "ephemeralStorage",
+            "volumes",
         ]
 
         container_def_compare_keys = [
@@ -466,6 +467,7 @@ class FlowSpec(BaseModel):
             "environment",
             "secrets",
             "logConfiguration",
+            "mountPoints",
         ]
 
         # create our new or initial version of the task definition
@@ -491,6 +493,12 @@ class FlowSpec(BaseModel):
                             "awslogs-stream-prefix": task_name,
                         },
                     },
+                    "mountPoints": [
+                        {
+                            "sourceVolume": "prefect-scratch",
+                            "containerPath": "/var/prefect-scratch",
+                        }
+                    ],
                 }
             ],
             "requiresCompatibilities": [
@@ -499,6 +507,11 @@ class FlowSpec(BaseModel):
             "cpu": default_cpu,
             "memory": default_memory,
             "ephemeralStorage": {"sizeInGiB": ephemeral_storage},
+            "volumes": [
+                {
+                    "name": "prefect-scratch",
+                }
+            ],
         }
         # check to see if we have any registered task definitions
         task_def_arns = ecs_client.list_task_definitions(familyPrefix=task_name, maxResults=5)  # type: ignore
@@ -617,9 +630,13 @@ class FlowSpec(BaseModel):
         # process deployments
         # create ECS task definition and Prefect Block
         slugified_flow_name = standard_slugify(flow_name)
-        ecs_block_name = self._create_ecs_task_block(
-            account_id, ecs_client, slugified_flow_name
-        )
+        # ignore ECS handling if POCKET_PREFECT_INFRASTRUCTURE_BLOCK envar exists
+        if not os.getenv("POCKET_PREFECT_INFRASTRUCTURE_BLOCK"):
+            ecs_block_name = self._create_ecs_task_block(
+                account_id, ecs_client, slugified_flow_name
+            )
+        else:
+            ecs_block_name = "overridden"
         LOGGER.info(f"Using ECS Block: {ecs_block_name}...")
         # loop through deployments and push
         for d in self.deployments:
@@ -693,13 +710,15 @@ class PrefectProject(BaseModel):
         if not validate_only:
             # command type used for DRY logging
             command_type = "deployment"
-            # only need AWS for deployment
-            # single account_id and ecs client for entire deployment workflow
-            from boto3 import session
+            if not os.getenv("POCKET_PREFECT_INFRASTRUCTURE_BLOCK"):
+                # only need AWS for deployment
+                # and if POCKET_PREFECT_INFRASTRUCTURE_BLOCK does not exist
+                # single account_id and ecs client for entire deployment workflow
+                from boto3 import session
 
-            init_session = session.Session()
-            account_id = get_aws_account_id(init_session)
-            ecs_client = init_session.client("ecs")
+                init_session = session.Session()
+                account_id = get_aws_account_id(init_session)
+                ecs_client = init_session.client("ecs")
 
         else:
             # set command type to validation to skip deployment
