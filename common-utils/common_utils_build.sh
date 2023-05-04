@@ -10,6 +10,8 @@ mkdir -p dist
 pushd ../common-utils
 rm -rf dist
 mkdir -p dist
-poetry build -f wheel
-cp dist/*.whl ${CURRENT_DIR}/dist/
+cp -R src ${CURRENT_DIR}/dist/
+cp poetry.lock ${CURRENT_DIR}/dist/
+cp pyproject.toml ${CURRENT_DIR}/dist/
+cp README.md ${CURRENT_DIR}/dist/
 popd
