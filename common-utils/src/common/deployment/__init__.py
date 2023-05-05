@@ -588,7 +588,7 @@ class FlowSpec(BaseModel):
             cluster=f"prefect-v2-agent-{DEPLOYMENT_TYPE}",
             launch_type="FARGATE",
             allow_task_definition_registration=False,
-            vpc_id=AWS_VPC_ID
+            vpc_id=AWS_VPC_ID,
         )  # type: ignore
         result = ecs_block.save(block_name, overwrite=True)
         LOGGER.info(f"ECS Task Block {block_name} has been pushed with id {result}...")
