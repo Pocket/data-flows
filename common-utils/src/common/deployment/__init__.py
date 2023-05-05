@@ -42,6 +42,7 @@ GIT_SHA = os.getenv("CIRCLE_SHA1", "dev")[0:7]
 AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1").lower()
 AWS_SUBNETS = os.getenv("POCKET_AWS_SUBNETS", "[]")
 AWS_SECURITY_GROUPS = os.getenv("POCKET_AWS_SECURITY_GROUPS", "[]")
+AWS_VPC_ID = os.getenv("POCKET_AWS_VPC_ID")
 PROJECT_ROOT = Path(os.getcwd()).parts[-1]
 PYPROJECT_FILE_PATH = os.path.expanduser(os.path.join(os.getcwd(), "pyproject.toml"))
 
@@ -587,6 +588,7 @@ class FlowSpec(BaseModel):
             cluster=f"prefect-v2-agent-{DEPLOYMENT_TYPE}",
             launch_type="FARGATE",
             allow_task_definition_registration=False,
+            vpc_id=AWS_VPC_ID,
         )  # type: ignore
         result = ecs_block.save(block_name, overwrite=True)
         LOGGER.info(f"ECS Task Block {block_name} has been pushed with id {result}...")
