@@ -18,7 +18,7 @@ EXPORT_FIREFOX_TELEMETRY_SQL = """
         )
         SELECT
             CAST(flattened_tiles.id AS INT64) AS TILE_ID,
-            FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", CURRENT_DATETIME()) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
+            FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
             COUNT(*) AS TRAILING_1_DAY_IMPRESSIONS,
             SUM(CASE WHEN click IS NOT NULL THEN 1 ELSE 0 END) AS TRAILING_1_DAY_OPENS,
             -- For now, we only need 1 day trailing data, so leave the other ones at 0.  
