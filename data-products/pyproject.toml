@@ -11,6 +11,8 @@ python = "^3.10"
 prefect = "^2.8.6"
 prefect-dask = "^0.2.3"
 common-utils = {path = "../common-utils", develop = true}
+prefect-snowflake = "^0.26.1"
+prefect-gcp = {extras = ["bigquery"], version = "^0.4.1"}
 
 
 [tool.poetry.group.dev.dependencies]
