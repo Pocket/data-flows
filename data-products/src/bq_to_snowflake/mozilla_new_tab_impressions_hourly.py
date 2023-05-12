@@ -3,14 +3,14 @@ from prefect import flow
 
 
 @flow()
-def mozilla_new_tab_impressions_daily():
+def mozilla_new_tab_impressions_hourly():
     """Main Prefect flow for orchestrating the ingestion of
     specific Big Query data extractions into Snowflake.  Per author
     of the original Airflow DAG, each SQL file can run in a concurrent
     workflow.
     """
-    subflow_factory("mozilla_new_tab_impressions_daily")
+    subflow_factory("mozilla_new_tab_impressions_hourly")
 
 
 if __name__ == "__main__":
-    mozilla_new_tab_impressions_daily()
+    mozilla_new_tab_impressions_hourly()
