@@ -16,7 +16,7 @@ class GcpSettings(Settings):
 
 class PktGcpCredentials(GcpCredentials):
     def __init__(self, **data):
-        settings = GcpSettings() # type: ignore
+        settings = GcpSettings()  # type: ignore
         super().__init__(
             service_account_info=settings.gcp_credentials.service_account_info,
             service_account_file=settings.gcp_credentials.service_account_file,
