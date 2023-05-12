@@ -1,4 +1,4 @@
-from common.deployment import FlowDeployment, FlowSpec
+from common.deployment import FlowDeployment, FlowSpec, FlowEnvar
 from prefect import flow, get_run_logger, task
 
 
@@ -17,8 +17,13 @@ FLOW_SPEC = FlowSpec(
     flow=main_orchestration_flow,
     docker_env="base",
     ephemeral_storage_gb=200,
+    secrets= [
+    ],
     deployments=[
-        FlowDeployment(deployment_name="base", cpu="1024", memory="4096")  # type: ignore
+        FlowDeployment(deployment_name="base", cpu="1024", memory="4096", envars=FlowEnvar(
+    envar_name="test",
+    envar_value="test"
+        ))  # type: ignore
     ],
 )
 
