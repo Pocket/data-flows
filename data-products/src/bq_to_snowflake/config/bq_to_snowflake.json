@@ -5,22 +5,22 @@
       {
         "seq_id": "mozilla_activity_stream_daily_uniques",
         "schema_name": "mozilla",
-        "source_sql_path": "sql/mozilla_new_tab_impressions_daily/mozilla_activity_stream_daily_uniques.sql"
+        "source_sql_path": "dynamic/bq_to_snowflake/mozilla_new_tab_impressions_daily/mozilla_activity_stream_daily_uniques.sql"
       },
       {
         "seq_id": "mozilla_activity_stream_monthly_uniques",
         "schema_name": "mozilla",
-        "source_sql_path": "sql/mozilla_new_tab_impressions_daily/mozilla_activity_stream_monthly_uniques.sql"
+        "source_sql_path": "dynamic/bq_to_snowflake/mozilla_new_tab_impressions_daily/mozilla_activity_stream_monthly_uniques.sql"
       },
       {
         "seq_id": "mozilla_activity_stream_daily_uniques_de",
         "schema_name": "mozilla",
-        "source_sql_path": "sql/mozilla_new_tab_impressions_daily/mozilla_activity_stream_daily_uniques_de.sql"
+        "source_sql_path": "dynamic/bq_to_snowflake/mozilla_new_tab_impressions_daily/mozilla_activity_stream_daily_uniques_de.sql"
       },
       {
         "seq_id": "mozilla_activity_stream_daily_uniques_uk",
         "schema_name": "mozilla",
-        "source_sql_path": "sql/mozilla_new_tab_impressions_daily/mozilla_activity_stream_daily_uniques_uk.sql"
+        "source_sql_path": "dynamic/bq_to_snowflake/mozilla_new_tab_impressions_daily/mozilla_activity_stream_daily_uniques_uk.sql"
       }
     ]
   },
@@ -30,7 +30,7 @@
       {
         "seq_id": "mozilla_activity_stream_prefs",
         "schema_name": "mozilla",
-        "source_sql_path": "sql/mozilla_new_tab_prefs/mozilla_activity_stream_prefs.sql"
+        "source_sql_path": "dynamic/bq_to_snowflake/mozilla_new_tab_prefs/mozilla_activity_stream_prefs.sql"
       }
     ]
   },
@@ -41,7 +41,7 @@
       {
         "seq_id": "mozilla_activity_stream_spoc_fill",
         "schema_name": "mozilla",
-        "source_sql_path": "sql/mozilla_new_tab_spoc_fill/mozilla_activity_stream_spoc_fill.sql"
+        "source_sql_path": "dynamic/bq_to_snowflake/mozilla_new_tab_spoc_fill/mozilla_activity_stream_spoc_fill.sql"
       }
     ]
   },
@@ -51,12 +51,12 @@
       {
         "seq_id": "mozilla_activity_stream_impression_stats",
         "schema_name": "mozilla",
-        "source_sql_path": "sql/mozilla_new_tab_impressions_hourly/mozilla_activity_stream_impression_stats.sql"
+        "source_sql_path": "dynamic/bq_to_snowflake/mozilla_new_tab_impressions_hourly/mozilla_activity_stream_impression_stats.sql"
       },
       {
         "seq_id": "mozilla_activity_stream_impression_stats_by_country",
         "schema_name": "mozilla",
-        "source_sql_path": "sql/mozilla_new_tab_impressions_hourly/mozilla_activity_stream_impression_stats_by_country.sql"
+        "source_sql_path": "dynamic/bq_to_snowflake/mozilla_new_tab_impressions_hourly/mozilla_activity_stream_impression_stats_by_country.sql"
       }
     ]
   }
