@@ -13,7 +13,7 @@ class SnowflakeCredSettings(NestedSettings):
 class SnowflakeDbSettings(NestedSettings):
     database: str
     warehouse: str
-    schema_name: str # schema is reserved word in Pydantic
+    schema_name: str  # schema is reserved word in Pydantic
 
 
 class SnowflakeSettings(Settings):
@@ -23,10 +23,10 @@ class SnowflakeSettings(Settings):
 
 class PktSnowflakeConnector(SnowflakeConnector):
     def __init__(self, **data):
-        settings = SnowflakeSettings() # type: ignore
+        settings = SnowflakeSettings()  # type: ignore
         super().__init__(
-            credentials = SnowflakeCredentials(**settings.snowflake_credentials.dict()),
-            warehouse = settings.snowflake_connector.warehouse,
-            schema = settings.snowflake_connector.schema_name,
-            database = settings.snowflake_connector.database
+            credentials=SnowflakeCredentials(**settings.snowflake_credentials.dict()),
+            warehouse=settings.snowflake_connector.warehouse,
+            schema=settings.snowflake_connector.schema_name,
+            database=settings.snowflake_connector.database,
         )
