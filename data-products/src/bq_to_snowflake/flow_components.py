@@ -8,6 +8,7 @@ from databases.snowflake_utils import PktSnowflakeConnector
 from prefect import flow, task
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
+import asyncio
 
 # from pathlib import Path
 
@@ -30,7 +31,7 @@ def bq_extract(input):
 
 
 @flow()
-def bq_to_snowflake(subflow_set_def: dict):
+async def bq_to_snowflake(subflow_set_def: dict):
     # ds = create_bq_schema()
     stg = bigquery_query(
         gcp_credentials=PktGcpCredentials(),
@@ -56,9 +57,9 @@ def bq_to_snowflake(subflow_set_def: dict):
     )
 
 
-def subflow_factory(group_id: str):
+async def subflow_factory(group_id: str):
     with open(os.path.join(SCRIPT_PATH, "config/bq_to_snowflake.json")) as f:
         groups = json.load(f)
     group = groups[group_id]
-    for s in group["subflow_set_defs"]:
-        bq_to_snowflake(s)
+    coros = [bq_to_snowflake(s) for s in group["subflow_set_defs"]]
+    await asyncio.gather(*coros)
