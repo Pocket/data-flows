@@ -40,6 +40,7 @@ dask-worker-space/
 # Editors
 .idea/
 .vscode/
+.run/
 
 # VCS
 .git/
