@@ -1,7 +1,10 @@
 import datetime
+import os
+from time import sleep
 
 from prefect import Flow, task
 from prefect.tasks.dbt import dbt
+from prefect.tasks.dbt.dbt_cloud_utils import wait_for_job_run
 from prefect.tasks.prefect import create_flow_run, wait_for_flow_run
 from prefect.executors import LocalDaskExecutor
 from utils import config
@@ -25,7 +28,16 @@ DBT_DOWNSTREAM_FLOW_NAMES = [
 # TODO: Set a concurrency-limit to prevent using more than one Dbt job resource.
 @task(timeout=15 * 60, max_retries=1, retry_delay=datetime.timedelta(seconds=60))
 def transform():
-    return dbt.DbtCloudRunJob().run(cause=FLOW_NAME, job_id=DBT_CLOUD_JOB_ID, wait_for_job_run_completion=True)
+    run = dbt.DbtCloudRunJob().run(cause=FLOW_NAME, job_id=DBT_CLOUD_JOB_ID)
+    # Prefect's wait_for_dbt_cloud_job_run immediately fires a request to Dbt to get the run status. If Dbt has not yet
+    # created the run it returns 404: Not found, and Prefect raises an exception. Our workaround is to wait a bit here.
+    sleep(30)
+    wait_for_job_run(
+        account_id=int(os.environ['DBT_CLOUD_ACCOUNT_ID']),
+        token=os.environ['DBT_CLOUD_TOKEN'],
+        run_id=run["id"],
+        domain="cloud.getdbt.com",
+    )
 
 
 with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30), executor=LocalDaskExecutor()) as flow:
