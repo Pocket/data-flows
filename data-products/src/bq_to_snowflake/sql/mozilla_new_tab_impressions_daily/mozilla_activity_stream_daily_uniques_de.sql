@@ -6,12 +6,11 @@ WITH deduplicated as (
     SELECT
         *,
         ROW_NUMBER() OVER (PARTITION BY date(submission_timestamp), document_id order by submission_timestamp) AS row_number
-    FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
-    WHERE EXTRACT(date FROM submission_timestamp) BETWEEN DATE_ADD('{{ ds }}', INTERVAL -1 DAY) AND '{{ ds }}'
+    FROM `{moz_data_bq_project}.activity_stream_live.impression_stats_v1`
+    WHERE submission_timestamp > '{last_timestamp}'
   )
   WHERE row_number = 1
 ),
-
 impression_data AS (
     SELECT s.*
     FROM deduplicated AS s

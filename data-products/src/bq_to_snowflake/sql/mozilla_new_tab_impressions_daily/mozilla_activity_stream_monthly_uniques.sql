@@ -2,8 +2,8 @@
 
 WITH impression_data AS (
     SELECT s.*
-    FROM `moz-fx-data-shared-prod.activity_stream.impression_stats` AS s
-    WHERE EXTRACT(date FROM submission_timestamp) BETWEEN DATE_ADD(DATE_TRUNC(DATE('{{ ds }}'), month), INTERVAL -1 MONTH) AND '{{ ds }}'
+    FROM `{moz_data_bq_project}.activity_stream.impression_stats` AS s
+    WHERE submission_timestamp > '{last_timestamp}'
         AND loaded IS NULL --don't include loaded ping
         AND array_length(tiles) >= 1 --make sure data is valid/non-empty
         AND normalized_country_code = 'US'
@@ -36,7 +36,7 @@ SELECT
     count(distinct case when a.impressions > 0 AND a.user_prefs & 4 = 4 and a.user_prefs & 32 = 32 and t.type = 'spoc' THEN a.client_id END) AS users_viewing_spocs,
     count(distinct case when a.clicks > 0 AND a.user_prefs & 4 = 4 and a.user_prefs & 32 = 32 and t.type = 'spoc' THEN a.client_id END) AS users_clicking_spocs
 FROM flattened_impression_data AS a
-LEFT JOIN `moz-fx-data-shared-prod.pocket.spoc_tile_ids` AS t
+LEFT JOIN `{moz_data_bq_project}.pocket.spoc_tile_ids` AS t
     ON a.tile_id = t.tile_id
 WHERE a.clicks < 3
 GROUP BY 1

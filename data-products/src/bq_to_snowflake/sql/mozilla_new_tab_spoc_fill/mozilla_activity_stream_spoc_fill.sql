@@ -6,8 +6,8 @@ WITH deduplicated as (
     SELECT
         *,
         ROW_NUMBER() OVER (PARTITION BY date(submission_timestamp), document_id order by submission_timestamp) AS row_number
-    FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
-    WHERE EXTRACT(date FROM submission_timestamp) BETWEEN DATE_ADD('{{ ds }}', INTERVAL -1 DAY) AND '{{ ds }}'
+    FROM `{moz_data_bq_project}.activity_stream_live.impression_stats_v1`
+    WHERE submission_timestamp > '{last_timestamp}'
   )
   WHERE row_number = 1
 ),
@@ -55,7 +55,7 @@ SELECT
     SUM(CASE WHEN t.type = 'spoc' THEN a.impressions END) AS spoc_impressions,
     SUM(CASE WHEN t.type = 'spoc' THEN a.impressions END) / SUM(a.impressions) AS fill_rate
 FROM flattened_impression_data AS a
-LEFT JOIN `moz-fx-data-shared-prod.pocket.spoc_tile_ids` AS t
+LEFT JOIN `{moz_data_bq_project}.pocket.spoc_tile_ids` AS t
     ON a.tile_id = t.tile_id
 JOIN new_tab_impressions AS n
   ON n.activity_date = DATE(TIMESTAMP_SECONDS(a.submission_timestamp))
