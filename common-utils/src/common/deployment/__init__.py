@@ -482,7 +482,7 @@ class FlowSpec(BaseModel):
                     "name": default_container_name,
                     "image": image_name,
                     "environment": [
-                        {"name": "PREFECT_DISABLE_FLOW_SPEC", "value": "True"},
+                        {"name": "DF_CONFIG_DEPLOYMENT_TYPE", "value": DEPLOYMENT_TYPE},
                     ],
                     "secrets": secrets,
                     "logConfiguration": {
