@@ -12,7 +12,8 @@ def orchestrate_flows():
 @flow
 def main_orchestration_flow():
     orchestrate_flows()
-    print(type(get_notification_block))
+    logger = get_run_logger()
+    logger.info(type(get_notification_block))
 
 
 FLOW_SPEC = FlowSpec(
