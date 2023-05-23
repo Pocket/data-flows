@@ -35,9 +35,3 @@ class CommonSettings(Settings):
             "Deployment type is used in Prefect object names to infer environment. "
         ),
     )
-    project_name: str = Field(
-        ...,
-        description=(
-            "Data flows project name."
-        ),
-    )

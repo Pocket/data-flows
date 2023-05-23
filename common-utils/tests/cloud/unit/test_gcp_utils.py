@@ -8,7 +8,9 @@ from common.cloud.gcp_utils import PktBigQueryWarehouse
 def test_pkt_big_query_warehouse():
     x = PktBigQueryWarehouse()
     compare = x.dict()
-    compare.pop("_connection") # popping _connection because its object and hard to compare  # noqa: E501
+    compare.pop(
+        "_connection"
+    )  # popping _connection because its object and hard to compare  # noqa: E501
     assert compare == {
         "gcp_credentials": {
             "service_account_file": PosixPath("tests/test.json"),
