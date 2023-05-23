@@ -1,5 +1,6 @@
 from common.deployment import FlowDeployment, FlowSpec
 from prefect import flow, get_run_logger, task
+from shared.blocks.notifications.pagerduty import get_notification_block
 
 
 @task
@@ -9,8 +10,10 @@ def orchestrate_flows():
 
 
 @flow
-def main_orchestration_flow():
+async def main_orchestration_flow():
     orchestrate_flows()
+    x = await get_notification_block('critical')
+    return x
 
 
 FLOW_SPEC = FlowSpec(

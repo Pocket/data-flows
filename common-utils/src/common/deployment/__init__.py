@@ -416,7 +416,11 @@ class FlowSpec(BaseModel):
             self.flow.name = x
 
     def _handle_task_definition(
-        self, account_id: str, ecs_client: object, slugified_flow_name: str
+        self,
+        account_id: str,
+        ecs_client: object,
+        slugified_flow_name: str,
+        project_name: str,
     ) -> str | None:
         """Register Task Defintition with AWS ECS as needed based on changes.
 
@@ -425,6 +429,7 @@ class FlowSpec(BaseModel):
             ecs_client (object): valid ecs client
             slugified_flow_name (str): slugified flow name for naming
             of task definition and block
+            project_name (str): Prefect project name
 
         Returns:
             str: New or existing Task Definition ARN.
@@ -483,6 +488,7 @@ class FlowSpec(BaseModel):
                     "image": image_name,
                     "environment": [
                         {"name": "DF_CONFIG_DEPLOYMENT_TYPE", "value": DEPLOYMENT_TYPE},
+                        {"name": "DF_CONFIG_PROJECT_NAME", "value": project_name},
                     ],
                     "secrets": secrets,
                     "logConfiguration": {
@@ -560,7 +566,11 @@ class FlowSpec(BaseModel):
         return final_task_def_arn
 
     def _create_ecs_task_block(
-        self, account_id: str, ecs_client: object, slugified_flow_name: str
+        self,
+        account_id: str,
+        ecs_client: object,
+        slugified_flow_name: str,
+        project_name: str,
     ) -> str:
         """This method will create the ECS Task block as supported by common-utils.
 
@@ -569,6 +579,7 @@ class FlowSpec(BaseModel):
             ecs_client (object): valid ecs client
             slugified_flow_name (str): slugified flow name for naming
             of task definition and block
+            project_name (str): Prefect project name
 
         Returns:
             str: block name for use in deployment
@@ -583,7 +594,7 @@ class FlowSpec(BaseModel):
         ecs_block = ECSTask(
             name=block_name,
             task_definition_arn=self._handle_task_definition(
-                account_id, ecs_client, slugified_flow_name
+                account_id, ecs_client, slugified_flow_name, project_name
             ),
             cluster=f"prefect-v2-agent-{DEPLOYMENT_TYPE}",
             launch_type="FARGATE",
@@ -635,7 +646,7 @@ class FlowSpec(BaseModel):
         # ignore ECS handling if POCKET_PREFECT_INFRASTRUCTURE_BLOCK envar exists
         if not os.getenv("POCKET_PREFECT_INFRASTRUCTURE_BLOCK"):
             ecs_block_name = self._create_ecs_task_block(
-                account_id, ecs_client, slugified_flow_name
+                account_id, ecs_client, slugified_flow_name, project_name
             )
         else:
             ecs_block_name = "overridden"

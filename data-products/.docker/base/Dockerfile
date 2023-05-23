@@ -11,6 +11,7 @@ RUN apt update && \
 
     
 COPY dist ../common-utils
+COPY src/shared shared
 COPY poetry.lock poetry.lock
 COPY pyproject.toml pyproject.toml
 RUN poetry config virtualenvs.create false
