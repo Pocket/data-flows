@@ -1,3 +1,4 @@
+import os
 from typing import Literal
 
 from pydantic import BaseModel, BaseSettings, Field
@@ -35,3 +36,7 @@ class CommonSettings(Settings):
             "Deployment type is used in Prefect object names to infer environment. "
         ),
     )
+
+    @property
+    def is_production(self):
+        return self.deployment_type == "main"

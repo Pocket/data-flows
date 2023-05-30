@@ -414,7 +414,7 @@ class FlowSpec(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    def __init__(self, **data) -> None:
+    def __init__(self, **data):
         """Set the flow name on deployment."""
         super().__init__(**data)
         if x := os.getenv("POCKET_PREFECT_FLOW_NAME"):

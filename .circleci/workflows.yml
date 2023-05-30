@@ -218,6 +218,7 @@ jobs:
         type: boolean
     environment: 
       POCKET_PREFECT_DEPLOYMENT_TYPE: << parameters.deployment_type >>
+      DF_CONFIG_DEPLOYMENT_TYPE: << parameters.deployment_type >>
     docker:
       - image: cimg/python:3.10
     steps:

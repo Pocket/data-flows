@@ -1924,6 +1924,24 @@ dev = ["black", "coverage", "flake8", "google-cloud-aiplatform", "google-cloud-b
 secret-manager = ["google-cloud-secret-manager"]
 
 [[package]]
+name = "prefect-shell"
+version = "0.1.5"
+description = "Prefect tasks and subflows for interacting with shell commands."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "prefect-shell-0.1.5.tar.gz", hash = "sha256:719876491a7e6baa655225be0df6d4ac783b71752e2b007466da53285b4ef5a9"},
+    {file = "prefect_shell-0.1.5-py3-none-any.whl", hash = "sha256:a7e12e88b32e9bc10ef26d45ae29074155dbe917f65c036c5767df379ccb03fc"},
+]
+
+[package.dependencies]
+prefect = ">=2.0.0"
+
+[package.extras]
+dev = ["black", "coverage", "flake8", "interrogate", "isort", "mkdocs", "mkdocs-gen-files", "mkdocs-material", "mkdocstrings[python]", "mock", "mypy", "pillow", "pre-commit", "pytest", "pytest-asyncio"]
+
+[[package]]
 name = "prefect-snowflake"
 version = "0.26.1"
 description = "Prefect integrations for interacting with Snowflake."
@@ -3107,4 +3125,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f18bb8f212b435221ad5d6fc63527c5f0ac160750ef43a273d9d75eb88d7f06e"
+content-hash = "cb869670202f0734ba966cc3179c4bec85f1cabb8cc09197b1406d3d44232172"

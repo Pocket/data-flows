@@ -1,32 +1,61 @@
-from common.settings import NestedSettings, Settings
+from typing import Optional
+
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
-from pydantic import SecretStr
+from pydantic import PrivateAttr, SecretStr, constr, SecretBytes
+
+from common.settings import CommonSettings, NestedSettings, Settings
 
 
 class SnowflakeCredSettings(NestedSettings):
     account: str
     user: str
     private_key_passphrase: SecretStr
-    private_key_path: str
+    private_key: Optional[SecretBytes]
+    private_key_path: Optional[str]
+    role: str
 
 
-class SnowflakeDbSettings(NestedSettings):
-    database: str
-    warehouse: str
-    schema_name: str  # schema is reserved word in Pydantic
+WAREHOUSE_REGEX = "^(?i)prefect.*?"
 
 
 class SnowflakeSettings(Settings):
     snowflake_credentials: SnowflakeCredSettings
-    snowflake_connector: SnowflakeDbSettings
+    _database: str = PrivateAttr()
+    snowflake_warehouse: Optional[constr(regex=WAREHOUSE_REGEX)]  # type: ignore
+    snowflake_schema: Optional[str]
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        db = "development"
+        cs = CommonSettings()  # type: ignore
+        if cs.is_production:
+            db = "prefect"
+        self._database = db
+
+    @property
+    def database(self):
+        return self._database
 
 
 class PktSnowflakeConnector(SnowflakeConnector):
+    warehouse: constr(regex=WAREHOUSE_REGEX)  # type: ignore
+
     def __init__(self, **data):
         settings = SnowflakeSettings()  # type: ignore
-        super().__init__(
-            credentials=SnowflakeCredentials(**settings.snowflake_credentials.dict()),
-            warehouse=settings.snowflake_connector.warehouse,
-            schema=settings.snowflake_connector.schema_name,
-            database=settings.snowflake_connector.database,
+        data["database"] = settings.database
+        data["credentials"] = SnowflakeCredentials(
+            **settings.snowflake_credentials.dict()
         )
+        if x := settings.snowflake_schema:
+            data["schema"] = x
+        if x := settings.snowflake_warehouse:
+            data["warehouse"] = x
+        super().__init__(**data)
+
+
+def get_gcs_stage():
+    cs = CommonSettings()  # type: ignore
+    stage = "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV"
+    if cs.is_production:
+        stage = "PREFECT.PUBLIC.PREFECT_GCS_STAGE_PARQ_PROD"
+    return stage
