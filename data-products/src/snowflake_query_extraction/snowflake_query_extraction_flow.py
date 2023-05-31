@@ -102,16 +102,18 @@ def create_extraction_job(
 
 
 @flow()
-async def snowflake_query_extraction(sf_extraction_input: SfExtractionInputs):
+async def main(sf_extraction_input: SfExtractionInputs):
     logger = get_run_logger()
     current_offset = await snowflake_query(
         query=sf_extraction_input.current_offset_sql,
         snowflake_connector=SFC,
+        name="get-current-offset",
     )  # type: ignore
     logger.info(f"Current offset state result: {current_offset[0][0]}...")
     new_offset = await snowflake_query(
         query=sf_extraction_input.new_offset_sql,
         snowflake_connector=SFC,
+        name="get-new-offset",
     )  # type: ignore
     logger.info(f"New offset will be: {new_offset[0][0]}...")
     extraction_job = create_extraction_job(
@@ -119,23 +121,26 @@ async def snowflake_query_extraction(sf_extraction_input: SfExtractionInputs):
     )
     logger.info("Running extraction...")
     extract = await snowflake_query(
-        query=extraction_job.extraction_sql, snowflake_connector=SFC
-    )
+        query=extraction_job.extraction_sql,
+        snowflake_connector=SFC,
+        name="run-extraction",
+    )  # type: ignore
     logger.info("Applying new state...")
     await snowflake_query(
         query=extraction_job.persist_state_sql,
         snowflake_connector=SFC,
         wait_for=[extract],
+        name="persist-new-offset",
     )  # type: ignore
 
 
 FLOW_SPEC = FlowSpec(
-    flow=snowflake_query_extraction,
+    flow=main,
     docker_env="base",
     secrets=[
         FlowEnvar(
             envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake_credentials",
+            envar_value=f"data-flows/{CS.dev_or_production}/snowflake_credentials",
         )
     ],
     deployments=[
@@ -164,9 +169,9 @@ if __name__ == "__main__":
         offset_key="collector_tstamp",
         default_offset="2022-01-01",
         kwargs={
-            "database_name": "development",
-            "schema_name": "braun",
-            "table_name": "snowplow_events",
+            "database_name": "snowplow",
+            "schema_name": "atomic",
+            "table_name": "events",
         },
     )
-    run(snowflake_query_extraction(sf_extraction_input=t))  # type: ignore
+    run(main(sf_extraction_input=t))  # type: ignore
