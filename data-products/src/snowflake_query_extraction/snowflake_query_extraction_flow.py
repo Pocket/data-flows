@@ -14,13 +14,6 @@ from pydantic import BaseModel
 CS = CommonSettings()  # type: ignore
 SFC = PktSnowflakeConnector(schema="public", warehouse="prefect_wh")
 
-CREATE_STATE_TABLE = """create table if not exists public.query_extraction_state (
-    sql_name string not null,
-    created_at timestamp_tz not null,
-    updated_at timestamp_tz not null,
-    state string
-);"""
-
 CURRENT_OFFSET_SQL = """select coalesce(any_value(state), '{default_offset}') as state
     from development.public.query_extraction_state
     where sql_name = '{sql_name}';"""
@@ -109,20 +102,14 @@ def create_extraction_job(
 @flow()
 async def snowflake_query_extraction(sf_extraction_input: SfExtractionInputs):
     logger = get_run_logger()
-    create_state_table = await snowflake_query(
-        query=CREATE_STATE_TABLE, snowflake_connector=SFC
-    )
-    logger.info(f"State table creation result: {create_state_table[0][0]}...")
     current_offset = await snowflake_query(
         query=sf_extraction_input.current_offset_sql,
         snowflake_connector=SFC,
-        wait_for=[create_state_table],
     )  # type: ignore
     logger.info(f"Current offset state result: {current_offset[0][0]}...")
     new_offset = await snowflake_query(
         query=sf_extraction_input.new_offset_sql,
         snowflake_connector=SFC,
-        wait_for=[create_state_table],
     )  # type: ignore
     logger.info(f"New offset will be: {new_offset[0][0]}...")
     extraction_job = create_extraction_job(
@@ -153,14 +140,16 @@ FLOW_SPEC = FlowSpec(
         FlowDeployment(
             deployment_name="backend_events_for_mozilla",
             parameters={
-                "sql_name": "backend_events_for_mozilla",
-                "offset_key": "collector_tstamp",
-                "default_offset": "2022-01-01",
-                "kwargs": {
-                    "database_name": "snowplow",
-                    "schema_name": "atomic",
-                    "table_name": "events",
-                },
+                "sf_extraction_input": SfExtractionInputs(
+                    sql_name="backend_events_for_mozilla",
+                    offset_key="collector_tstamp",
+                    default_offset="2022-01-01",
+                    kwargs={
+                        "database_name": "snowplow",
+                        "schema_name": "atomic",
+                        "table_name": "events",
+                    },
+                ).dict()
             },
         )  # type: ignore
     ],

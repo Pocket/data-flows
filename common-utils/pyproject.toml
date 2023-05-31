@@ -10,7 +10,6 @@ packages = [{include = "common", from = 'src'}]
 [tool.poetry.dependencies]
 python = "^3.10"
 prefect = "^2.8.2"
-prefect-shell = "^0.1.5"
 
 [tool.poetry.scripts]
 deploy-cli = 'common.deployment.cli:main'

@@ -1,4 +1,3 @@
-import os
 from typing import Literal
 
 from pydantic import BaseModel, BaseSettings, Field

@@ -9,7 +9,7 @@ from common.settings import CommonSettings, NestedSettings, Settings
 class SnowflakeCredSettings(NestedSettings):
     account: str
     user: str
-    private_key_passphrase: SecretStr
+    private_key_passphrase: Optional[SecretStr]
     private_key: Optional[SecretBytes]
     private_key_path: Optional[str]
     role: str

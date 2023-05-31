@@ -408,7 +408,7 @@ class FlowSpec(BaseModel):
         ...,
         description="docker environment name from pyproject.toml, which is the key name in '[tool.prefect.envs.<>]'",
     )
-    ephemeral_storage_gb: conint(gt=19, lt=201) = 20  # type: ignore
+    ephemeral_storage_gb: conint(gt=20, lt=201) = 21  # type: ignore
     deployments: list[FlowDeployment] = []
 
     class Config:
