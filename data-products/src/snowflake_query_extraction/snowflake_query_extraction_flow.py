@@ -15,10 +15,10 @@ CS = CommonSettings()  # type: ignore
 SFC = PktSnowflakeConnector(schema="public", warehouse="prefect_wh")
 
 CURRENT_OFFSET_SQL = """select coalesce(any_value(state), '{default_offset}') as state
-    from development.public.query_extraction_state
+    from query_extraction_state
     where sql_name = '{sql_name}';"""
 
-PERSIST_STATE_SQL = """merge into public.query_extraction_state dt using (
+PERSIST_STATE_SQL = """merge into query_extraction_state dt using (
         select '{sql_name}' as sql_name, 
         current_timestamp as created_at, 
         current_timestamp as updated_at,
