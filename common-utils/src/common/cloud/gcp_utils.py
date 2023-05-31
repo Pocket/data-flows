@@ -19,9 +19,7 @@ class PktGcpCredentials(GcpCredentials):
         settings = GcpSettings()  # type: ignore
         data["service_account_info"] = settings.gcp_credentials.service_account_info
         data["service_account_file"] = settings.gcp_credentials.service_account_file
-        super().__init__(
-            **data
-        )
+        super().__init__(**data)
 
 
 class PktBigQueryWarehouse(BigQueryWarehouse):
