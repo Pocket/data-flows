@@ -3,6 +3,8 @@ from datetime import timedelta
 from pathlib import Path, PosixPath
 from unittest.mock import patch
 
+from prefect import flow, task
+
 from common.deployment import (
     CronSchedule,
     FlowDeployment,
@@ -11,7 +13,8 @@ from common.deployment import (
     IntervalSchedule,
     get_pyproject_metadata,
 )
-from prefect import flow, task
+
+TEST_PYTHONPATH = os.path.expanduser(os.path.join(os.getcwd(), "tests/test_flows"))
 
 
 @patch("common.deployment.FlowDeployment.push_deployment")
@@ -60,6 +63,7 @@ def test_flow_spec_disable_handle_task_definition(mock_ecs_save, mock_deployment
         get_pyproject_metadata(),
         "123456789012",
         object(),
+        TEST_PYTHONPATH,
     )
     assert mock_deployment.call_count == 2
     assert mock_ecs_save.call_count == 0
@@ -70,4 +74,5 @@ def test_flow_spec_disable_handle_task_definition(mock_ecs_save, mock_deployment
         PosixPath("tests/test_flows/flow_group_1/example_flow.py"),
         "flow_1",
         "common-utils.flow-group-1.flow-1",
+        TEST_PYTHONPATH,
     )

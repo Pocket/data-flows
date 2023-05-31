@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shlex
+import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
@@ -302,6 +303,7 @@ class FlowDeployment(BaseModel):
         flow_path: Path,
         flow_function_name: str,
         flow_name: str,
+        pythonpath_addition: str,
     ) -> None:
         """This method will push a Prefect deployment to Prefect using the deployment cli.
 
@@ -311,6 +313,7 @@ class FlowDeployment(BaseModel):
             flow_path (Path): Relative path to the flow python file.
             flow_function_name: (str): Name of the flow function to deploy.
             flow_name: (str): Properly enforced flow name for deployment.
+            pythonpath_addition (str): fully qualified flows folder path.
 
         """
         # start building the cli arguments
@@ -366,8 +369,10 @@ class FlowDeployment(BaseModel):
         )
         project_root_flow_path = f"{PROJECT_ROOT}/{flow_path.parent}"
         # run deployment cli using helper function
+        # adding flows folder to PYTHONPATH during deployment
         run_command(
             f"""export POCKET_PREFECT_FLOW_NAME={shlex.quote(flow_name)} && \\
+        export PYTHONPATH={shlex.quote(pythonpath_addition)} && \\
         pushd {shlex.quote("../")} && \\
         prefect deployment build {shlex.quote(f'{project_root_flow_path}/{flow_file_name}:{flow_function_name}')} \\
         -n {shlex.quote(deployment_name)} \\
@@ -380,7 +385,7 @@ class FlowDeployment(BaseModel):
         -t {shlex.quote(project_name)} -t {shlex.quote(get_flow_folder(flow_path))} -t {shlex.quote(DEPLOYMENT_TYPE)} \\
         -a \\
         {schedule} --skip-upload && \\
-        popd"""
+        popd"""  # noqa: E501
         )
 
         LOGGER.info(
@@ -482,7 +487,7 @@ class FlowSpec(BaseModel):
                     "name": default_container_name,
                     "image": image_name,
                     "environment": [
-                        {"name": "PREFECT_DISABLE_FLOW_SPEC", "value": "True"},
+                        {"name": "DF_CONFIG_DEPLOYMENT_TYPE", "value": DEPLOYMENT_TYPE},
                     ],
                     "secrets": secrets,
                     "logConfiguration": {
@@ -600,6 +605,7 @@ class FlowSpec(BaseModel):
         pyproject_metadata: PyProjectMetadata,
         account_id: str,
         ecs_client: object,
+        pythonpath_addition: str,
     ):
         """Method for processing the flows deployments.
 
@@ -612,6 +618,7 @@ class FlowSpec(BaseModel):
             pyproject_metadata (PyProjectMetadata): metadata from pyproject.toml
             account_id (str): AWS account id
             ecs_client (object): valid ecs client
+            pythonpath_addition (str): fully qualified flows folder path
         """
 
         # init private attrs that are needed downstream
@@ -648,6 +655,7 @@ class FlowSpec(BaseModel):
                 flow_path,
                 self.flow.fn.__name__,
                 flow_name,
+                pythonpath_addition,
             )
 
 
@@ -725,7 +733,9 @@ class PrefectProject(BaseModel):
         else:
             # set command type to validation to skip deployment
             command_type = "validation"
-
+        # add flows path to pythonpath for interproject shared libs
+        pythonpath_addition = os.path.expanduser(os.path.join(os.getcwd(), flows_path))
+        sys.path.append(pythonpath_addition)
         # loop through list of all files that end with "_flow.py"
         for name in glob.glob(os.path.join(flows_path, "**/*_flow.py"), recursive=True):
             path_object = Path(name)
@@ -743,7 +753,11 @@ class PrefectProject(BaseModel):
                 # only run deployment when validate_only is False
                 if not validate_only:
                     x.push_deployments(
-                        path_object, self._pyproject_metadata, account_id, ecs_client
+                        path_object,
+                        self._pyproject_metadata,
+                        account_id,
+                        ecs_client,
+                        pythonpath_addition,
                     )
             # catch errors and aggregate into groups for logging and raising
             except AttributeError as e:
