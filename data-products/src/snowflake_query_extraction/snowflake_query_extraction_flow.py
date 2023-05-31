@@ -12,7 +12,9 @@ from prefect_snowflake.database import snowflake_query
 from pydantic import BaseModel
 
 CS = CommonSettings()  # type: ignore
-SFC = PktSnowflakeConnector(schema="public", warehouse="prefect_wh")
+SFC = PktSnowflakeConnector(
+    schema="public", warehouse=f"prefect_wh_{CS.dev_or_production}"
+)
 
 CURRENT_OFFSET_SQL = """select coalesce(any_value(state), '{default_offset}') as state
     from query_extraction_state

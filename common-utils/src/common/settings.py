@@ -39,3 +39,10 @@ class CommonSettings(Settings):
     @property
     def is_production(self):
         return self.deployment_type == "main"
+    
+    @property
+    def dev_or_production(self):
+        answer = 'dev'
+        if self.is_production:
+            answer = 'production'
+        return answer

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
-from pydantic import PrivateAttr, SecretStr, constr, SecretBytes
+from pydantic import PrivateAttr, SecretBytes, SecretStr, constr
 
 from common.settings import CommonSettings, NestedSettings, Settings
 
