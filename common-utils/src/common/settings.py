@@ -37,11 +37,24 @@ class CommonSettings(Settings):
     )
 
     @property
-    def is_production(self):
+    def is_production(self) -> bool:
+        """Returns True if deployment type is 'main'.
+        Deployment types of staging and dev will
+        return false.
+
+        Returns:
+            bool: Whether the current deployment type is considered Production.
+        """
         return self.deployment_type == "main"
 
     @property
-    def dev_or_production(self):
+    def dev_or_production(self) -> str:
+        """Shortcut to get an explicit
+        dev' or 'production'.
+
+        Returns:
+            str: 'dev' or 'production'
+        """
         answer = "dev"
         if self.is_production:
             answer = "production"
