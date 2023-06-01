@@ -1,4 +1,4 @@
-"""Query based data extraction from Snowflake Prefect Flow"""
+"""Query based data extraction from Snowflake"""
 from asyncio import run
 from pathlib import Path
 
@@ -9,17 +9,20 @@ from common.settings import CommonSettings
 from pendulum import now
 from prefect import flow, get_run_logger, task
 from prefect_snowflake.database import snowflake_query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+# setting reusable snowflake connector object
 CS = CommonSettings()  # type: ignore
 SFC = PktSnowflakeConnector(
     schema="public", warehouse=f"prefect_wh_{CS.dev_or_production}"
 )
 
+# template sql to get the latest stored offset for extraction job
 CURRENT_OFFSET_SQL = """select coalesce(any_value(state), '{default_offset}') as state
     from query_extraction_state
     where sql_name = '{sql_name}';"""
 
+# template sql to persist the new offset for extraction job
 PERSIST_STATE_SQL = """merge into query_extraction_state dt using (
         select '{sql_name}' as sql_name, 
         current_timestamp as created_at, 
@@ -34,18 +37,42 @@ PERSIST_STATE_SQL = """merge into query_extraction_state dt using (
 
 
 class SfExtractionJob(BaseModel):
-    extraction_sql: str
-    persist_state_sql: str
+    """Model to hold SQL instructions for extraction and offset storage."""
+
+    extraction_sql: str = Field(..., description="Rendered extraction SQL")
+    persist_state_sql: str = Field(..., description="Rendered SQL to commit new offset")
 
 
 class SfExtractionInputs(BaseModel):
-    sql_name: str
-    offset_key: str
-    default_offset: str
-    kwargs: dict = {}
+    """Model for parameters to passed to an extraction job request."""
+
+    sql_name: str = Field(
+        ...,
+        description="Relative folder name containing extraction query and offset query",
+    )
+    offset_key: str = Field(
+        ...,
+        description="Offset key to be passed in as needed to query and offset template",
+    )
+    default_offset: str = Field(
+        ...,
+        description="Default offset value to use for new extractions or empty state",
+    )
+    kwargs: dict = Field(
+        {},
+        description=(
+            "Any additional keyword arguments as a dictionary"
+            "to pass into your templates"
+        ),
+    )
 
     @property
-    def current_offset_sql(self):
+    def current_offset_sql(self) -> str:
+        """Provide Rendered current offset SQL to be executed.
+
+        Returns:
+            str: Rendered current offset SQL.
+        """
         return CURRENT_OFFSET_SQL.format(
             sql_name=self.sql_name,
             offset_key=self.offset_key,
@@ -54,7 +81,12 @@ class SfExtractionInputs(BaseModel):
         )
 
     @property
-    def new_offset_sql(self):
+    def new_offset_sql(self) -> str:
+        """Provide Rendered new offset SQL to be executed.
+
+        Returns:
+            str: Rendered new offset SQL.
+        """
         script_path = get_script_path()
         offset_sql_template = Path(
             f"{script_path}/sql/{self.sql_name}/offset.sql"
@@ -65,25 +97,45 @@ class SfExtractionInputs(BaseModel):
 @task()
 def create_extraction_job(
     sf_extraction_input: SfExtractionInputs, current_offset: str, new_offset: str
-):
-    extraction_sql_template = """copy into @{stage_name}/{sql_name}/{year}/{month}/{day}/{hour}/{unix}
+) -> SfExtractionJob:
+    """Task to create the SfExtractionJob mode from the flow parameters and
+    the current offset and expected new offset.
+
+    Args:
+        sf_extraction_input (SfExtractionInputs): Flow paramters model.
+        current_offset (str): Current offset for extraction job.
+        new_offset (str): The new offset to commit if extraction is successful.
+
+    Returns:
+        SfExtractionJob: Model with SQL instructions.
+    """
+
+    # template for wrapping a SQL query into unload statement
+    extraction_sql_template = """copy into @{stage_name}/{sql_name}/{year}/{month}/{day}/{hour}/{unix}/data
     from ({sql})
     header = true
     overwrite = true
     max_file_size = 104857600"""  # noqa: E501
 
+    # stage name must be one of our external GCS stages
     stage_name = get_gcs_stage()
+
+    # leverage UTC datetime for file partitioning
     ts = now(tz="utc")
+
+    # get the query to use as extraction source
     script_path = get_script_path()
     sql_text_template = Path(
         f"{script_path}/sql/{sf_extraction_input.sql_name}/data.sql"
     ).read_text()
+    # render the query using inputs
     sql_text = sql_text_template.format(
         offset_key=sf_extraction_input.offset_key,
         current_offset=current_offset,
         new_offset=new_offset,
         **sf_extraction_input.kwargs,
     )
+    # return the extract job for downstream usage
     return SfExtractionJob(
         extraction_sql=extraction_sql_template.format(
             stage_name=stage_name,
@@ -101,37 +153,47 @@ def create_extraction_job(
     )
 
 
-@flow()
+@flow(
+    description="""Main workflow for orchestration of query based extractions
+from Snowflake.
+"""
+)
 async def main(sf_extraction_input: SfExtractionInputs):
+    # get standard Prefect logger for logging
     logger = get_run_logger()
-    current_offset = await snowflake_query(
+    # get the current offset using input model property
+    current_offset = await snowflake_query.with_options(  # type: ignore
+        name="get-current-offset"
+    )(
         query=sf_extraction_input.current_offset_sql,
         snowflake_connector=SFC,
-        name="get-current-offset",
-    )  # type: ignore
+    )
     logger.info(f"Current offset state result: {current_offset[0][0]}...")
-    new_offset = await snowflake_query(
+    # get the new offset using input model property
+    new_offset = await snowflake_query.with_options(  # type: ignore
+        name="get-new-offset"
+    )(
         query=sf_extraction_input.new_offset_sql,
         snowflake_connector=SFC,
-        name="get-new-offset",
-    )  # type: ignore
+    )
     logger.info(f"New offset will be: {new_offset[0][0]}...")
+    # get the extraction job details
     extraction_job = create_extraction_job(
         sf_extraction_input, current_offset[0][0], new_offset[0][0]
     )
     logger.info("Running extraction...")
-    extract = await snowflake_query(
+    # run the extraction
+    extract = await snowflake_query.with_options(name="run-extraction")(  # type: ignore
         query=extraction_job.extraction_sql,
         snowflake_connector=SFC,
-        name="run-extraction",
-    )  # type: ignore
+    )
     logger.info("Applying new state...")
-    await snowflake_query(
+    # commit the new offset
+    await snowflake_query.with_options(name="persist-new-offset")(  # type: ignore
         query=extraction_job.persist_state_sql,
         snowflake_connector=SFC,
         wait_for=[extract],
-        name="persist-new-offset",
-    )  # type: ignore
+    )
 
 
 FLOW_SPEC = FlowSpec(

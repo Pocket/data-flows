@@ -420,7 +420,7 @@ files = [
 
 [[package]]
 name = "common-utils"
-version = "0.2.0"
+version = "0.3.1"
 description = "Shared modules for prefect flow development and deployment"
 category = "main"
 optional = false
@@ -2923,4 +2923,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "c703b0a1bd58e6086608aa1e7bbfb8bf2d2e3d2632db1cc1a983870eb7f8dbf5"
+content-hash = "5582ebd8b5c21898b0267f82b618c41cf890e624ab24263947d357ed6c863f9f"

@@ -1,22 +1,15 @@
 import pytest
+from common.settings import CommonSettings
 from prefect.blocks.notifications import PagerDutyWebHook
-from prefect.testing.utilities import prefect_test_harness
-
 from shared.blocks.notifications.pagerduty import get_notification_block
 
-
-@pytest.fixture(autouse=True, scope="session")
-def prefect_test_fixture():
-    with prefect_test_harness():
-        yield
-
+CS = CommonSettings() # type: ignore
 
 @pytest.mark.asyncio
 async def test_get_notification_block():
-    with prefect_test_harness():
         # setup temporary block
-        nc_name = "data-products-pagerduty-non-critical-dev"
-        c_name = "data-products-pagerduty-critical-dev"
+        nc_name = f"data-products-pagerduty-non-critical-{CS.deployment_type}"
+        c_name = f"data-products-pagerduty-critical-{CS.deployment_type}"
         api_key = "test"
         integration_key = "test"
         await PagerDutyWebHook(
