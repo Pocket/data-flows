@@ -53,7 +53,7 @@ async def notify_if_error_budget_is_low(metrics: Dict, notifier: PagerDutyWebHoo
 
 
 @task()
-async def notify_if_data_points_are_missing(metrics: Dict, notifier):
+async def notify_if_data_points_are_missing(metrics: Dict, notifier: PagerDutyWebHook):
     truncated_recommended_at = metrics["TRUNCATED_RECOMMENDED_AT"]
     data_age = datetime.now() - datetime.fromisoformat(truncated_recommended_at)
 
