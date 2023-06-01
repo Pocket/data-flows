@@ -39,6 +39,7 @@ def test_get_gcs_stage():
     x = get_gcs_stage()
     assert x == "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV"
 
+
 @patch("common.settings.CommonSettings.is_production")
 def test_get_gcs_stage_production(mock):
     mock.return_value = True

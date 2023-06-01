@@ -97,5 +97,5 @@ def test_flow(mock_snowflake_task, reset_script_path):  # noqa: F811
     )
     assert (
         queries[3]
-        == "merge into query_extraction_state dt using (\n        select 'test' as sql_name, \n        current_timestamp as created_at, \n        current_timestamp as updated_at,\n        'test' as state\n    ) st on st.sql_name = dt.sql_name\n    when matched then update \n    set updated_at = st.updated_at,\n        state = st.state\n    when not matched then insert (sql_name, created_at, updated_at, state) \n    values (st.sql_name, st.created_at, st.updated_at, st.state);" # noqa: E501
+        == "merge into query_extraction_state dt using (\n        select 'test' as sql_name, \n        current_timestamp as created_at, \n        current_timestamp as updated_at,\n        'test' as state\n    ) st on st.sql_name = dt.sql_name\n    when matched then update \n    set updated_at = st.updated_at,\n        state = st.state\n    when not matched then insert (sql_name, created_at, updated_at, state) \n    values (st.sql_name, st.created_at, st.updated_at, st.state);"  # noqa: E501
     )

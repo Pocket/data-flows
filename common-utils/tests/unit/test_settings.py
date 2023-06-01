@@ -3,6 +3,7 @@ from common.settings import CommonSettings, NestedSettings, Settings
 
 def test_json():
     "Assert that nested model works as expected"
+
     class NestedTest(NestedSettings):
         test_name: str
 
