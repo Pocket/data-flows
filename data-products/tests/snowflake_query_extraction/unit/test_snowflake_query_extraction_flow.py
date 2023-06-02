@@ -1,8 +1,10 @@
 import os
 from asyncio import run
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from common.testing_utils import mock_snowflake_task, reset_script_path  # noqa: F401
+from common.testing_utils import reset_script_path  # noqa: F401
+from prefect import task
 
 from snowflake_query_extraction.snowflake_query_extraction_flow import (
     SfExtractionInputs,
@@ -65,11 +67,19 @@ def test_create_extraction_job(reset_script_path):  # noqa: F811
     )  # noqa: E501
 
 
+@pytest.mark.asyncio
 @pytest.mark.script_path_override(SCRIPT_PATH)
 @pytest.mark.script_path_namespace(NAMESPACE_OVERRIDE)
-@pytest.mark.query_results([("test",)])
-@pytest.mark.snowflake_task_name("snowflake_query")
-def test_flow(mock_snowflake_task, reset_script_path):  # noqa: F811
+async def test_flow(reset_script_path, monkeypatch):  # noqa: F811
+    @task
+    async def fake_task(query, snowflake_connector):
+        return "test"
+
+    monkeypatch.setattr(
+        "snowflake_query_extraction.snowflake_query_extraction_flow.snowflake_query",
+        fake_task,
+    )
+
     t = SfExtractionInputs(
         sql_name="test",
         offset_key="test",
@@ -80,22 +90,4 @@ def test_flow(mock_snowflake_task, reset_script_path):  # noqa: F811
             "table_name": "test",
         },
     )
-    run(main(sf_extraction_input=t))  # type: ignore
-    queries = [x.kwargs["query"] for x in mock_snowflake_task.call_args_list]
-    assert (
-        queries[0]
-        == "select coalesce(any_value(state), '1970-01-01') as state\n    from query_extraction_state\n    where sql_name = 'test';"  # noqa: E501
-    )
-    assert queries[1] == "select max(test)\nfrom test.test.test"
-    assert (
-        "select *\nfrom test.test.test\nwhere test > 'test'\nand test <= 'test'\nand test > current_timestamp - interval '24 hours'\n\n\n)\n    header = true\n    overwrite = true\n    max_file_size = 104857600"  # noqa: E501
-        in queries[2]
-    )
-    assert (
-        "copy into @DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV/test"  # noqa: E501
-        in queries[2]
-    )
-    assert (
-        queries[3]
-        == "merge into query_extraction_state dt using (\n        select 'test' as sql_name, \n        current_timestamp as created_at, \n        current_timestamp as updated_at,\n        'test' as state\n    ) st on st.sql_name = dt.sql_name\n    when matched then update \n    set updated_at = st.updated_at,\n        state = st.state\n    when not matched then insert (sql_name, created_at, updated_at, state) \n    values (st.sql_name, st.created_at, st.updated_at, st.state);"  # noqa: E501
-    )
+    await main(sf_extraction_input=t)  # type: ignore

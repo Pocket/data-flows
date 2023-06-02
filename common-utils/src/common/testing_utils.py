@@ -1,4 +1,5 @@
-from unittest.mock import MagicMock
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from prefect.testing.utilities import prefect_test_harness
@@ -13,31 +14,6 @@ def prefect_test_fixture():
     """
     with prefect_test_harness():
         yield
-
-
-@pytest.fixture()
-def mock_snowflake_task(request, monkeypatch):
-    """This will allow the mocking of Prefect-Snowflake database
-    functions through the use pytest mark decorators along with the
-    fixture, for example:
-
-    @pytest.mark.query_results([("test",)])
-    @pytest.mark.snowflake_task_name("snowflake_query")
-    def test_flow(mock_snowflake_task):
-    ...
-
-    See https://docs.pytest.org/en/7.1.x/how-to/fixtures.html#using-markers-to-pass-data-to-fixtures
-
-    Yields:
-        MagicMock: This can be used for call assertions.
-    """
-    result_marker = request.node.get_closest_marker("query_results")
-    task_name_marker = request.node.get_closest_marker("snowflake_task_name")
-    result_set = result_marker.args[0]
-    snowflake_task_name = task_name_marker.args[0]
-    mock = MagicMock(return_value=result_set)
-    monkeypatch.setattr(f"prefect_snowflake.database.{snowflake_task_name}.fn", mock)
-    yield mock
 
 
 @pytest.fixture()
