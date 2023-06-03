@@ -11,11 +11,7 @@ from prefect import flow, get_run_logger, task
 from prefect_snowflake.database import snowflake_query
 from pydantic import BaseModel, Field
 
-# setting reusable snowflake connector object
 CS = CommonSettings()  # type: ignore
-SFC = PktSnowflakeConnector(
-    schema="public", warehouse=f"prefect_wh_{CS.dev_or_production}"
-)
 
 # template sql to get the latest stored offset for extraction job
 CURRENT_OFFSET_SQL = """select coalesce(any_value(state), '{default_offset}') as state
@@ -95,6 +91,13 @@ class SfExtractionInputs(BaseModel):
 
 
 @task()
+def get_pocket_snowflake_connector_block():
+    return PktSnowflakeConnector(
+        schema="public", warehouse=f"prefect_wh_{CS.dev_or_production}"
+    )
+
+
+@task()
 def create_extraction_job(
     sf_extraction_input: SfExtractionInputs, current_offset: str, new_offset: str
 ) -> SfExtractionJob:
@@ -161,12 +164,14 @@ from Snowflake.
 async def main(sf_extraction_input: SfExtractionInputs):
     # get standard Prefect logger for logging
     logger = get_run_logger()
+    # get reusable snowflake connector block for pocket
+    sfc = get_pocket_snowflake_connector_block()
     # get the current offset using input model property
     current_offset = await snowflake_query.with_options(  # type: ignore
         name="get-current-offset"
     )(
         query=sf_extraction_input.current_offset_sql,
-        snowflake_connector=SFC,
+        snowflake_connector=sfc,
     )
     logger.info(f"Current offset state result: {current_offset[0][0]}...")
     # get the new offset using input model property
@@ -174,7 +179,7 @@ async def main(sf_extraction_input: SfExtractionInputs):
         name="get-new-offset"
     )(
         query=sf_extraction_input.new_offset_sql,
-        snowflake_connector=SFC,
+        snowflake_connector=sfc,
     )
     logger.info(f"New offset will be: {new_offset[0][0]}...")
     # get the extraction job details
@@ -185,13 +190,13 @@ async def main(sf_extraction_input: SfExtractionInputs):
     # run the extraction
     extract = await snowflake_query.with_options(name="run-extraction")(  # type: ignore
         query=extraction_job.extraction_sql,
-        snowflake_connector=SFC,
+        snowflake_connector=sfc,
     )
     logger.info("Applying new state...")
     # commit the new offset
     await snowflake_query.with_options(name="persist-new-offset")(  # type: ignore
         query=extraction_job.persist_state_sql,
-        snowflake_connector=SFC,
+        snowflake_connector=sfc,
         wait_for=[extract],
     )
 
