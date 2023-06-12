@@ -207,7 +207,7 @@ FLOW_SPEC = FlowSpec(
     secrets=[
         FlowEnvar(
             envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake_credentials",
+            envar_value=f"data-flows/{CS.deployment_type}/snowflake-credentials",
         )
     ],
     deployments=[
