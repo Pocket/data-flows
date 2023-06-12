@@ -25,7 +25,6 @@ prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-pr
 prefect-snowflake = "^0.26.1"
 prefect-gcp = {extras = ["bigquery"], version = "^0.4.1"}
 pytest-asyncio = "^0.21.0"
-pytest-mock = "^3.10.0"
 
 [build-system]
 requires = ["poetry-core"]
