@@ -121,7 +121,7 @@ def create_extraction_job(
     max_file_size = 104857600"""  # noqa: E501
 
     # stage name must be one of our external GCS stages
-    stage_name = get_gcs_stage()
+    stage_name = get_gcs_stage("gcs_pocket_shared")
 
     # leverage UTC datetime for file partitioning
     ts = now(tz="utc")
