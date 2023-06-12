@@ -233,7 +233,6 @@ export class DataFlowsIamRoles extends Construct {
     fileSystem: S3Bucket,
     caller: DataAwsCallerIdentity,
     region: DataAwsRegion,
-    environment: string,
     deploymentType: string
   ) {
     super(scope, name);
@@ -250,8 +249,8 @@ export class DataFlowsIamRoles extends Construct {
         ],
         effect: 'Allow',
         resources: [
-          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${environment}/data_flows_prefect_*`,
-          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${environment}/*`
+          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${deploymentType}/data_flows_prefect_*`,
+          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${deploymentType}/*`
         ]
       },
       {
