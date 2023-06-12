@@ -1,9 +1,8 @@
 from typing import Optional
 
+from common.settings import CommonSettings, NestedSettings, Settings
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
 from pydantic import PrivateAttr, SecretBytes, SecretStr, constr
-
-from common.settings import CommonSettings, NestedSettings, Settings
 
 
 class SnowflakeCredSettings(NestedSettings):
@@ -89,15 +88,26 @@ class PktSnowflakeConnector(SnowflakeConnector):
         super().__init__(**data)
 
 
-def get_gcs_stage():
+def get_gcs_stage(stage_id: str = "default") -> str:
     """Return the proper Snowflake to GCS (Google Cloud Storage) for Prefect Flows.
-    Based on deployment type.
+    Based on deployment type.  Will take in an optional stage id as
+    a escape hatch for special circumstances.
 
     Returns:
         str: Full 3 part stage name.
     """
     cs = CommonSettings()  # type: ignore
-    stage = "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV"
+    stage_config = {
+        "gcs_pocket_shared": {
+            "dev": "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV",
+            "production": "ANALYTICS.DBT.SHARED_WITH_MOZILLA_PARQUET",
+        },
+        "default": {
+            "dev": "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV",
+            "production": "PREFECT.PUBLIC.PREFECT_GCS_STAGE_PARQ_PROD",
+        },
+    }
+    stage = stage = stage_config[stage_id]["dev"]
     if cs.is_production:
-        stage = "PREFECT.PUBLIC.PREFECT_GCS_STAGE_PARQ_PROD"
+        stage = stage_config[stage_id]["production"]
     return stage
