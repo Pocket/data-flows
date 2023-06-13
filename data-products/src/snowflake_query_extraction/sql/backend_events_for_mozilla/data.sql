@@ -38,22 +38,23 @@ from {database_name}.{schema_name}.{table_name}
 where {offset_key} > '{current_offset}'
 and {offset_key} <= '{new_offset}'
 and {offset_key} > current_timestamp - interval '24 hours'
-and 
-  (event_name = 'list_item_update' and UNSTRUCT_EVENT_COM_POCKET_LIST_ITEM_UPDATE_1:trigger::string = 'save')
-  or
-  (event_name = 'content_open')
-  or
-  (event_name = 'app_open')
-  or
-  (event_name = 'page_view' and
-    (
-    CONTEXTS_COM_POCKET_USER_1[0]:hashed_user_id::string is not null
-    or page_urlpath like any ('/explore%' , '/__/explore%', '/__-__/explore%')
-    or page_urlpath like any ('/collections%' , '/__/collections%', '/__-__/collections%')
+and (
+    (event_name = 'list_item_update' and UNSTRUCT_EVENT_COM_POCKET_LIST_ITEM_UPDATE_1:trigger::string = 'save')
+    or
+    (event_name = 'content_open')
+    or
+    (event_name = 'app_open')
+    or
+    (event_name = 'page_view' and
+        (
+        CONTEXTS_COM_POCKET_USER_1[0]:hashed_user_id::string is not null
+        or page_urlpath like any ('/explore%' , '/__/explore%', '/__-__/explore%')
+        or page_urlpath like any ('/collections%' , '/__/collections%', '/__-__/collections%')
+        )
     )
-  )
-and app_id not like '%-dev' 
-and app_id like 'pocket-%'
+    and app_id not like '%-dev' 
+    and app_id like 'pocket-%'
+)
 qualify row_number () over (partition by event_id order by collector_tstamp) = 1
 
 
