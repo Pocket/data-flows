@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.3.0"
+version = "0.3.1"
 description = "Shared modules for prefect flow development and deployment"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -24,6 +24,7 @@ pytest-env = "^0.8.1"
 prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-prs"}
 prefect-snowflake = "^0.26.1"
 prefect-gcp = {extras = ["bigquery"], version = "^0.4.1"}
+pytest-asyncio = "^0.21.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -39,3 +40,18 @@ flows_folder = "tests/test_flows"
 [tool.prefect.envs.base]
 python_version = "3.10"
 dockerfile_path=".docker/main/Dockerfile"
+
+[tool.pytest.ini_options]
+env = [
+    'AWS_DEFAULT_REGION=us-east-1',
+    'POCKET_AWS_SECURITY_GROUPS=["sg-1234"]',
+    'POCKET_AWS_SUBNETS=["subnet-1234", "subnet-1234"]',
+    'POCKET_PREFECT_FLOW_NAME=common-utils.flow-group-1.flow-1',
+    'R:DF_CONFIG_TEST_JSON={"test_name": "test_value"}',
+    'DF_CONFIG_TEST_SINGLE_VALUE=test',
+    'DF_CONFIG_TEST_NESTED__TEST=test',
+    'R:DF_CONFIG_SNOWFLAKE_CREDENTIALS={"role": "test", "account": "test.us-test-1", "user": "test@mozilla.com", "private_key_passphrase": "test", "private_key_path": "tmp/test.p8"}',
+    'R:DF_CONFIG_GCP_CREDENTIALS={"service_account_file": "tests/test.json"}',
+    'DF_CONFIG_SNOWFLAKE_SCHEMA=test',
+    'DF_CONFIG_SNOWFLAKE_WAREHOUSE=prefect_wh_test'
+]

@@ -63,7 +63,6 @@ class PrefectV2 extends TerraformStack {
         devS3Bucket,
         this.caller,
         this.region,
-        config.tags.environment,
         'dev'
       );
     } else {
@@ -75,7 +74,6 @@ class PrefectV2 extends TerraformStack {
         stagingS3Bucket,
         this.caller,
         this.region,
-        config.tags.environment,
         'staging'
       );
       this.getAgentService('main');
@@ -86,7 +84,6 @@ class PrefectV2 extends TerraformStack {
         mainS3Bucket,
         this.caller,
         this.region,
-        config.tags.environment,
         'main'
       );
     }
