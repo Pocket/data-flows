@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.3.0"
+version = "0.3.1"
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -13,6 +13,7 @@ prefect-dask = "^0.2.3"
 common-utils = {path = "../common-utils", develop = true}
 snowflake-connector-python = "<3.0.4"
 prefect-snowflake = "^0.26.1"
+protobuf = "^4.23.2"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -2,7 +2,7 @@ from typing import Optional
 
 from common.settings import CommonSettings, NestedSettings, Settings
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
-from pydantic import PrivateAttr, SecretBytes, SecretStr, constr
+from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
 
 
 class SnowflakeCredSettings(NestedSettings):
@@ -88,7 +88,15 @@ class PktSnowflakeConnector(SnowflakeConnector):
         super().__init__(**data)
 
 
-def get_gcs_stage(stage_id: str = "default") -> str:
+class SfGcsStage(BaseModel):
+    stage_name: str
+    stage_location: str
+
+    def __str__(self):
+        return self.stage_name
+
+
+def get_gcs_stage(stage_id: str = "default") -> SfGcsStage:
     """Return the proper Snowflake to GCS (Google Cloud Storage) for Prefect Flows.
     Based on deployment type.  Will take in an optional stage id as
     a escape hatch for special circumstances.
@@ -96,18 +104,29 @@ def get_gcs_stage(stage_id: str = "default") -> str:
     Returns:
         str: Full 3 part stage name.
     """
+
     cs = CommonSettings()  # type: ignore
-    stage_config = {
-        "gcs_pocket_shared": {
-            "dev": "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV",
-            "production": "ANALYTICS.DBT.SHARED_WITH_MOZILLA_PARQUET",
+    default_stages = {
+        "dev": {
+            "name": "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV",
+            "location": "gs://pocket-prefect-stage-dev",
         },
-        "default": {
-            "dev": "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV",
-            "production": "PREFECT.PUBLIC.PREFECT_GCS_STAGE_PARQ_PROD",
+        "production": {
+            "name": "PREFECT.PUBLIC.PREFECT_GCS_STAGE_PARQ_PROD",
+            "location": "gs://pocket-prefect-stage-prod",
         },
     }
-    stage = stage = stage_config[stage_id]["dev"]
+    stage_config = {
+        "gcs_pocket_shared": {
+            "dev": default_stages["dev"],
+            "production": {
+                "name": "ANALYTICS.DBT.SHARED_WITH_MOZILLA_PARQUET",
+                "location": "gs://moz-fx-data-prod-external-pocket-data",
+            },
+        },
+        "default": default_stages,
+    }
+    stage = stage_config[stage_id]["dev"]
     if cs.is_production:
         stage = stage_config[stage_id]["production"]
-    return stage
+    return SfGcsStage(stage_name=stage["name"], stage_location=stage["location"])

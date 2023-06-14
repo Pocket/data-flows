@@ -59,3 +59,24 @@ class CommonSettings(Settings):
         if self.is_production:
             answer = "production"
         return answer
+
+
+def get_deployment_type_setting(
+    dev: str = "no-value", staging: str = "no-value", main: str = "no-value"
+) -> str:
+    """Helper settings function to create dynamic FlowSpec attributes.
+
+    Args:
+        dev (str, optional):
+        Value to return if deployment type is "dev". Defaults to "no-value".
+        staging (str, optional):
+        Value to return if deployment type is "staging". Defaults to "no-value".
+        main (str, optional):
+        Value to return if deployment type is "main". Defaults to "no-value".
+
+    Returns:
+        str: _description_
+    """
+    cs = CommonSettings()
+    kv_pairs = {"dev": dev, "staging": staging, "main": main}
+    return str(kv_pairs[cs.deployment_type])
