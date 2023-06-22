@@ -1,4 +1,4 @@
-copy into {table_name} (
+copy into {{ destination_table_name }} (
               batch_id,
               submission_timestamp,
               additional_properties,
@@ -29,11 +29,11 @@ copy into {table_name} (
               experiments,
               s3_filename_splitpath, 
               s3_file_row_number,
-              {metadata_keys}
+              {{ metadata_keys }}
             )
         from (
             select
-                {batch_id},
+                {{ partition_timestamp }},
                 to_timestamp($1:submission_timestamp::integer/1000000) as submission_timestamp,
                 $1:additional_properties::string as additional_properties,
                 $1:addon_version::string as addon_version,
@@ -63,7 +63,7 @@ copy into {table_name} (
                 $1:experiments as experiments,
                 split(metadata$filename,'/'),
                 metadata$file_row_number,
-                {metadata_values}
-            from {snowflake_stage_uri}
+                {{ metadata_values }}
+            from {{ snowflake_stage_uri }}
         )
         file_format = (type = 'PARQUET')

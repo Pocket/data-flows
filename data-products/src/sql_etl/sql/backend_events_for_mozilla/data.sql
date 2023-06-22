@@ -1,4 +1,8 @@
-select collector_tstamp as submission_timestamp,
+select 
+{% if for_new_offset %}
+    max(collector_tstamp) as new_offset
+{% else %}
+collector_tstamp as submission_timestamp,
 derived_tstamp as event_timestamp,
 app_id as app_id,
 object_construct(
@@ -34,10 +38,10 @@ object_construct(
     'bottom_ui_identifier', CONTEXTS_COM_POCKET_UI_1[0]:identifier::string,
     'bottom_ui_index', CONTEXTS_COM_POCKET_UI_1[0]:index::integer
 ) as event_extras
-from {database_name}.{schema_name}.{table_name}
-where {offset_key} > '{current_offset}'
-and {offset_key} <= '{new_offset}'
-and {offset_key} > current_timestamp - interval '24 hours'
+{% endif %}
+from {{ database_name }}.{{ schema_name }}.{{ table_name }}
+where collector_tstamp >= '{{ batch_start }}'
+and collector_tstamp < '{{ batch_end }}'
 and (
     (event_name = 'list_item_update' and UNSTRUCT_EVENT_COM_POCKET_LIST_ITEM_UPDATE_1:trigger::string = 'save')
     or
@@ -54,7 +58,8 @@ and (
     )
     and app_id not like '%-dev' 
     and app_id like 'pocket-%'
-)
+){% if for_new_offset %}
+{% else %}
 qualify row_number () over (partition by event_id order by collector_tstamp) = 1
-
+{% endif %}
 

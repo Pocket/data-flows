@@ -6,7 +6,7 @@ import pytest
 from common.testing_utils import reset_script_path  # noqa: F401
 from prefect import task
 
-from snowflake_query_extraction.snowflake_query_extraction_flow import (
+from sql_etl.run_jobs import (
     SfExtractionInputs,
     create_extraction_job,
     main,
