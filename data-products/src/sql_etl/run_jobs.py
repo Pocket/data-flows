@@ -127,9 +127,7 @@ class SqlEtlJob(SqlJob):
         Returns:
             str: Rendered new offset SQL.
         """
-        extra_kwargs = {
-            "for_new_offset": True
-        }
+        extra_kwargs = {"for_new_offset": True}
         extra_kwargs.update(interval_input.dict())
         return self.render_sql_file("data.sql", extra_kwargs)
 
@@ -162,25 +160,22 @@ class SqlEtlJob(SqlJob):
             str: Rendered persist SQL.
         """
         load_sql_file_name = "load.sql"
-        if not Path(os.path.join(SQL_TEMPLATE_PATH, load_sql_file_name)).exists():
+        if not Path(
+            os.path.join(SQL_TEMPLATE_PATH, self.sql_folder_name, load_sql_file_name)
+        ).exists():
             return None
         extra_kwargs = {
             "snowflake_stage_uri": self.get_snowflake_stage_uri(interval_input),
+            "partition_timestamp": interval_input.partition_timestamp,
             "metadata_keys": """_gs_file_name,
             _gs_file_row_number,
-            _gs_file_year,
-            _gs_file_month,
-            _gs_file_day,
-            _gs_file_hour,
-            _gs_file_unix,
+            _gs_file_date,
+            _gs_file_time,
             _loaded_at""",
             "metadata_values": """metadata$filename,
             metadata$file_row_number,
-            split_part(metadata$filename,'/', -6),
-            split_part(metadata$filename,'/', -5),
-            split_part(metadata$filename,'/', -4),
-            split_part(metadata$filename,'/', -3),
             split_part(metadata$filename,'/', -2),
+            split_part(metadata$filename,'/', -1),
             sysdate()""",
         }
 
@@ -189,9 +184,7 @@ class SqlEtlJob(SqlJob):
 
 @task()
 def get_pocket_snowflake_connector_block():
-    return PktSnowflakeConnector(
-        schema="public", warehouse=f"prefect_wh_{CS.dev_or_production}"
-    )
+    return PktSnowflakeConnector()
 
 
 @flow(description="Interval flow for query based extractions from Snowflake.")
@@ -330,7 +323,7 @@ if __name__ == "__main__":
         initial_last_offset="2022-12-23",
         kwargs={
             "destination_table_name": "impression_stats_v1_test",
-            "for_backfill": True
+            "for_backfill": True,
         },
         source_system="bigquery",
         snowflake_stage_id="gcs_pocket_shared",

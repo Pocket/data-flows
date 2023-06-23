@@ -58,7 +58,7 @@ class IntervalSet(BaseModel):
     
     @property
     def partition_timestamp(self):
-        return self.partition_datetime.int_timestamp
+        return self.partition_datetime.int_timestamp # type: ignore
 
 
 class SqlJob(BaseModel):
@@ -170,7 +170,7 @@ class SqlJob(BaseModel):
         if last_offset is None or last_offset == "None":
             last_offset = self.initial_last_offset
         # override last offset if provided
-        last_offset_str = self.override_last_offset or last_offset
+        last_offset_str = self.override_last_offset or str(last_offset)
         last_offset_final = parse(last_offset_str)  # type: ignore
         # the calculated intervals should start
         # from the first full
