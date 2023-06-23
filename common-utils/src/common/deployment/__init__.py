@@ -350,7 +350,7 @@ class FlowDeployment(BaseModel):
             [
                 "--override "
                 + shlex.quote(
-                    f"env.{i.dict()['envar_name']}='{i.dict()['envar_value']}'"
+                    f"env.{i.dict()['envar_name']}={i.dict()['envar_value']}"
                 )
                 for i in self.envars
             ]

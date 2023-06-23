@@ -1,5 +1,3 @@
-"""Query based data extraction from Snowflake"""
-
 import os
 from pathlib import Path
 from typing import Literal, Union
@@ -7,6 +5,7 @@ from typing import Literal, Union
 from common import get_script_path
 from common.cloud.gcp_utils import PktGcpCredentials
 from common.databases.snowflake_utils import (
+    PktSnowflakeConnector,
     SfGcsStage,
     get_gcs_stage,
     get_pocket_snowflake_connector_block,
@@ -179,16 +178,16 @@ class SqlEtlJob(SqlJob):
             split_part(metadata$filename,'/', -1),
             sysdate()""",
         }
-
+        print(self.render_sql_file(load_sql_file_name, extra_kwargs))
         return self.render_sql_file(load_sql_file_name, extra_kwargs)
 
 
 @flow(description="Interval flow for query based extractions from Snowflake.")
-async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
+async def interval(
+    etl_input: SqlEtlJob, interval_input: IntervalSet, sfc: PktSnowflakeConnector
+):
     # get standard Prefect logger for logging
     logger = get_run_logger()
-    # get reusable snowflake connector block for pocket
-    sfc = get_pocket_snowflake_connector_block()
     # get the new offset using input model property
     if etl_input.source_system == "snowflake":
         new_offset = await snowflake_query.with_options(  # type: ignore
@@ -267,7 +266,9 @@ async def main(etl_input: SqlEtlJob):
     # get standard Prefect logger for logging
     logger = get_run_logger()
     # get reusable snowflake connector block for pocket
-    sfc = get_pocket_snowflake_connector_block()
+    sfc = get_pocket_snowflake_connector_block(
+        warehouse_override=etl_input.warehouse_override
+    )
     # get the last offset using input model property
     last_offset = await snowflake_query.with_options(  # type: ignore
         name="get-last-offset"
@@ -277,7 +278,7 @@ async def main(etl_input: SqlEtlJob):
     )
     logger.info(f"Last offset is: {last_offset[0][0]}...")
     for i in etl_input.get_intervals(last_offset[0][0]):
-        await interval(etl_input, i)
+        await interval(etl_input, i, sfc)
 
 
 FLOW_SPEC = FlowSpec(
@@ -325,10 +326,7 @@ FLOW_SPEC = FlowSpec(
                 "etl_input": SqlEtlJob(
                     sql_folder_name="impression_stats_v1",
                     initial_last_offset="2022-12-23",
-                    kwargs={
-                        "destination_table_name": "impression_stats_v1_test",
-                        "for_backfill": True,
-                    },
+                    kwargs={"destination_table_name": "impression_stats_v1"},
                     source_system="bigquery",
                     snowflake_stage_id="gcs_pocket_shared",
                 ).dict()  # type: ignore
@@ -358,5 +356,6 @@ if __name__ == "__main__":
         },
         source_system="bigquery",
         snowflake_stage_id="gcs_pocket_shared",
+        warehouse_override="PREFECT_WH_DEV_XLARGE",
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore
