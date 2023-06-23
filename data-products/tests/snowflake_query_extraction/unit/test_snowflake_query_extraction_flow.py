@@ -6,7 +6,7 @@ import pytest
 from common.testing_utils import reset_script_path  # noqa: F401
 from prefect import task
 
-from sql_etl.run_jobs import (
+from sql_etl.run_jobs_flow import (
     SfExtractionInputs,
     create_extraction_job,
     main,
