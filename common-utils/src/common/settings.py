@@ -61,7 +61,10 @@ class CommonSettings(Settings):
         return answer
 
     def deployment_type_value(
-        self, dev: Union[str, None], staging: Union[str, None], main: Union[str, None]
+        self,
+        dev: Union[str, None] = None,
+        staging: Union[str, None] = None,
+        main: Union[str, None] = None,
     ) -> Union[str, None]:
         mapping = {"dev": dev, "staging": staging, "main": main}
-        return mapping.get(self.deployment_type)
+        return mapping[self.deployment_type]
