@@ -7,13 +7,13 @@ from typing import Literal, Union
 from common import get_script_path
 from common.cloud.gcp_utils import PktGcpCredentials
 from common.databases.snowflake_utils import (
-    PktSnowflakeConnector,
     SfGcsStage,
     get_gcs_stage,
+    get_pocket_snowflake_connector_block,
 )
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
-from prefect import flow, get_run_logger, task
+from prefect import flow, get_run_logger
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
 
@@ -58,6 +58,7 @@ class SqlEtlJob(SqlJob):
     snowflake_stage_id: str = "default"
     source_system: Literal["snowflake", "bigquery"]
     with_external_state: bool = False
+    warehouse_override: Union[str, None] = None
 
     @property
     def snowflake_stage(self) -> SfGcsStage:
@@ -182,11 +183,6 @@ class SqlEtlJob(SqlJob):
         return self.render_sql_file(load_sql_file_name, extra_kwargs)
 
 
-@task()
-def get_pocket_snowflake_connector_block():
-    return PktSnowflakeConnector()
-
-
 @flow(description="Interval flow for query based extractions from Snowflake.")
 async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
     # get standard Prefect logger for logging
@@ -291,7 +287,11 @@ FLOW_SPEC = FlowSpec(
         FlowEnvar(
             envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
             envar_value=f"data-flows/{CS.deployment_type}/snowflake-credentials",
-        )
+        ),
+        FlowEnvar(
+            envar_name="DF_CONFIG_GCP_CREDENTIALS",
+            envar_value=f"data-flows/{CS.deployment_type}/gcp-credentials",
+        ),
     ],
     deployments=[
         FlowDeployment(
@@ -310,7 +310,38 @@ FLOW_SPEC = FlowSpec(
                     snowflake_stage_id="gcs_pocket_shared",
                 ).dict()  # type: ignore
             },
-        )  # type: ignore
+            envars=[
+                FlowEnvar(
+                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
+                    envar_value=CS.deployment_type_value(
+                        dev="braun", staging="staging"
+                    ),  # type: ignore
+                ),
+            ],
+        ),
+        FlowDeployment(
+            deployment_name="impression_stats_v1",
+            parameters={
+                "etl_input": SqlEtlJob(
+                    sql_folder_name="impression_stats_v1",
+                    initial_last_offset="2022-12-23",
+                    kwargs={
+                        "destination_table_name": "impression_stats_v1_test",
+                        "for_backfill": True,
+                    },
+                    source_system="bigquery",
+                    snowflake_stage_id="gcs_pocket_shared",
+                ).dict()  # type: ignore
+            },
+            envars=[
+                FlowEnvar(
+                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
+                    envar_value=CS.deployment_type_value(
+                        dev="braun", staging="staging", main="mozilla"
+                    ),  # type: ignore
+                ),
+            ],
+        ),  # type: ignore
     ],
 )
 

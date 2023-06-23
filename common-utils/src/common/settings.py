@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Union
 
 from pydantic import BaseModel, BaseSettings, Field
 
@@ -59,3 +59,9 @@ class CommonSettings(Settings):
         if self.is_production:
             answer = "production"
         return answer
+
+    def deployment_type_value(
+        self, dev: Union[str, None], staging: Union[str, None], main: Union[str, None]
+    ) -> Union[str, None]:
+        mapping = {"dev": dev, "staging": staging, "main": main}
+        return mapping.get(self.deployment_type)
