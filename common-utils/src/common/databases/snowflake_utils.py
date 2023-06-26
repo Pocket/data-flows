@@ -45,6 +45,7 @@ class SnowflakeSettings(Settings):
     _database: str = PrivateAttr()
     snowflake_warehouse: constr(regex=WAREHOUSE_REGEX) = f"prefect_wh_{CS.dev_or_production}"  # type: ignore  # noqa: E501
     snowflake_schema: str = "public"
+    snowflake_gcp_stages: dict
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -101,29 +102,8 @@ def get_gcs_stage(stage_id: str = "default") -> SfGcsStage:
         str: Full 3 part stage name.
     """
 
-    default_stages = {
-        "dev": {
-            "name": "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV",
-            "location": "gs://pocket-prefect-stage-dev",
-        },
-        "production": {
-            "name": "PREFECT.PUBLIC.PREFECT_GCS_STAGE_PARQ_PROD",
-            "location": "gs://pocket-prefect-stage-prod",
-        },
-    }
-    stage_config = {
-        "gcs_pocket_shared": {
-            "dev": default_stages["dev"],
-            "production": {
-                "name": "ANALYTICS.DBT.SHARED_WITH_MOZILLA_PARQUET",
-                "location": "gs://moz-fx-data-prod-external-pocket-data",
-            },
-        },
-        "default": default_stages,
-    }
-    stage = stage_config[stage_id]["dev"]
-    if CS.is_production:
-        stage = stage_config[stage_id]["production"]
+    stage_config = SnowflakeSettings().snowflake_gcp_stages  # type: ignore
+    stage = stage_config[stage_id]
     return SfGcsStage(stage_name=stage["name"], stage_location=stage["location"])
 
 
