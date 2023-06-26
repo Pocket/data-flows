@@ -24,6 +24,7 @@ os.environ["DF_CONFIG_SQL_TEMPLATE_PATH"] = SQL_TEMPLATE_PATH
 
 CS = CommonSettings()  # type: ignore
 
+
 # template sql to get the latest stored offset for extraction job
 LAST_OFFSET_SQL = """select any_value(last_offset) as last_offset
     from sql_offset_state
@@ -281,6 +282,10 @@ async def main(etl_input: SqlEtlJob):
         await interval(etl_input, i, sfc)
 
 
+SF_GCP_STAGE_ID = CS.deployment_type_value(
+    dev="default", staging="default", main="gcs_pocket_shared"
+)
+
 FLOW_SPEC = FlowSpec(
     flow=main,
     docker_env="base",
@@ -292,6 +297,10 @@ FLOW_SPEC = FlowSpec(
         FlowEnvar(
             envar_name="DF_CONFIG_GCP_CREDENTIALS",
             envar_value=f"data-flows/{CS.deployment_type}/gcp-credentials",
+        ),
+        FlowEnvar(
+            envar_name="DF_CONFIG_SNOWFLAKE_GCP_STAGES",
+            envar_value=f"data-flows/{CS.deployment_type}/snowflake-gcp-stages",
         ),
     ],
     deployments=[
@@ -308,7 +317,7 @@ FLOW_SPEC = FlowSpec(
                     },
                     with_external_state=True,
                     source_system="snowflake",
-                    snowflake_stage_id="gcs_pocket_shared",
+                    snowflake_stage_id=SF_GCP_STAGE_ID,
                 ).dict()  # type: ignore
             },
             envars=[
@@ -328,7 +337,6 @@ FLOW_SPEC = FlowSpec(
                     initial_last_offset="2022-12-23",
                     kwargs={"destination_table_name": "impression_stats_v1"},
                     source_system="bigquery",
-                    snowflake_stage_id="gcs_pocket_shared",
                 ).dict()  # type: ignore
             },
             envars=[
@@ -348,14 +356,15 @@ if __name__ == "__main__":
     from asyncio import run
 
     t = SqlEtlJob(
-        sql_folder_name="impression_stats_v1",
-        initial_last_offset="2022-12-23",
+        sql_folder_name="backend_events_for_mozilla",
+        initial_last_offset="2023-06-18 23:59:59.999",
         kwargs={
-            "destination_table_name": "impression_stats_v1_test",
-            "for_backfill": True,
+            "database_name": "snowplow",
+            "schema_name": "atomic",
+            "table_name": "events",
         },
-        source_system="bigquery",
-        snowflake_stage_id="gcs_pocket_shared",
-        warehouse_override="PREFECT_WH_DEV_XLARGE",
+        with_external_state=True,
+        source_system="snowflake",
+        snowflake_stage_id=SF_GCP_STAGE_ID,
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore
