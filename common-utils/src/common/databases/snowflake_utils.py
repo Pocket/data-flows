@@ -103,8 +103,10 @@ def get_gcs_stage(stage_id: str = "default") -> SfGcsStage:
     """
 
     stage_config = SnowflakeSettings().snowflake_gcp_stages  # type: ignore
-    stage = stage_config[stage_id]
-    return SfGcsStage(stage_name=stage["name"], stage_location=stage["location"])
+    return SfGcsStage(
+        stage_name=stage_config[f"{stage_id}_name"],
+        stage_location=stage_config[f"{stage_id}_location"],
+    )
 
 
 @task()
