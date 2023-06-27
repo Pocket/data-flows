@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 from typing import Literal, Union
 
@@ -12,7 +13,9 @@ from common.databases.snowflake_utils import (
 )
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
+from pendulum.parser import parse
 from prefect import flow, get_run_logger
+from prefect.server.schemas.schedules import IntervalSchedule
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
 
@@ -20,12 +23,12 @@ from shared.utils import IntervalSet, SqlJob, get_files_for_cleanup
 
 CS = CommonSettings()  # type: ignore
 
-# template sql to get the latest stored offset for extraction job
+# template sql to get the latest stored offset for etl job
 LAST_OFFSET_SQL = """select any_value(last_offset) as last_offset
     from sql_offset_state
     where sql_folder_name = '{{ sql_folder_name }}';"""
 
-# template sql to persist the new offset for extraction job
+# template sql to persist the new offset for etl job
 PERSIST_STATE_SQL = """merge into sql_offset_state dt using (
         select '{{ sql_folder_name }}' as sql_folder_name, 
         current_timestamp as created_at, 
@@ -38,17 +41,19 @@ PERSIST_STATE_SQL = """merge into sql_offset_state dt using (
     when not matched then insert (sql_folder_name, created_at, updated_at, last_offset) 
     values (st.sql_folder_name, st.created_at, st.updated_at, st.last_offset);"""
 
+# template sql for removing files from stage
 REMOVE_FILE_SQL = (
     "REMOVE '@{{ stage_name }}/{{ sql_folder_name }}/{{ old_partition_folders }}'"
 )
 
+# template sql for listing files in stage
 EXISTING_FILES_SQL = (
     "LIST '@{{ stage_name }}/{{ sql_folder_name }}/{{ partition_date_folder }}'"
 )
 
 
 class SqlEtlJob(SqlJob):
-    """Model for parameters to passed to an extraction job request."""
+    """Model for parameters to passed to an etl job request."""
 
     snowflake_stage_id: str = "default"
     source_system: Literal["snowflake", "bigquery"]
@@ -57,9 +62,22 @@ class SqlEtlJob(SqlJob):
 
     @property
     def snowflake_stage(self) -> SfGcsStage:
+        """Get Snowflake Gcp Stage to use based on deployment type.
+
+        Returns:
+            SfGcsStage: Model for stage metadata.
+        """
         return get_gcs_stage(self.snowflake_stage_id)
 
-    def get_gcs_uri(self, interval_input: IntervalSet):
+    def get_gcs_uri(self, interval_input: IntervalSet) -> str:
+        """Get the Gcp storage uri based on interval metadata.
+
+        Args:
+            interval_input (IntervalSet): Interval metadata.
+
+        Returns:
+            str: Full gcp storage uri as string.
+        """
         return os.path.join(
             self.snowflake_stage.stage_location,
             self.sql_folder_name,
@@ -67,7 +85,15 @@ class SqlEtlJob(SqlJob):
             "data*.parq",
         )
 
-    def get_snowflake_stage_uri(self, interval_input: IntervalSet):
+    def get_snowflake_stage_uri(self, interval_input: IntervalSet) -> str:
+        """Get the Snowflake stage uri based on interval metadata.
+
+        Args:
+            interval_input (IntervalSet): Interval metadata.
+
+        Returns:
+            str: str: Full Snowflake stage uri as string.
+        """
         return f"@{os.path.join(self.snowflake_stage.stage_name, self.sql_folder_name, interval_input.partition_folders)}"  # noqa: E501
 
     def get_last_offset_sql(self) -> str:
@@ -82,10 +108,13 @@ class SqlEtlJob(SqlJob):
             return self.render_sql_file("offset.sql")
 
     def get_extraction_sql(self, interval_input: IntervalSet) -> str:
-        """Provide rendered data query to be passed for extraction.
+        """Provide rendered query to be passed for extraction.
+
+        Args:
+            interval_input (IntervalSet): Interval metadata.
 
         Returns:
-            str: Rendered data SQL.
+            str: Rendered extraction SQL.
         """
         # templates for wrapping a SQL query into unload statement
         sf_extraction_sql = """copy into '{{ snowflake_stage_uri }}/data'
@@ -120,6 +149,9 @@ class SqlEtlJob(SqlJob):
     def get_new_offset_sql(self, interval_input: IntervalSet) -> str:
         """Provide rendered new offset SQL to be executed.
 
+        Args:
+            interval_input (IntervalSet): Interval metadata.
+
         Returns:
             str: Rendered new offset SQL.
         """
@@ -130,19 +162,38 @@ class SqlEtlJob(SqlJob):
     def get_persist_offset_sql(self, new_offset: str) -> str:
         """Provide rendered persist offset SQL to be executed.
 
+        Args:
+            new_offset (str): New offset to persist to external state.
+
         Returns:
             str: Rendered persist SQL.
         """
         return self.render_sql_string(PERSIST_STATE_SQL, {"new_offset": new_offset})
 
-    def get_file_list_sql(self, interval_input: IntervalSet):
+    def get_file_list_sql(self, interval_input: IntervalSet) -> str:
+        """Provide rendered list files in stage SQL to be executed.
+
+        Args:
+            interval_input (IntervalSet): Interval metadata.
+
+        Returns:
+            str: Rendered list file SQL.
+        """
         extra_kwargs = {
             "stage_name": self.snowflake_stage,
             "partition_date_folder": interval_input.partition_date_folder,
         }
         return self.render_sql_string(EXISTING_FILES_SQL, extra_kwargs)
 
-    def get_file_remove_sql(self, old_partition_folders: str):
+    def get_file_remove_sql(self, old_partition_folders: str) -> str:
+        """Provide rendered SQL to be remove files from stage.
+
+        Args:
+            old_partition_folders (str): file suffix to use for removal.
+
+        Returns:
+            str: Rendered remove file SQL.
+        """
         extra_kwargs = {
             "stage_name": self.snowflake_stage,
             "old_partition_folders": old_partition_folders,
@@ -150,10 +201,14 @@ class SqlEtlJob(SqlJob):
         return self.render_sql_string(REMOVE_FILE_SQL, extra_kwargs)
 
     def get_load_sql(self, interval_input: IntervalSet) -> Union[str, None]:
-        """Provide rendered persist offset SQL to be executed.
+        """Provide rendered SQL for post extract load.
+        Will only return if load.sql exists.
+
+        Args:
+            interval_input (IntervalSet): Interval metadata.
 
         Returns:
-            str: Rendered persist SQL.
+            Union[str, None]: Rendered load or None
         """
         load_sql_file_name = "load.sql"
         sql_template_path = self.sql_template_path or f"{get_script_path()}/sql"
@@ -182,9 +237,18 @@ class SqlEtlJob(SqlJob):
 async def interval(
     etl_input: SqlEtlJob, interval_input: IntervalSet, sfc: PktSnowflakeConnector
 ):
+    """Subflow for executing etl tasks for a single interval
+
+    Args:
+        etl_input (SqlEtlJob): Sql job input parameters.
+        interval_input (IntervalSet): Interval set metadata.
+        sfc (PktSnowflakeConnector): Proper Snowflake Connector to pass downstream
+        from main flow.
+    """
     # get standard Prefect logger for logging
     logger = get_run_logger()
     # get the new offset using input model property
+    # need to switch between source system query tasks
     if etl_input.source_system == "snowflake":
         new_offset = await snowflake_query.with_options(  # type: ignore
             name="get-new-offset"
@@ -200,15 +264,20 @@ async def interval(
             gcp_credentials=PktGcpCredentials(),
         )
     logger.info(f"New offset will be: {new_offset[0][0]}...")
+    # if new offset is None, that means no rows for this interval
     if new_offset[0][0] is None or new_offset[0][0] == "None":
         message = "No rows to process..."
         logger.info(message)
         return message
+    # based on the starting offset, find list of object paths to delete when...
+    # doing backfill
     existing_files = await snowflake_query.with_options(name="get-existing-files")(
         query=etl_input.get_file_list_sql(interval_input),
         snowflake_connector=sfc,
     )
+    # take the LIST statement results and provide clean deduplicated list
     clean_up_list = get_files_for_cleanup(existing_files, interval_input)
+    # remove all the object paths identified
     remove_files = [
         await snowflake_query.with_options(name="clean-up-files")(  # type: ignore
             query=etl_input.get_file_remove_sql(i),
@@ -216,21 +285,22 @@ async def interval(
         )
         for i in clean_up_list
     ]
+    # Run extraction
     logger.info("Running extraction...")
-    # run the extraction
     if etl_input.source_system == "snowflake":
-        extract = await snowflake_query.with_options(name="run-extraction")(  # type: ignore
+        extract = await snowflake_query.with_options(name="run-extraction")(  # type: ignore  # noqa: E501
             query=etl_input.get_extraction_sql(interval_input),
             snowflake_connector=sfc,
             wait_for=[remove_files],
         )
         logger.info(f"Extract logic completed with: {extract[0]}")
     else:
-        extract = await bigquery_query.with_options(name="run-extraction")(  # type: ignore
+        extract = await bigquery_query.with_options(name="run-extraction")(  # type: ignore  # noqa: E501
             query=etl_input.get_extraction_sql(interval_input),
             gcp_credentials=PktGcpCredentials(),
             wait_for=[remove_files],
         )
+    # run a post extraction load sql if it exists
     if x := etl_input.get_load_sql(interval_input):
         logger.info("Applying new offset...")
         # commit the new offset
@@ -243,10 +313,11 @@ async def interval(
     else:
         load = "No load sql to execute..."
         logger.info(load)
+    # persist the new offset to external snowflake state table if enabled
     if etl_input.with_external_state:
         logger.info("Applying new offset...")
         # commit the new offset
-        persist_offset = await snowflake_query.with_options(name="persist-new-offset")(  # type: ignore
+        persist_offset = await snowflake_query.with_options(name="persist-new-offset")(  # type: ignore  # noqa: E501
             query=etl_input.get_persist_offset_sql(new_offset[0][0]),
             snowflake_connector=sfc,
             wait_for=[load],
@@ -259,13 +330,18 @@ async def interval(
 
 @flow(description="Interval flow for query based extractions from Snowflake.")
 async def main(etl_input: SqlEtlJob):
+    """Main flow for iterating through etl intervals.
+
+    Args:
+        etl_input (SqlEtlJob): Sql job input parameters.
+    """
     # get standard Prefect logger for logging
     logger = get_run_logger()
     # get reusable snowflake connector block for pocket
     sfc = get_pocket_snowflake_connector_block(
         warehouse_override=etl_input.warehouse_override
     )
-    # get the last offset using input model property
+    # get the last offset
     last_offset = await snowflake_query.with_options(  # type: ignore
         name="get-last-offset"
     )(
@@ -273,10 +349,12 @@ async def main(etl_input: SqlEtlJob):
         snowflake_connector=sfc,
     )
     logger.info(f"Last offset is: {last_offset[0][0]}...")
+    # iterate through the intervals and perform subflow
     for i in etl_input.get_intervals(last_offset[0][0]):
         await interval(etl_input, i, sfc)
 
 
+# helper for passing stage id to deployment parameters
 SF_GCP_STAGE_ID = CS.deployment_type_value(
     dev="default", staging="default", main="gcs_pocket_shared"
 )
@@ -301,6 +379,11 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             deployment_name="backend_events_for_mozilla",
+            schedule=IntervalSchedule(
+                interval=timedelta(days=1),
+                anchor_date=parse("2023-06-27 01:00:00"),  # type: ignore
+                timezone="America/Los_Angeles",
+            ),
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="backend_events_for_mozilla",
@@ -326,6 +409,11 @@ FLOW_SPEC = FlowSpec(
         ),
         FlowDeployment(
             deployment_name="impression_stats_v1",
+            schedule=IntervalSchedule(
+                interval=timedelta(minutes=10),
+                anchor_date=parse("2023-06-27 01:00:00"),  # type: ignore
+                timezone="America/Los_Angeles",
+            ),
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="impression_stats_v1",
