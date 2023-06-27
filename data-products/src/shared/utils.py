@@ -21,6 +21,7 @@ class IntervalSet(BaseModel):
 
     batch_start: str = Field(description="Interval start datetime.")
     batch_end: str = Field(description="Interval end datetime.")
+    base_start: str = Field(description="First full day in interval list.")
     is_initial: bool = Field(
         description=(
             "Flag to use for SQL template because the initial "
@@ -55,10 +56,10 @@ class IntervalSet(BaseModel):
     @property
     def partition_folders(self):
         return f"{self.partition_date_folder}/{self.partition_time_folder}"
-    
+
     @property
     def partition_timestamp(self):
-        return self.partition_datetime.int_timestamp # type: ignore
+        return self.partition_datetime.int_timestamp  # type: ignore
 
 
 class SqlJob(BaseModel):
@@ -90,6 +91,10 @@ class SqlJob(BaseModel):
             "to pass into your templates."
         ),
     )
+
+    @property
+    def sql_template_path(self) -> Path:
+        return SharedUtilsSettings().sql_template_path  # type: ignore
 
     @property
     def job_kwargs(self) -> dict:
@@ -147,7 +152,7 @@ class SqlJob(BaseModel):
         template = j2_env.get_template(sql_file)
         return template.render(**render_kwargs)
 
-    def get_intervals(self, last_offset: Union[str, None]) -> list[IntervalSet]:
+    def get_intervals(self, last_offset: Union[str, None] = None) -> list[IntervalSet]:
         """Method that returns the intervals to be used for sql job.
         For job without a selections of intervals, the result will be a list
         with a single interval.
@@ -208,15 +213,11 @@ class SqlJob(BaseModel):
             # last item in list should not be used as start
             if end_idx == interval_len:
                 break
-            # drop redundant initial interval
-            if idx == 1:
-                if start_offset == i:
-                    interval_sets.pop(0)
-                    is_initial = True
             interval_sets.append(
                 IntervalSet(
                     batch_start=i.to_iso8601_string(),  # type: ignore
                     batch_end=intervals[end_idx].to_iso8601_string(),  # type: ignore
+                    base_start=start.to_iso8601_string(), # type: ignore
                     is_initial=is_initial,
                     is_final=is_final,
                 )
@@ -231,6 +232,7 @@ def get_files_for_cleanup(
     block_storage_prefix: str = "gcs",
 ) -> list[str]:
     batch_folder_datetime = interval_input.partition_datetime
+    date_folder_base = parse(interval_input.base_start)
     clean_up_list = []
     for f in file_list:
         file_str = f[0].replace(f"{block_storage_prefix}://", "")
@@ -244,12 +246,10 @@ def get_files_for_cleanup(
         )
         parsed_datetime = from_format(
             datetime_str, f"YYYY-MM-DD {interval_input.time_format_string}"
-        )  # noqa: E501
+        )  # noqa: E501 
+
         if parsed_datetime >= batch_folder_datetime:  # type: ignore
-            if (
-                parsed_datetime.format(interval_input.time_format_string)
-                == "00-00-00-000"
-            ):  # noqa: E501
+            if parsed_datetime >= date_folder_base:
                 clean_up_list.append(date_folder_str)
                 break
             clean_up_list.append(datetime_folder_str)

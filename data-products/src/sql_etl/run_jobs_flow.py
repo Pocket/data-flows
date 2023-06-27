@@ -18,12 +18,7 @@ from prefect_snowflake.database import snowflake_query
 
 from shared.utils import IntervalSet, SqlJob, get_files_for_cleanup
 
-SQL_TEMPLATE_PATH = f"{get_script_path()}/sql"
-os.environ["DF_CONFIG_SQL_TEMPLATE_PATH"] = SQL_TEMPLATE_PATH
-
-
 CS = CommonSettings()  # type: ignore
-
 
 # template sql to get the latest stored offset for extraction job
 LAST_OFFSET_SQL = """select any_value(last_offset) as last_offset
@@ -161,8 +156,9 @@ class SqlEtlJob(SqlJob):
             str: Rendered persist SQL.
         """
         load_sql_file_name = "load.sql"
+        sql_template_path = self.sql_template_path or f"{get_script_path()}/sql"
         if not Path(
-            os.path.join(SQL_TEMPLATE_PATH, self.sql_folder_name, load_sql_file_name)
+            os.path.join(sql_template_path, self.sql_folder_name, load_sql_file_name)
         ).exists():
             return None
         extra_kwargs = {
@@ -179,7 +175,6 @@ class SqlEtlJob(SqlJob):
             split_part(metadata$filename,'/', -1),
             sysdate()""",
         }
-        print(self.render_sql_file(load_sql_file_name, extra_kwargs))
         return self.render_sql_file(load_sql_file_name, extra_kwargs)
 
 
