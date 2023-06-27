@@ -6,6 +6,7 @@ import pendulum as pdm
 from common.settings import Settings
 from jinja2 import Environment, FileSystemLoader
 from pendulum import from_format
+from pendulum.datetime import DateTime
 from pendulum.parser import parse
 from prefect import task
 from prefect.runtime import flow_run
@@ -13,6 +14,8 @@ from pydantic import BaseModel, Field
 
 
 class SharedUtilsSettings(Settings):
+    """Setting model to define reusable settings."""
+
     sql_template_path: Path
 
 
@@ -22,6 +25,9 @@ class IntervalSet(BaseModel):
     batch_start: str = Field(description="Interval start datetime.")
     batch_end: str = Field(description="Interval end datetime.")
     base_start: str = Field(description="First full day in interval list.")
+    base_end: Optional[str] = Field(
+        description="Batch end used to stop at.",
+    )
     is_initial: bool = Field(
         description=(
             "Flag to use for SQL template because the initial "
@@ -36,29 +42,59 @@ class IntervalSet(BaseModel):
     )
 
     @property
-    def time_format_string(self):
+    def time_format_string(self) -> str:
+        """Helper for getting the time format string used.
+
+        Returns:
+            str: time format string used for folder.
+        """
         return "HH-mm-ss-SSS"
 
     @property
-    def partition_datetime(self):
-        return parse(self.batch_start)
+    def partition_datetime(self) -> DateTime:
+        """Helper for getting the DateTime object used for defining partition
+
+        Returns:
+            DateTime: DateTime object used for defining partition.
+        """
+        return parse(self.batch_start)  # type: ignore
 
     @property
-    def partition_date_folder(self):
+    def partition_date_folder(self) -> str:
+        """Helper for getting the partition date folder used.
+
+        Returns:
+            str: Partition date folder used.
+        """
         date_str = self.partition_datetime.to_date_string()  # type: ignore
         return f"date={date_str}"
 
     @property
-    def partition_time_folder(self):
+    def partition_time_folder(self) -> str:
+        """Helper for getting the partition time folder used.
+
+        Returns:
+            str: Partition time folder used.
+        """
         time_str = self.partition_datetime.format(self.time_format_string)  # type: ignore
         return f"time={time_str}"
 
     @property
-    def partition_folders(self):
+    def partition_folders(self) -> str:
+        """Helper for getting date time partition folders.
+
+        Returns:
+            str: Date time partition folders.
+        """
         return f"{self.partition_date_folder}/{self.partition_time_folder}"
 
     @property
-    def partition_timestamp(self):
+    def partition_timestamp(self) -> int:
+        """Helper for getting unix timestamp as an int.
+
+        Returns:
+            int: Partition unix timestamp int.
+        """
         return self.partition_datetime.int_timestamp  # type: ignore
 
 
@@ -94,6 +130,11 @@ class SqlJob(BaseModel):
 
     @property
     def sql_template_path(self) -> Path:
+        """Helper for getting template path from settings.
+
+        Returns:
+            Path: sql template path for object
+        """
         return SharedUtilsSettings().sql_template_path  # type: ignore
 
     @property
@@ -193,11 +234,15 @@ class SqlJob(BaseModel):
         intervals_between = [x for x in period_range.range("days")]
         # combine the stanging lists
         intervals.extend(intervals_between)
+        # set initial base end
+        initial_base_end = intervals[-1]
+        base_end = initial_base_end
         # if last interval should end through now, then append it
         if self.include_now:
             # only if its greater than the last interval datetime
-            if end > intervals[-1]:  # type: ignore
+            if end > initial_base_end:  # type: ignore
                 intervals.append(end)
+                base_end = end
         # create base parameters for following for loop
         interval_len = len(intervals)
         last_idx = interval_len - 2
@@ -218,6 +263,7 @@ class SqlJob(BaseModel):
                     batch_start=i.to_iso8601_string(),  # type: ignore
                     batch_end=intervals[end_idx].to_iso8601_string(),  # type: ignore
                     base_start=start.to_iso8601_string(),  # type: ignore
+                    base_end=base_end.to_iso8601_string(),  # type: ignore
                     is_initial=is_initial,
                     is_final=is_final,
                 )
@@ -231,9 +277,27 @@ def get_files_for_cleanup(
     interval_input: IntervalSet,
     block_storage_prefix: str = "gcs",
 ) -> list[str]:
+    """_summary_
+
+    Args:
+        file_list (list[tuple]): File list pulled from warehouse stage.
+        interval_input (IntervalSet): Interval metadata.
+        block_storage_prefix (str, optional): Block storage prefex used for files.
+        This helps for deconstructing the path. Defaults to "gcs".
+
+    Returns:
+        list[str]: List of staged file paths for deletion.
+    """
+    # get the timestamp used for the partition folders
     batch_folder_datetime = interval_input.partition_datetime
-    date_folder_base = parse(interval_input.base_start)
+    # get datetime object for first full day interval start
+    # we will delete all file paths after the base start
+    date_folder_base_start = parse(interval_input.base_start)
+    date_folder_base_end = parse(interval_input.base_end)  # type: ignore
+    # initial list for collecting file paths
     clean_up_list = []
+    # loop through the input file and append file paths to final results...
+    # as needed.
     for f in file_list:
         file_str = f[0].replace(f"{block_storage_prefix}://", "")
         file_parts = Path(file_str).parts
@@ -244,13 +308,17 @@ def get_files_for_cleanup(
             .replace("time=", "")
             .replace("/", " ")
         )
+        # the goal of above is to infer datetime from the existing file paths
         parsed_datetime = from_format(
             datetime_str, f"YYYY-MM-DD {interval_input.time_format_string}"
         )  # noqa: E501
-
+        # only delete files after interval start and before last interval end
         if parsed_datetime >= batch_folder_datetime:  # type: ignore
-            if parsed_datetime >= date_folder_base:
-                clean_up_list.append(date_folder_str)
-                break
-            clean_up_list.append(datetime_folder_str)
+            if parsed_datetime < date_folder_base_end:  # type: ignore
+                # if the datetime from folder is greater than the first full day start...  # noqa: E501
+                # add the date folder and break loop as there is no need to check any more  # noqa: E501
+                if parsed_datetime >= date_folder_base_start:  # type: ignore
+                    clean_up_list.append(date_folder_str)
+                    break
+                clean_up_list.append(datetime_folder_str)
     return list(set(clean_up_list))

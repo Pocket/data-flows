@@ -50,6 +50,9 @@ FAKE_FILE_LIST = [
     (
         "gcs://fake-stage/backend_events_for_mozilla/date=2023-06-25/time=00-00-00-000/data_0_3_0.snappy.parquet",
     ),
+    (
+        "gcs://fake-stage/backend_events_for_mozilla/date=2023-06-30/time=00-00-00-000/data_0_3_0.snappy.parquet",
+    ),
 ]
 
 
