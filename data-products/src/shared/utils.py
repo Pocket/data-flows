@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
@@ -16,7 +17,7 @@ from pydantic import BaseModel, Field
 class SharedUtilsSettings(Settings):
     """Setting model to define reusable settings."""
 
-    sql_template_path: Path = Path("sql")
+    sql_template_path: Path = Path(os.path.join(os.getcwd(), "sql"))
 
 
 class IntervalSet(BaseModel):
