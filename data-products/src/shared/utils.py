@@ -217,7 +217,7 @@ class SqlJob(BaseModel):
                 IntervalSet(
                     batch_start=i.to_iso8601_string(),  # type: ignore
                     batch_end=intervals[end_idx].to_iso8601_string(),  # type: ignore
-                    base_start=start.to_iso8601_string(), # type: ignore
+                    base_start=start.to_iso8601_string(),  # type: ignore
                     is_initial=is_initial,
                     is_final=is_final,
                 )
@@ -246,7 +246,7 @@ def get_files_for_cleanup(
         )
         parsed_datetime = from_format(
             datetime_str, f"YYYY-MM-DD {interval_input.time_format_string}"
-        )  # noqa: E501 
+        )  # noqa: E501
 
         if parsed_datetime >= batch_folder_datetime:  # type: ignore
             if parsed_datetime >= date_folder_base:
