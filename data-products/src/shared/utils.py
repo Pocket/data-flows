@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 class SharedUtilsSettings(Settings):
     """Setting model to define reusable settings."""
 
-    sql_template_path: Path
+    sql_template_path: Path = Path("sql")
 
 
 class IntervalSet(BaseModel):
