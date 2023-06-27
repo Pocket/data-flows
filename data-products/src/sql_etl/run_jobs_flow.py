@@ -373,7 +373,7 @@ FLOW_SPEC = FlowSpec(
         ),
         FlowEnvar(
             envar_name="DF_CONFIG_SNOWFLAKE_GCP_STAGES",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake-gcp-stages",
+            envar_value=f"data-flows/{CS.deployment_type}/snowflake-gcp-stage-data",
         ),
     ],
     deployments=[
