@@ -211,7 +211,7 @@ class SqlEtlJob(SqlJob):
             Union[str, None]: Rendered load or None
         """
         load_sql_file_name = "load.sql"
-        sql_template_path = self.sql_template_path or f"{get_script_path()}/sql"
+        sql_template_path = self.sql_template_path_value
         if not Path(
             os.path.join(sql_template_path, self.sql_folder_name, load_sql_file_name)
         ).exists():
