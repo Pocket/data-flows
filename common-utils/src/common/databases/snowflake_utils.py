@@ -1,8 +1,13 @@
-from typing import Optional
+import os
+from typing import Optional, Union
+
+from prefect import task
+from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
+from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
 
 from common.settings import CommonSettings, NestedSettings, Settings
-from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
-from pydantic import PrivateAttr, SecretBytes, SecretStr, constr
+
+CS = CommonSettings()  # type: ignore
 
 
 class SnowflakeCredSettings(NestedSettings):
@@ -38,14 +43,14 @@ class SnowflakeSettings(Settings):
 
     snowflake_credentials: SnowflakeCredSettings
     _database: str = PrivateAttr()
-    snowflake_warehouse: Optional[constr(regex=WAREHOUSE_REGEX)]  # type: ignore
-    snowflake_schema: Optional[str]
+    snowflake_warehouse: constr(regex=WAREHOUSE_REGEX) = f"prefect_wh_{CS.dev_or_production}"  # type: ignore  # noqa: E501
+    snowflake_schema: str = "public"
+    snowflake_gcp_stages: dict
 
     def __init__(self, **data):
         super().__init__(**data)
         db = "development"
-        cs = CommonSettings()  # type: ignore
-        if cs.is_production:
+        if CS.is_production:
             db = "prefect"
         self._database = db
 
@@ -57,19 +62,13 @@ class SnowflakeSettings(Settings):
 class PktSnowflakeConnector(SnowflakeConnector):
     """Pocket version of the Snowflake Connector provided
     by Prefect-Snowflake with credentials and other settings already applied.
-    Schema and Warehouse can be set explicitly here, like this:
+    schema and warehouse must be set via envars.
+    All other base model attributes can be set explicitly here.
 
-    CS = CommonSettings()  # type: ignore
-    SFC = PktSnowflakeConnector(
-        schema="public", warehouse=f"prefect_wh_{CS.dev_or_production}"
-    )
-
-    Warehouse is overriden to enforce our regex.
+    Warehouse is overriden to enforce our regex in settings.
 
     See https://prefecthq.github.io/prefect-snowflake/ for usage.
     """
-
-    warehouse: constr(regex=WAREHOUSE_REGEX)  # type: ignore
 
     def __init__(self, **data):
         """Set credentials and other settings on usage of
@@ -81,14 +80,20 @@ class PktSnowflakeConnector(SnowflakeConnector):
         data["credentials"] = SnowflakeCredentials(
             **settings.snowflake_credentials.dict()
         )
-        if x := settings.snowflake_schema:
-            data["schema"] = x
-        if x := settings.snowflake_warehouse:
-            data["warehouse"] = x
+        data["schema"] = settings.snowflake_schema
+        data["warehouse"] = settings.snowflake_warehouse
         super().__init__(**data)
 
 
-def get_gcs_stage(stage_id: str = "default") -> str:
+class SfGcsStage(BaseModel):
+    stage_name: str
+    stage_location: str
+
+    def __str__(self):
+        return self.stage_name
+
+
+def get_gcs_stage(stage_id: str = "default") -> SfGcsStage:
     """Return the proper Snowflake to GCS (Google Cloud Storage) for Prefect Flows.
     Based on deployment type.  Will take in an optional stage id as
     a escape hatch for special circumstances.
@@ -96,18 +101,22 @@ def get_gcs_stage(stage_id: str = "default") -> str:
     Returns:
         str: Full 3 part stage name.
     """
-    cs = CommonSettings()  # type: ignore
-    stage_config = {
-        "gcs_pocket_shared": {
-            "dev": "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV",
-            "production": "ANALYTICS.DBT.SHARED_WITH_MOZILLA_PARQUET",
-        },
-        "default": {
-            "dev": "DEVELOPMENT.PUBLIC.PREFECT_GCS_STAGE_PARQ_DEV",
-            "production": "PREFECT.PUBLIC.PREFECT_GCS_STAGE_PARQ_PROD",
-        },
-    }
-    stage = stage = stage_config[stage_id]["dev"]
-    if cs.is_production:
-        stage = stage_config[stage_id]["production"]
-    return stage
+
+    stage_config = SnowflakeSettings().snowflake_gcp_stages  # type: ignore
+    return SfGcsStage(
+        stage_name=stage_config[f"{stage_id}_name"],
+        stage_location=stage_config[f"{stage_id}_location"],
+    )
+
+
+@task()
+def get_pocket_snowflake_connector_block(
+    warehouse_override: Union[str, None] = None,
+    schema_override: Union[str, None] = None,
+    **kwargs,
+):
+    if x := warehouse_override:
+        os.environ["DF_CONFIG_SNOWFLAKE_WAREHOUSE"] = x
+    if x := schema_override:
+        os.environ["DF_CONFIG_SNOWFLAKE_SCHEMA"] = x
+    return PktSnowflakeConnector(**kwargs)

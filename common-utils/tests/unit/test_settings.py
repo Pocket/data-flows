@@ -35,6 +35,8 @@ def test_common_settings():
     assert cs.deployment_type == "dev"
     assert cs.is_production is False
     assert cs.dev_or_production == "dev"
+    x = cs.deployment_type_value("dev", "staging", "main")
+    assert x == "dev"
 
 
 def test_common_settings_not_dev():
@@ -42,3 +44,5 @@ def test_common_settings_not_dev():
     cs.deployment_type = "main"
     assert cs.is_production is True
     assert cs.dev_or_production == "production"
+    x = cs.deployment_type_value("dev", "staging", "main")
+    assert x == "main"

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.3.1"
+version = "0.3.2"
 description = "Shared modules for prefect flow development and deployment"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -53,5 +53,6 @@ env = [
     'R:DF_CONFIG_SNOWFLAKE_CREDENTIALS={"role": "test", "account": "test.us-test-1", "user": "test@mozilla.com", "private_key_passphrase": "test", "private_key_path": "tmp/test.p8"}',
     'R:DF_CONFIG_GCP_CREDENTIALS={"service_account_file": "tests/test.json"}',
     'DF_CONFIG_SNOWFLAKE_SCHEMA=test',
-    'DF_CONFIG_SNOWFLAKE_WAREHOUSE=prefect_wh_test'
+    'DF_CONFIG_SNOWFLAKE_WAREHOUSE=prefect_wh_test',
+    'R:DF_CONFIG_SNOWFLAKE_GCP_STAGES={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED", "gcs_pocket_shared_location": "gs://test"}'
 ]
