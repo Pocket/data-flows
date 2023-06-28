@@ -18,7 +18,6 @@ from prefect import flow, get_run_logger
 from prefect.server.schemas.schedules import IntervalSchedule
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
-
 from shared.utils import IntervalSet, SqlJob, get_files_for_cleanup
 
 CS = CommonSettings()  # type: ignore
@@ -404,7 +403,7 @@ FLOW_SPEC = FlowSpec(
                 FlowEnvar(
                     envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
                     envar_value=CS.deployment_type_value(
-                        dev="braun", staging="staging"
+                        dev="braun", staging="staging", main="public"
                     ),  # type: ignore
                 ),
             ],
