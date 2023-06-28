@@ -1,14 +1,17 @@
 from pathlib import PosixPath
 from unittest.mock import patch
 
-from prefect import flow
-from pydantic import SecretStr
-
 from common.databases.snowflake_utils import (
     PktSnowflakeConnector,
     get_gcs_stage,
     get_pocket_snowflake_connector_block,
 )
+from common.settings import CommonSettings
+from prefect import flow
+from pydantic import SecretStr
+
+CS = CommonSettings()  # type: ignore
+DB_MAPPING = {"dev": "development", "production": "prefect"}
 
 
 def test_pkt_snowflake_connector():
@@ -20,7 +23,7 @@ def test_pkt_snowflake_connector():
     assert x.credentials.private_key_path == PosixPath("tmp/test.p8")
     assert isinstance(x.credentials.private_key_passphrase, SecretStr)
     assert x.credentials.role == "test"
-    assert x.database == "development"
+    assert x.database == DB_MAPPING[CS.dev_or_production]
     assert x.warehouse == "prefect_wh_test"
     assert x.schema_ == "test"
 
@@ -69,7 +72,7 @@ def test_get_pocket_snowflake_connector_block():
     assert x.credentials.private_key_path == PosixPath("tmp/test.p8")
     assert isinstance(x.credentials.private_key_passphrase, SecretStr)
     assert x.credentials.role == "test"
-    assert x.database == "development"
+    assert x.database == DB_MAPPING[CS.dev_or_production]
     assert x.warehouse == "prefect_wh_test"
     assert x.schema_ == "test"
 
@@ -90,6 +93,6 @@ def test_get_pocket_snowflake_connector_block_overrides():
     assert x.credentials.private_key_path == PosixPath("tmp/test.p8")
     assert isinstance(x.credentials.private_key_passphrase, SecretStr)
     assert x.credentials.role == "test"
-    assert x.database == "development"
+    assert x.database == DB_MAPPING[CS.dev_or_production]
     assert x.warehouse == "prefect_wh_override"
     assert x.schema_ == "override"
