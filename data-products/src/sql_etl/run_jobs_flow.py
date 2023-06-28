@@ -22,6 +22,7 @@ from prefect_snowflake.database import snowflake_query
 from shared.utils import IntervalSet, SqlJob, get_files_for_cleanup
 
 CS = CommonSettings()  # type: ignore
+SQL_TEMPLATE_PATH = os.path.join(get_script_path(), "sql")
 
 # template sql to get the latest stored offset for etl job
 LAST_OFFSET_SQL = """select any_value(last_offset) as last_offset
@@ -59,6 +60,7 @@ class SqlEtlJob(SqlJob):
     source_system: Literal["snowflake", "bigquery"]
     with_external_state: bool = False
     warehouse_override: Union[str, None] = None
+    sql_template_path: Union[str, None] = SQL_TEMPLATE_PATH
 
     @property
     def snowflake_stage(self) -> SfGcsStage:
