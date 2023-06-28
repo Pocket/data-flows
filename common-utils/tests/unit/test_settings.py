@@ -1,3 +1,5 @@
+import os
+
 from common.settings import CommonSettings, NestedSettings, Settings
 
 
@@ -32,6 +34,9 @@ def test_nested():
 
 def test_common_settings():
     cs = CommonSettings()  # type: ignore
+    if x := os.getenv("DF_CONFIG_DEPLOYMENT_TYPE"):
+        assert x == cs.deployment_type
+    cs.deployment_type = "dev"
     assert cs.deployment_type == "dev"
     assert cs.is_production is False
     assert cs.dev_or_production == "dev"
@@ -45,4 +50,5 @@ def test_common_settings_not_dev():
     assert cs.is_production is True
     assert cs.dev_or_production == "production"
     x = cs.deployment_type_value("dev", "staging", "main")
+    assert x == "main"
     assert x == "main"

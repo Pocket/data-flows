@@ -371,6 +371,7 @@ def test_flow_spec_all_fields(mock_ecs_save, mock_deployment):
 
 
 @mock_ecs
+@patch("common.deployment.DEPLOYMENT_TYPE", "dev")
 @patch("common.deployment.FlowDeployment.push_deployment")
 @patch("prefect_aws.ecs.ECSTask.save")
 def test_flow_spec_bad_env(mock_ecs_save, mock_deployment):
