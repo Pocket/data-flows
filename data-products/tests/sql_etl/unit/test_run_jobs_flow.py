@@ -53,7 +53,7 @@ def test_sql_job():
     offset_persist = SQL_JOB_TEST_DATETIME.add(hours=19).to_iso8601_string()
     assert (
         t.get_extraction_sql(interval_input)
-        == f"copy into '@DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV/test/{interval_input.partition_folders}/data'\n        from (SELECT\n\n    *   \n\nFROM \n\nfrom \n\nwhere updated_at >= '{interval_input.batch_start}'\nand updated_at < '{interval_input.batch_end}')\n        header = true\n        overwrite = true\n        max_file_size = 104857600"  # noqa: E501
+        == f"copy into '{t.get_snowflake_stage_uri(interval_input)}/data'\n        from (SELECT\n\n    *   \n\nFROM \n\nfrom \n\nwhere updated_at >= '{interval_input.batch_start}'\nand updated_at < '{interval_input.batch_end}')\n        header = true\n        overwrite = true\n        max_file_size = 104857600"  # noqa: E501
     )
     assert (
         t.get_last_offset_sql()
@@ -61,7 +61,7 @@ def test_sql_job():
     )
     assert (
         t.get_load_sql(interval_input)
-        == f"copy into test.test.test (\n              batch_id,\n              updated_at,\n              data,\n              _gs_file_name,\n            _gs_file_row_number,\n            _gs_file_date,\n            _gs_file_time,\n            _loaded_at\n            )\n        from (\n            select\n                {interval_input.partition_timestamp},\n                $1:updated_at as updated_at,\n                $1 as data,\n                metadata$filename,\n            metadata$file_row_number,\n            split_part(metadata$filename,'/', -2),\n            split_part(metadata$filename,'/', -1),\n            sysdate()\n            from @DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV/test/{interval_input.partition_folders}\n        )\n        file_format = (type = 'PARQUET')"  # noqa: E501
+        == f"copy into test.test.test (\n              batch_id,\n              updated_at,\n              data,\n              _gs_file_name,\n            _gs_file_row_number,\n            _gs_file_date,\n            _gs_file_time,\n            _loaded_at\n            )\n        from (\n            select\n                {interval_input.partition_timestamp},\n                $1:updated_at as updated_at,\n                $1 as data,\n                metadata$filename,\n            metadata$file_row_number,\n            split_part(metadata$filename,'/', -2),\n            split_part(metadata$filename,'/', -1),\n            sysdate()\n            from {t.get_snowflake_stage_uri(interval_input)}\n        )\n        file_format = (type = 'PARQUET')"  # noqa: E501
     )
     assert (
         t.get_new_offset_sql(interval_input)
@@ -109,7 +109,7 @@ def test_sql_job_external_state_biqquery():
     )
     assert (
         t.get_load_sql(interval_input)
-        == f"copy into test.test.test (\n              batch_id,\n              updated_at,\n              data,\n              _gs_file_name,\n            _gs_file_row_number,\n            _gs_file_date,\n            _gs_file_time,\n            _loaded_at\n            )\n        from (\n            select\n                {interval_input.partition_timestamp},\n                $1:updated_at as updated_at,\n                $1 as data,\n                metadata$filename,\n            metadata$file_row_number,\n            split_part(metadata$filename,'/', -2),\n            split_part(metadata$filename,'/', -1),\n            sysdate()\n            from @DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV/test/{interval_input.partition_folders}\n        )\n        file_format = (type = 'PARQUET')"  # noqa: E501
+        == f"copy into test.test.test (\n              batch_id,\n              updated_at,\n              data,\n              _gs_file_name,\n            _gs_file_row_number,\n            _gs_file_date,\n            _gs_file_time,\n            _loaded_at\n            )\n        from (\n            select\n                {interval_input.partition_timestamp},\n                $1:updated_at as updated_at,\n                $1 as data,\n                metadata$filename,\n            metadata$file_row_number,\n            split_part(metadata$filename,'/', -2),\n            split_part(metadata$filename,'/', -1),\n            sysdate()\n            from {t.get_snowflake_stage_uri(interval_input)}\n        )\n        file_format = (type = 'PARQUET')"  # noqa: E501
     )  # noqa: E501
     assert (
         t.get_new_offset_sql(interval_input)

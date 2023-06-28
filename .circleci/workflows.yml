@@ -106,7 +106,7 @@ commands:
             for env in "dev" "staging" "main"
             do
               export DF_CONFIG_DEPLOYMENT_TYPE=$env
-              echo "Running unit tests for deployment type: $env ..."
+              echo "Running unit tests for deployment type: $env..."
               poetry run python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
             done
           name: Python Testing and Validation
