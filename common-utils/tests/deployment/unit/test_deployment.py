@@ -5,9 +5,6 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 from boto3 import session
-from moto import mock_ecs, mock_sts
-from prefect import flow, task
-
 from common.deployment import (
     GIT_SHA,
     CronSchedule,
@@ -24,6 +21,8 @@ from common.deployment import (
     get_pyproject_metadata,
     run_command,
 )
+from moto import mock_ecs, mock_sts
+from prefect import flow, task
 
 TEST_PYTHONPATH = os.path.expanduser(os.path.join(os.getcwd(), "tests/test_flows"))
 
@@ -151,9 +150,9 @@ def test_flow_deployment(mock_cmd):
     d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
     x1 = d1._get_schedule_arg()
     assert x1 == "--cron '0 0 * * *'"
-    d2 = FlowDeployment(deployment_name="test", schedule=IntervalSchedule(interval=60))  # type: ignore
+    d2 = FlowDeployment(deployment_name="test", schedule=IntervalSchedule(interval=timedelta(days=2)))  # type: ignore
     x2 = d2._get_schedule_arg()
-    assert x2 == "--interval 60"
+    assert x2 == "--interval 172800"
     d3 = FlowDeployment(deployment_name="test", schedule=RRuleSchedule(rrule="FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17"))  # type: ignore
     x3 = d3._get_schedule_arg()
     assert (
@@ -609,11 +608,11 @@ def test_flow_spec_handle_task_definition_container_change(
                 schedule=CronSchedule(cron="0 0 * * *"),
             ),  # type: ignore
             FlowDeployment(
-                deployment_name="hourly",
+                deployment_name="daily",
                 cpu="1024",
                 memory="4096",
                 parameters={"param_name": "param_value"},
-                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+                schedule=IntervalSchedule(interval=timedelta(days=1)),
             ),  # type: ignore
         ],  # type: ignore
     )
