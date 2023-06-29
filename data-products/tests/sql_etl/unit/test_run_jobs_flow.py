@@ -19,7 +19,7 @@ def test_sql_job():
         kwargs={"destination_table_name": "test.test.test"},
         with_external_state=True,
         source_system="snowflake",
-        snowflake_stage_id=SF_GCP_STAGE_ID
+        snowflake_stage_id=SF_GCP_STAGE_ID,
     )
     intervals = t.get_intervals()
     assert [x.dict() for x in intervals] == [

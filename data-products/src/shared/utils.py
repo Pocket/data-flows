@@ -106,7 +106,7 @@ class SqlJob(BaseModel):
     )
     sql_template_path: str = Field(
         description="Override value for default from envar.",
-        default=SharedUtilsSettings().sql_template_path, # type: ignore
+        default=SharedUtilsSettings().sql_template_path,  # type: ignore
     )
     initial_last_offset: Optional[str] = Field(
         description="Optional initial batch start offset.",
