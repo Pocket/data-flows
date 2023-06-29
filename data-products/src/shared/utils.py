@@ -1,4 +1,3 @@
-import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
@@ -17,7 +16,7 @@ from pydantic import BaseModel, Field
 class SharedUtilsSettings(Settings):
     """Setting model to define reusable settings."""
 
-    sql_template_path: Path
+    sql_template_path: Optional[str]
 
 
 class IntervalSet(BaseModel):
@@ -105,8 +104,9 @@ class SqlJob(BaseModel):
     sql_folder_name: str = Field(
         description="Relative folder name containing sql.",
     )
-    sql_template_path: Optional[str] = Field(
+    sql_template_path: str = Field(
         description="Override value for default from envar.",
+        default=SharedUtilsSettings().sql_template_path, # type: ignore
     )
     initial_last_offset: Optional[str] = Field(
         description="Optional initial batch start offset.",
@@ -131,15 +131,6 @@ class SqlJob(BaseModel):
             "to pass into your templates."
         ),
     )
-
-    @property
-    def sql_template_path_value(self) -> Path:
-        """Helper for getting template path from settings or override.
-
-        Returns:
-            Path: sql template path for object
-        """
-        return self.sql_template_path or SharedUtilsSettings().sql_template_path  # type: ignore  # noqa: E501
 
     @property
     def job_kwargs(self) -> dict:
@@ -187,7 +178,7 @@ class SqlJob(BaseModel):
         Returns:
             str: Rendered sql text.
         """
-        template_path = self.sql_template_path_value
+        template_path = self.sql_template_path
         render_kwargs = deepcopy(self.job_kwargs)
         render_kwargs.update(extra_kwargs)
         environment = Environment(
