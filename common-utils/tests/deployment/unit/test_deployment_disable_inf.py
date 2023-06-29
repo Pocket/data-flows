@@ -40,6 +40,11 @@ def test_flow_spec_disable_handle_task_definition(mock_ecs_save, mock_deployment
                 envar_name="MY_SECRET_JSON", envar_value="/my/secretsmanager/secret"
             )
         ],
+        envars=[
+            FlowEnvar(
+                envar_name="TEST", envar_value="test"
+            )
+        ],
         ephemeral_storage_gb=50,
         deployments=[
             FlowDeployment(
@@ -75,4 +80,5 @@ def test_flow_spec_disable_handle_task_definition(mock_ecs_save, mock_deployment
         "flow_1",
         "common-utils.flow-group-1.flow-1",
         TEST_PYTHONPATH,
+        {"TEST": "test"}
     )
