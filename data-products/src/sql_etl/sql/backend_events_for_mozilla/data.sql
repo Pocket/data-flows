@@ -6,6 +6,7 @@ collector_tstamp as submission_timestamp,
 derived_tstamp as event_timestamp,
 app_id as app_id,
 object_construct(
+  'metadata', object_construct(
     'geo', object_construct(
       'city', geo_city, 
       'country', geo_country),
@@ -13,15 +14,18 @@ object_construct(
       'browser', CONTEXTS_COM_SNOWPLOWANALYTICS_SNOWPLOW_UA_PARSER_CONTEXT_1[0]:useragentFamily::string, 
       'os', CONTEXTS_COM_SNOWPLOWANALYTICS_SNOWPLOW_UA_PARSER_CONTEXT_1[0]:osFamily::string,
       'version', CONTEXTS_COM_SNOWPLOWANALYTICS_SNOWPLOW_UA_PARSER_CONTEXT_1[0]:useragentMajor::string || CONTEXTS_COM_SNOWPLOWANALYTICS_SNOWPLOW_UA_PARSER_CONTEXT_1[0]:useragentMinor::string)
-    ) as metadata,
+    )
+) as metadata,
 object_construct(
+  'client_info', object_construct(
     'app_build', nvl(CONTEXTS_COM_SNOWPLOWANALYTICS_MOBILE_APPLICATION_1[0]:version::string, CONTEXTS_COM_POCKET_API_USER_1[0]:client_version::string),
     'client_id', CONTEXTS_COM_POCKET_USER_1[0]:hashed_guid::string,
     'user_id', CONTEXTS_COM_POCKET_USER_1[0]:hashed_user_id::string,
     'locale', br_lang,
     'os', CONTEXTS_COM_SNOWPLOWANALYTICS_SNOWPLOW_UA_PARSER_CONTEXT_1[0]:osFamily::string,
     'os_version', CONTEXTS_COM_SNOWPLOWANALYTICS_SNOWPLOW_UA_PARSER_CONTEXT_1[0]:osMajor::string || CONTEXTS_COM_SNOWPLOWANALYTICS_SNOWPLOW_UA_PARSER_CONTEXT_1[0]:osMinor::string
-    ) as client_info,
+    )
+) as client_info,
 'event' as event_category,
 event_name,
 object_construct(
