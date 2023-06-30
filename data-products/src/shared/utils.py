@@ -10,7 +10,7 @@ from pendulum.datetime import DateTime
 from pendulum.parser import parse
 from prefect import task
 from prefect.runtime import flow_run
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class SharedUtilsSettings(Settings):
@@ -104,9 +104,8 @@ class SqlJob(BaseModel):
     sql_folder_name: str = Field(
         description="Relative folder name containing sql.",
     )
-    sql_template_path: str = Field(
+    sql_template_path: Optional[str] = Field(
         description="Override value for default from envar.",
-        default=SharedUtilsSettings().sql_template_path,  # type: ignore
     )
     initial_last_offset: Optional[str] = Field(
         description="Optional initial batch start offset.",
@@ -131,6 +130,16 @@ class SqlJob(BaseModel):
             "to pass into your templates."
         ),
     )
+
+    @validator("sql_template_path", pre=True, always=True)
+    def set_default_sql_template_path(cls, v):
+        """Special validator to always return the envar value
+        if not explicitly set.  This runs before all other validations
+        to allow for other logic to alter afterwards.  This is the
+        best way to enforce a default, but keep flexibility for defining
+        other rules.
+        """
+        return v or SharedUtilsSettings().sql_template_path  # type: ignore
 
     @property
     def job_kwargs(self) -> dict:

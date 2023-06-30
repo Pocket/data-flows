@@ -1,13 +1,36 @@
+import os
 from unittest.mock import patch
 
 import pytest
 from common.databases.snowflake_utils import PktSnowflakeConnector
 from pendulum import now as pd_now
 from prefect import flow, task
-
 from sql_etl.run_jobs_flow import SF_GCP_STAGE_ID, SqlEtlJob, interval, main
 
 SQL_JOB_TEST_DATETIME = pd_now(tz="utc").start_of("day")
+
+
+@pytest.fixture(scope="module")
+def set_sql_template_path_env():
+    os.environ["DF_CONFIG_SQL_TEMPLATE_PATH"] = "tests/sql_etl/unit/sql"
+    return os.environ["DF_CONFIG_SQL_TEMPLATE_PATH"]
+
+
+#
+def test_sql_template_path():
+    with patch("os.environ") as mock:
+        mock.return_value = {}
+        t = SqlEtlJob(
+            sql_folder_name="test",
+            initial_last_offset=SQL_JOB_TEST_DATETIME.subtract(days=3)
+            .subtract(microseconds=1000)
+            .to_iso8601_string(),
+            kwargs={"destination_table_name": "test.test.test"},
+            with_external_state=True,
+            source_system="snowflake",
+            snowflake_stage_id=SF_GCP_STAGE_ID,
+        )
+        assert t.sql_template_path == os.path.join(os.getcwd(), "src/sql_etl/sql")
 
 
 def test_sql_job():
@@ -72,7 +95,7 @@ def test_sql_job():
     )
 
 
-def test_sql_job_external_state_biqquery():
+def test_sql_job_external_state_biqquery(set_sql_template_path_env):
     t = SqlEtlJob(
         sql_folder_name="test",
         initial_last_offset=SQL_JOB_TEST_DATETIME.subtract(days=1).to_iso8601_string(),
@@ -131,7 +154,7 @@ def test_sql_job_external_state_biqquery():
 
 
 @pytest.mark.asyncio
-async def test_interval():
+async def test_interval(set_sql_template_path_env):
     t = SqlEtlJob(
         sql_folder_name="test",
         initial_last_offset=SQL_JOB_TEST_DATETIME.subtract(
@@ -169,7 +192,7 @@ async def test_interval():
 
 
 @pytest.mark.asyncio
-async def test_interval_bq_no_load_no_external_state():
+async def test_interval_bq_no_load_no_external_state(set_sql_template_path_env):
     t = SqlEtlJob(
         sql_folder_name="test",
         initial_last_offset=SQL_JOB_TEST_DATETIME.subtract(
@@ -207,7 +230,7 @@ async def test_interval_bq_no_load_no_external_state():
 
 
 @pytest.mark.asyncio
-async def test_interval_none_offset():
+async def test_interval_none_offset(set_sql_template_path_env):
     t = SqlEtlJob(
         sql_folder_name="test",
         initial_last_offset=SQL_JOB_TEST_DATETIME.subtract(
@@ -239,7 +262,7 @@ async def test_interval_none_offset():
 
 
 @pytest.mark.asyncio
-async def test_main_include_now():
+async def test_main_include_now(set_sql_template_path_env):
     t = SqlEtlJob(
         sql_folder_name="test",
         override_last_offset=SQL_JOB_TEST_DATETIME.subtract(days=3)

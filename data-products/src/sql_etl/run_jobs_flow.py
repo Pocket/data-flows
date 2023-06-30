@@ -18,8 +18,8 @@ from prefect import flow, get_run_logger
 from prefect.server.schemas.schedules import IntervalSchedule
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
-from pydantic import validator
-from shared.utils import IntervalSet, SharedUtilsSettings, SqlJob, get_files_for_cleanup
+from pydantic import root_validator
+from shared.utils import IntervalSet, SqlJob, get_files_for_cleanup
 
 CS = CommonSettings()  # type: ignore
 
@@ -59,7 +59,19 @@ class SqlEtlJob(SqlJob):
     source_system: Literal["snowflake", "bigquery"]
     with_external_state: bool = False
     warehouse_override: Union[str, None] = None
-    sql_template_path: str = SharedUtilsSettings().sql_template_path or os.path.join(get_script_path(), "sql")  # type: ignore  # noqa: E501
+
+    @root_validator
+    def override_default_sql_template_path(cls, values):
+        """Special validator that runs at the end to set
+        the sql_template_path to relative 'sql' folder if
+        not explicitly set or set via envar.
+
+        https://docs.pydantic.dev/latest/usage/validators/#root-validators
+        """
+        sql_template_path = values.get("sql_template_path")
+        if not sql_template_path:
+            values["sql_template_path"] = os.path.join(get_script_path(), "sql")
+        return values
 
     @property
     def snowflake_stage(self) -> SfGcsStage:
