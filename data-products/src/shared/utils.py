@@ -11,13 +11,13 @@ from pendulum.datetime import DateTime
 from pendulum.parser import parse
 from prefect import task
 from prefect.runtime import flow_run
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 class SharedUtilsSettings(Settings):
     """Setting model to define reusable settings."""
 
-    sql_template_path: Path
+    sql_template_path: Optional[str]
 
 
 class IntervalSet(BaseModel):
@@ -105,9 +105,9 @@ class SqlJob(BaseModel):
     sql_folder_name: str = Field(
         description="Relative folder name containing sql.",
     )
-    sql_template_path: Optional[str] = Field(
-        description="Override value for default from envar.",
-    )
+    # setting sql_templat_path as private attribute to allow for...
+    # easier override in child classes via _init_private_attributes
+    _sql_template_path: Optional[str] = PrivateAttr()
     initial_last_offset: Optional[str] = Field(
         description="Optional initial batch start offset.",
     )
@@ -132,14 +132,15 @@ class SqlJob(BaseModel):
         ),
     )
 
-    @property
-    def sql_template_path_value(self) -> Path:
-        """Helper for getting template path from settings or override.
+    def _init_private_attributes(self) -> None:
+        """Great way to update private attributes without
+        losing autocomplete on the model.
 
-        Returns:
-            Path: sql template path for object
+        https://github.com/pydantic/pydantic/discussions/3512#discussioncomment-3226167
+
         """
-        return self.sql_template_path or SharedUtilsSettings().sql_template_path  # type: ignore  # noqa: E501
+        super()._init_private_attributes()
+        self._sql_template_path = SharedUtilsSettings().sql_template_path  # type: ignore  # noqa: E501
 
     @property
     def job_kwargs(self) -> dict:
@@ -187,7 +188,7 @@ class SqlJob(BaseModel):
         Returns:
             str: Rendered sql text.
         """
-        template_path = self.sql_template_path_value
+        template_path = self._sql_template_path
         render_kwargs = deepcopy(self.job_kwargs)
         render_kwargs.update(extra_kwargs)
         environment = Environment(

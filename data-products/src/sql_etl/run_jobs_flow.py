@@ -18,10 +18,9 @@ from prefect import flow, get_run_logger
 from prefect.server.schemas.schedules import IntervalSchedule
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
-from shared.utils import IntervalSet, SqlJob, get_files_for_cleanup
+from shared.utils import IntervalSet, SharedUtilsSettings, SqlJob, get_files_for_cleanup
 
 CS = CommonSettings()  # type: ignore
-SQL_TEMPLATE_PATH = os.path.join(get_script_path(), "sql")
 
 # template sql to get the latest stored offset for etl job
 LAST_OFFSET_SQL = """select any_value(last_offset) as last_offset
@@ -59,7 +58,13 @@ class SqlEtlJob(SqlJob):
     source_system: Literal["snowflake", "bigquery"]
     with_external_state: bool = False
     warehouse_override: Union[str, None] = None
-    sql_template_path: Union[str, None] = SQL_TEMPLATE_PATH
+
+    def _init_private_attributes(self) -> None:
+        """Overriding the private attributes set to include
+        os.path.join(get_script_path(), "sql") as a default.
+        """
+        super()._init_private_attributes()
+        self._sql_template_path = SharedUtilsSettings().sql_template_path or os.path.join(get_script_path(), "sql")  # type: ignore  # noqa: E501
 
     @property
     def snowflake_stage(self) -> SfGcsStage:
@@ -138,7 +143,6 @@ class SqlEtlJob(SqlJob):
             "gcs_uri": self.get_gcs_uri(interval_input),
         }
         extra_kwargs.update(interval_input.dict())
-
         sql_query = self.render_sql_file("data.sql", extra_kwargs=extra_kwargs)
         extra_kwargs["sql"] = sql_query
         extraction_sql_stmt = self.render_sql_string(
@@ -212,9 +216,13 @@ class SqlEtlJob(SqlJob):
             Union[str, None]: Rendered load or None
         """
         load_sql_file_name = "load.sql"
-        sql_template_path = self.sql_template_path_value
+        sql_template_path = self._sql_template_path
         if not Path(
-            os.path.join(sql_template_path, self.sql_folder_name, load_sql_file_name)
+            os.path.join(
+                sql_template_path,  # type: ignore
+                self.sql_folder_name,  # type: ignore
+                load_sql_file_name,  # type: ignore
+            )
         ).exists():
             return None
         extra_kwargs = {
@@ -417,7 +425,7 @@ FLOW_SPEC = FlowSpec(
             ),
             parameters={
                 "etl_input": SqlEtlJob(
-                    sql_folder_name="impression_stats_v1",
+                    sql_folder_name="impression_stats_v1_new",
                     initial_last_offset="2022-12-23",
                     kwargs={"destination_table_name": "impression_stats_v1"},
                     source_system="bigquery",

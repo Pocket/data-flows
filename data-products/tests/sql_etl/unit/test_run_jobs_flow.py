@@ -1,13 +1,29 @@
+import os
 from unittest.mock import patch
 
 import pytest
 from common.databases.snowflake_utils import PktSnowflakeConnector
 from pendulum import now as pd_now
 from prefect import flow, task
-
 from sql_etl.run_jobs_flow import SF_GCP_STAGE_ID, SqlEtlJob, interval, main
 
 SQL_JOB_TEST_DATETIME = pd_now(tz="utc").start_of("day")
+
+
+def test_sql_template_path():
+    with patch("os.environ") as mock:
+        mock.return_value = {}
+        t = SqlEtlJob(
+            sql_folder_name="test",
+            initial_last_offset=SQL_JOB_TEST_DATETIME.subtract(days=3)
+            .subtract(microseconds=1000)
+            .to_iso8601_string(),
+            kwargs={"destination_table_name": "test.test.test"},
+            with_external_state=True,
+            source_system="snowflake",
+            snowflake_stage_id=SF_GCP_STAGE_ID,
+        )
+        assert t._sql_template_path == os.path.join(os.getcwd(), "src/sql_etl/sql")
 
 
 def test_sql_job():
@@ -20,7 +36,6 @@ def test_sql_job():
         with_external_state=True,
         source_system="snowflake",
         snowflake_stage_id=SF_GCP_STAGE_ID,
-        sql_template_path="tests/sql_etl/unit/sql",  # type: ignore
     )
     intervals = t.get_intervals()
     assert [x.dict() for x in intervals] == [
@@ -82,7 +97,6 @@ def test_sql_job_external_state_biqquery():
         },
         source_system="bigquery",
         snowflake_stage_id=SF_GCP_STAGE_ID,  # type: ignore
-        sql_template_path="tests/sql_etl/unit/sql",  # type: ignore
     )
     intervals = t.get_intervals()
     assert [x.dict() for x in intervals] == [
@@ -143,7 +157,6 @@ async def test_interval():
         with_external_state=True,
         source_system="snowflake",
         snowflake_stage_id=SF_GCP_STAGE_ID,  # type: ignore
-        sql_template_path="tests/sql_etl/unit/sql",  # type: ignore
     )
     intervals = t.get_intervals()
     interval_input = intervals[0]
@@ -181,7 +194,6 @@ async def test_interval_bq_no_load_no_external_state():
         kwargs={"destination_table_name": "test.test.test"},
         source_system="bigquery",
         snowflake_stage_id=SF_GCP_STAGE_ID,  # type: ignore
-        sql_template_path="tests/sql_etl/unit/sql",  # type: ignore
     )
     intervals = t.get_intervals()
     interval_input = intervals[0]
@@ -221,7 +233,6 @@ async def test_interval_none_offset():
         with_external_state=True,
         source_system="bigquery",
         snowflake_stage_id=SF_GCP_STAGE_ID,  # type: ignore
-        sql_template_path="tests/sql_etl/unit/sql",  # type: ignore
     )
     intervals = t.get_intervals()
     interval_input = intervals[0]

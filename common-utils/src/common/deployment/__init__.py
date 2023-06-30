@@ -292,7 +292,9 @@ class FlowDeployment(BaseModel):
             elif isinstance(schedule, RRuleSchedule):
                 return shlex.join(["--rrule", schedule.rrule])
             elif isinstance(schedule, IntervalSchedule):
-                return shlex.join(["--interval", str(schedule.interval.seconds)])
+                return shlex.join(
+                    ["--interval", str(int(schedule.interval.total_seconds()))]
+                )
             else:
                 return ""
 
@@ -304,6 +306,7 @@ class FlowDeployment(BaseModel):
         flow_function_name: str,
         flow_name: str,
         pythonpath_addition: str,
+        base_envars: dict,
     ) -> None:
         """This method will push a Prefect deployment to Prefect using the deployment cli.
 
@@ -314,6 +317,7 @@ class FlowDeployment(BaseModel):
             flow_function_name: (str): Name of the flow function to deploy.
             flow_name: (str): Properly enforced flow name for deployment.
             pythonpath_addition (str): fully qualified flows folder path.
+            base_envars (dict): global envar defaults to pass to deployment.
 
         """
         # start building the cli arguments
@@ -346,11 +350,12 @@ class FlowDeployment(BaseModel):
                 "value": "DISABLED",
             },
         ]
+        deployment_envars = {x.envar_name: x.envar_value for x in self.envars}
+        base_envars.update(deployment_envars)
         env_overrides = " ".join(
             [
-                "--override "
-                + shlex.quote(f"env.{i.dict()['envar_name']}={i.dict()['envar_value']}")
-                for i in self.envars
+                "--override " + shlex.quote(f"env.{k}={v}")
+                for k, v in base_envars.items()
             ]
         )
         task_overrides = (
@@ -400,6 +405,13 @@ class FlowSpec(BaseModel):
         description=(
             "List of secrets as FlowEnvar objects to pass to task definition."
             "These should only be the secret names and not full arn."
+        ),
+    )
+    envars: list[FlowEnvar] = Field(
+        [],
+        description=(
+            "List of global envars as FlowEnvar objects to pass to task definition. "
+            "Any deployment envars that share the same key will be overriden."
         ),
     )
     docker_env: StrictStr = Field(
@@ -634,6 +646,9 @@ class FlowSpec(BaseModel):
             docker_envs[orig_docker_env]["python_version"],
         )
 
+        # create base envar dictionary to pass to deployment
+        base_envars = {x.envar_name: x.envar_value for x in self.envars}
+
         # process deployments
         # create ECS task definition and Prefect Block
         slugified_flow_name = standard_slugify(flow_name)
@@ -654,6 +669,7 @@ class FlowSpec(BaseModel):
                 self.flow.fn.__name__,
                 flow_name,
                 pythonpath_addition,
+                base_envars,
             )
 
 
