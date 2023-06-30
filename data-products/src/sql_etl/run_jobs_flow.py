@@ -425,9 +425,9 @@ FLOW_SPEC = FlowSpec(
             ),
             parameters={
                 "etl_input": SqlEtlJob(
-                    sql_folder_name="impression_stats_v1_new",
+                    sql_folder_name="impression_stats_v1",
                     initial_last_offset="2022-12-23",
-                    kwargs={"destination_table_name": "impression_stats_v1"},
+                    kwargs={"destination_table_name": "impression_stats_v1_new"},
                     source_system="bigquery",
                 ).dict()  # type: ignore
             },
