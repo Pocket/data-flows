@@ -30,7 +30,7 @@ def test_sql_template_path():
             source_system="snowflake",
             snowflake_stage_id=SF_GCP_STAGE_ID,
         )
-        assert t.sql_template_path == os.path.join(os.getcwd(), "src/sql_etl/sql")
+        assert t._sql_template_path == os.path.join(os.getcwd(), "src/sql_etl/sql")
 
 
 def test_sql_job():

@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
@@ -10,7 +11,7 @@ from pendulum.datetime import DateTime
 from pendulum.parser import parse
 from prefect import task
 from prefect.runtime import flow_run
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 class SharedUtilsSettings(Settings):
@@ -104,9 +105,9 @@ class SqlJob(BaseModel):
     sql_folder_name: str = Field(
         description="Relative folder name containing sql.",
     )
-    sql_template_path: Optional[str] = Field(
-        description="Override value for default from envar.",
-    )
+    # setting sql_templat_path as private attribute to allow for...
+    # easier override in child classes via _init_private_attributes
+    _sql_template_path: Optional[str] = PrivateAttr()
     initial_last_offset: Optional[str] = Field(
         description="Optional initial batch start offset.",
     )
@@ -131,15 +132,15 @@ class SqlJob(BaseModel):
         ),
     )
 
-    @validator("sql_template_path", pre=True, always=True)
-    def set_default_sql_template_path(cls, v):
-        """Special validator to always return the envar value
-        if not explicitly set.  This runs before all other validations
-        to allow for other logic to alter afterwards.  This is the
-        best way to enforce a default, but keep flexibility for defining
-        other rules.
+    def _init_private_attributes(self) -> None:
+        """Great way to update private attributes without
+        losing autocomplete on the model.
+
+        https://github.com/pydantic/pydantic/discussions/3512#discussioncomment-3226167
+
         """
-        return v or SharedUtilsSettings().sql_template_path  # type: ignore
+        super()._init_private_attributes()
+        self._sql_template_path = SharedUtilsSettings().sql_template_path  # type: ignore  # noqa: E501
 
     @property
     def job_kwargs(self) -> dict:
@@ -187,7 +188,7 @@ class SqlJob(BaseModel):
         Returns:
             str: Rendered sql text.
         """
-        template_path = self.sql_template_path
+        template_path = self._sql_template_path
         render_kwargs = deepcopy(self.job_kwargs)
         render_kwargs.update(extra_kwargs)
         environment = Environment(
