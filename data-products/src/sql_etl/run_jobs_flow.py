@@ -432,7 +432,7 @@ FLOW_SPEC = FlowSpec(
             ),
             parameters={
                 "etl_input": SqlEtlJob(
-                    sql_folder_name="impression_stats_v1",
+                    sql_folder_name="impression_stats_v1_new",
                     initial_last_offset="2022-12-23",
                     kwargs={"destination_table_name": "impression_stats_v1"},
                     source_system="bigquery",
