@@ -204,10 +204,11 @@ class SqlJob(BaseModel):
 
         Expectations, unless include_now is True, is the last interval in the list
         will be the last full interval in the range.  For example, since we only
-        supporting days, if the last offset is today, there should be no intervals
+        support days, if the last offset is today, there should be no intervals
         to process, becuase the default is up through yesterday (UTC). If include_now
         is True, then that final interval in the list will end before now (UTC) or the
         end_date_override.
+        The existence of end_date_override ignores include_now = False.
 
         Args:
             last_offset (str): Last offset to use for getting proper intervals.
