@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.3.4"
+version = "0.3.5"
 description = "Shared modules for prefect flow development and deployment"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
