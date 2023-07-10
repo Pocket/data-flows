@@ -1,5 +1,4 @@
 import os
-from datetime import timedelta
 from pathlib import Path
 from typing import Literal, Union
 
@@ -13,9 +12,8 @@ from common.databases.snowflake_utils import (
 )
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
-from pendulum.parser import parse
 from prefect import flow, get_run_logger
-from prefect.server.schemas.schedules import IntervalSchedule
+from prefect.server.schemas.schedules import CronSchedule
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
 from shared.utils import IntervalSet, SharedUtilsSettings, SqlJob, get_files_for_cleanup
@@ -388,11 +386,12 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             deployment_name="backend_events_for_mozilla",
-            schedule=IntervalSchedule(
-                interval=timedelta(days=1),
-                anchor_date=parse("2023-06-27 01:00:00"),  # type: ignore
-                timezone="America/Los_Angeles",
-            ),
+            # schedule=IntervalSchedule(
+            #     interval=timedelta(days=1),
+            #     anchor_date=parse("2023-06-27 01:00:00"),  # type: ignore
+            #     timezone="America/New_York",
+            # ),
+            schedule=CronSchedule(cron="0 1 * * *", timezone="America/Los_Angeles"),
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="backend_events_for_mozilla",
@@ -418,11 +417,6 @@ FLOW_SPEC = FlowSpec(
         ),
         FlowDeployment(
             deployment_name="impression_stats_v1",
-            schedule=IntervalSchedule(
-                interval=timedelta(minutes=10),
-                anchor_date=parse("2023-06-27 01:00:00"),  # type: ignore
-                timezone="America/Los_Angeles",
-            ),
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="impression_stats_v1",
