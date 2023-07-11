@@ -199,10 +199,15 @@ class SqlJob(BaseModel):
 
     def get_intervals(self, last_offset: Union[str, None] = None) -> list[IntervalSet]:
         """Method that returns the intervals to be used for sql job.
-        For job without a selections of intervals, the result will be a list
-        with a single interval.
 
-        Expectations, unless include_now is True, is the last interval in the list
+        This means that the range of time to process will be split into
+        many intervals (currently only support days) given that the range spans
+        multiple intervals.
+
+        If the range does not span multiple intervals, then the result is one
+        interval, depending on the value of the include_now parameter.
+
+        Unless include_now is True, the last interval in the list
         will be the last full interval in the range.  For example, since we only
         support days, if the last offset is today, there should be no intervals
         to process, becuase the default is up through yesterday (UTC). If include_now
@@ -212,39 +217,49 @@ class SqlJob(BaseModel):
 
         Args:
             last_offset (str): Last offset to use for getting proper intervals.
+            If None, then defaults to value of override or initial offsets.
 
         Returns:
             list[IntervalSet]: List of intervals to use for job processing.
-            Absense of an interval type will be a list with a single interval.
         """
         # use override end date if provided
-        batch_end = self.override_batch_end or pdm.now(tz="utc").to_iso8601_string()
+        # default to now UTC
+        batch_end = self.override_batch_end or pdm.now(tz="UTC").to_iso8601_string()
         # if last_offset is None, we use the initial offset
         if last_offset is None or last_offset == "None":
             last_offset = self.initial_last_offset
         # override last offset if provided
         last_offset_str = self.override_last_offset or str(last_offset)
+        # the resulting last_offset_str cannot be None
+        if last_offset_str is None or last_offset_str == "None":
+            raise ValueError(
+                "The resulting last offset cannot be None. "
+                "If last_offset is None, then initial_last_offset or "
+                "override_last_offset must be set"
+            )
         # offset will be incremented by 1 microseconds
         # to support using '>=' and '<' for all intervals
+        # this is less aggressive than using 1000 (1 millisecond)
         last_offset_final = parse(last_offset_str).add(microseconds=1)  # type: ignore
-        # the calculated intervals should start
-        # from the first full
-        # interval after the last offset
+        # the calculated intervals should start from
+        # the first full interval after the last offset
         start = last_offset_final.end_of("day").add(microseconds=1)  # type: ignore
         end = parse(batch_end)
-        # get the previous
         # create a pendulum period
         period_range = pdm.period(start, end, absolute=True)  # type: ignore
         # create base list of datetime object from period
+        # only include if less then of equal to start of period
+        # end datetime
         intervals = [
             x
             for x in period_range.range("days")
             if x <= end.start_of("day")  # type: ignore
         ]
         if intervals:
-            # if we have intervals, insert offset
+            # if we have intervals, insert offset as the first
             intervals.insert(0, last_offset_final)
         # setting base end to the last item in list
+        # this is for include_now and override logic
         base_end = intervals[-1]
         # only append base_end if needed and > then base_end
         if self.include_now or self.override_batch_end:
@@ -254,7 +269,7 @@ class SqlJob(BaseModel):
         # create base parameters for the for loop
         interval_len = len(intervals)
         last_idx = interval_len - 2
-        # create the final list of intervat sets
+        # create the staging list of intervat sets
         interval_sets = []
         for idx, i in enumerate(intervals):
             is_initial = False

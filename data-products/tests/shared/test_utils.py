@@ -2,6 +2,7 @@ from copy import deepcopy
 
 from pendulum import now
 from shared.utils import SqlJob, get_files_for_cleanup
+import pytest
 
 # create a fake list of files existing in a Snowflake stage
 FAKE_FILE_LIST = [
@@ -382,3 +383,20 @@ def test_intervals_7():
     for i in test_list:
         i["sets_end"] = interval_sets_end
     assert interval_list == test_list
+
+
+def test_intervals_no_offset():
+    """Expectations:
+    Same as _6 except offset is passed to get_intervals.
+    """
+    t = SqlJob(
+        sql_folder_name="test",
+        include_now=True,
+    )
+    with pytest.raises(Exception) as e:
+        t.get_intervals()
+    assert (
+        "The resulting last offset cannot be None. "
+        "If last_offset is None, then initial_last_offset or "
+        "override_last_offset must be set"
+    ) in str(e.value)
