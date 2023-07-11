@@ -12,10 +12,8 @@ from common.deployment import (
     FlowDockerEnv,
     FlowEnvar,
     FlowSpec,
-    IntervalSchedule,
     PrefectProject,
     ProjectEnvs,
-    RRuleSchedule,
     get_aws_account_id,
     get_flow_folder,
     get_pyproject_metadata,
@@ -150,28 +148,19 @@ def test_flow_deployment(mock_cmd):
     d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
     x1 = d1._get_schedule_arg()
     assert x1 == "--cron '0 0 * * *'"
-    d2 = FlowDeployment(deployment_name="test", schedule=IntervalSchedule(interval=timedelta(days=2)))  # type: ignore
+    d2 = FlowDeployment(deployment_name="test")  # type: ignore
     x2 = d2._get_schedule_arg()
-    assert x2 == "--interval 172800"
-    d3 = FlowDeployment(deployment_name="test", schedule=RRuleSchedule(rrule="FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17"))  # type: ignore
-    x3 = d3._get_schedule_arg()
-    assert (
-        x3
-        == "--rrule 'FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17'"
-    )
-    d4 = FlowDeployment(deployment_name="test")  # type: ignore
-    x4 = d4._get_schedule_arg()
-    assert x4 == ""
+    assert x2 == ""
 
     # Validate push deployment method using mock on run_command.
-    d5 = FlowDeployment(
+    d3 = FlowDeployment(
         deployment_name="test",
-        schedule=IntervalSchedule(interval=120),  # type: ignore
+        schedule=CronSchedule(cron="0 6 * * *", timezone="America/Los_Angeles"),  # type: ignore
         cpu="1024",
         memory="4096",
         parameters={"test_param": "test_value"},
     )
-    d5.push_deployment(
+    d3.push_deployment(
         project_name="test",
         infrastructure="test-ECS-block",
         flow_path=Path("tests/deployment/unit/test_deployment.py"),
@@ -181,7 +170,48 @@ def test_flow_deployment(mock_cmd):
         base_envars={"TEST": "test"},
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n        --interval 120 --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n        --cron \'0 6 * * *\' --timezone America/Los_Angeles --skip-upload && \\\n        popd"""
+    mock_cmd.assert_called_with(call_text)
+
+    d4 = FlowDeployment(
+        deployment_name="test",
+        schedule=CronSchedule(cron="0 6 * * *"),  # type: ignore
+        cpu="1024",
+        memory="4096",
+        parameters={"test_param": "test_value"},
+    )
+
+    d4.push_deployment(
+        project_name="test",
+        infrastructure="test-ECS-block",
+        flow_path=Path("tests/deployment/unit/test_deployment.py"),
+        flow_function_name="test_function",
+        flow_name="test.test.test",
+        pythonpath_addition=TEST_PYTHONPATH,
+        base_envars={"TEST": "test"},
+    )
+    assert mock_cmd.call_count == 2
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n        --cron \'0 6 * * *\' --skip-upload && \\\n        popd"""
+    mock_cmd.assert_called_with(call_text)
+
+    d5 = FlowDeployment(
+        deployment_name="test",
+        cpu="1024",
+        memory="4096",
+        parameters={"test_param": "test_value"},
+    )  # type: ignore
+
+    d5.push_deployment(
+        project_name="test",
+        infrastructure="test-ECS-block",
+        flow_path=Path("tests/deployment/unit/test_deployment.py"),
+        flow_function_name="test_function",
+        flow_name="test.test.test",
+        pythonpath_addition=TEST_PYTHONPATH,
+        base_envars={"TEST": "test"},
+    )
+    assert mock_cmd.call_count == 3
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n         --skip-upload && \\\n        popd"""
     mock_cmd.assert_called_with(call_text)
 
 
@@ -192,25 +222,19 @@ def test_flow_deployment_prod_test(mock_cmd):
     d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
     x1 = d1._get_schedule_arg()
     assert x1 == ""
-    d2 = FlowDeployment(deployment_name="test", schedule=IntervalSchedule(interval=60))  # type: ignore
+    d2 = FlowDeployment(deployment_name="test")  # type: ignore
     x2 = d2._get_schedule_arg()
     assert x2 == ""
-    d3 = FlowDeployment(deployment_name="test", schedule=RRuleSchedule(rrule="FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17"))  # type: ignore
-    x3 = d3._get_schedule_arg()
-    assert x3 == ""
-    d4 = FlowDeployment(deployment_name="test")  # type: ignore
-    x4 = d4._get_schedule_arg()
-    assert x4 == ""
 
     # Validate push deployment method using mock on run_command.
-    d5 = FlowDeployment(
+    d3 = FlowDeployment(
         deployment_name="test",
-        schedule=IntervalSchedule(interval=120),  # type: ignore
+        schedule=CronSchedule(cron="0 6 * * *", timezone="America/Los_Angeles"),  # type: ignore
         cpu="1024",
         memory="4096",
         parameters={"test_param": "test_value"},
     )
-    d5.push_deployment(
+    d3.push_deployment(
         project_name="test",
         infrastructure="test-ECS-block",
         flow_path=Path("tests/deployment/unit/test_deployment.py"),
@@ -231,25 +255,18 @@ def test_flow_deployment_dev_test(mock_cmd):
     d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
     x1 = d1._get_schedule_arg()
     assert x1 == ""
-    d2 = FlowDeployment(deployment_name="test", schedule=IntervalSchedule(interval=60))  # type: ignore
+    d2 = FlowDeployment(deployment_name="test")  # type: ignore
     x2 = d2._get_schedule_arg()
     assert x2 == ""
-    d3 = FlowDeployment(deployment_name="test", schedule=RRuleSchedule(rrule="FREQ=HOURLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9,10,11,12,13,14,15,16,17"))  # type: ignore
-    x3 = d3._get_schedule_arg()
-    assert x3 == ""
-    d4 = FlowDeployment(deployment_name="test")  # type: ignore
-    x4 = d4._get_schedule_arg()
-    assert x4 == ""
 
     # Validate push deployment method using mock on run_command.
-    d5 = FlowDeployment(
+    d3 = FlowDeployment(
         deployment_name="test",
-        schedule=IntervalSchedule(interval=120),  # type: ignore
         cpu="1024",
         memory="4096",
         parameters={"test_param": "test_value"},
-    )
-    d5.push_deployment(
+    )  # type: ignore
+    d3.push_deployment(
         project_name="test",
         infrastructure="test-ECS-block",
         flow_path=Path("tests/deployment/unit/test_deployment.py"),
@@ -344,7 +361,7 @@ def test_flow_spec_all_fields(mock_ecs_save, mock_deployment):
                 cpu="1024",
                 memory="4096",
                 parameters={"param_name": "param_value"},
-                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+                schedule=CronSchedule(cron="0 6 * * *"),
                 envars=[FlowEnvar(envar_name="test", envar_value="test")],
             ),
         ],  # type: ignore
@@ -412,7 +429,7 @@ def test_flow_spec_bad_env(mock_ecs_save, mock_deployment):
                 cpu="1024",
                 memory="4096",
                 parameters={"param_name": "param_value"},
-                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+                schedule=CronSchedule(cron="0 0 * * *"),
             ),  # type: ignore
         ],  # type: ignore
     )
@@ -532,7 +549,7 @@ def test_flow_spec_handle_task_definition(mock_ecs_save, mock_deployment):
                 cpu="1024",
                 memory="4096",
                 parameters={"param_name": "param_value"},
-                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+                schedule=CronSchedule(cron="0 0 * * *"),
             ),  # type: ignore
         ],  # type: ignore
     )
@@ -612,7 +629,6 @@ def test_flow_spec_handle_task_definition_container_change(
                 cpu="1024",
                 memory="4096",
                 parameters={"param_name": "param_value"},
-                schedule=IntervalSchedule(interval=timedelta(days=1)),
             ),  # type: ignore
         ],  # type: ignore
     )
@@ -689,7 +705,7 @@ def test_flow_spec_handle_task_definition_state_change(mock_ecs_save, mock_deplo
                 cpu="1024",
                 memory="4096",
                 parameters={"param_name": "param_value"},
-                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+                schedule=CronSchedule(cron="0 0 * * *"),
             ),  # type: ignore
         ],  # type: ignore
     )

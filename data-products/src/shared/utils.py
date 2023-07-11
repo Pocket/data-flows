@@ -10,7 +10,6 @@ from pendulum import from_format
 from pendulum.datetime import DateTime
 from pendulum.parser import parse
 from prefect import task
-from prefect.runtime import flow_run
 from pydantic import BaseModel, Field, PrivateAttr
 
 
@@ -25,8 +24,8 @@ class IntervalSet(BaseModel):
 
     batch_start: str = Field(description="Interval start datetime.")
     batch_end: str = Field(description="Interval end datetime.")
-    base_start: str = Field(description="First full day in interval list.")
-    base_end: Optional[str] = Field(
+    first_interval_start: str = Field(description="First full day in interval list.")
+    sets_end: Optional[str] = Field(
         description="Batch end used to stop at.",
     )
     is_initial: bool = Field(
@@ -200,58 +199,78 @@ class SqlJob(BaseModel):
 
     def get_intervals(self, last_offset: Union[str, None] = None) -> list[IntervalSet]:
         """Method that returns the intervals to be used for sql job.
-        For job without a selections of intervals, the result will be a list
-        with a single interval.
+
+        This means that the range of time to process will be split into
+        many intervals (currently only support days) given that the range spans
+        multiple intervals.
+
+        If the range does not span multiple intervals, then the result is one
+        interval, depending on the value of the include_now parameter.
+
+        Unless include_now is True, the last interval in the list
+        will be the last full interval in the range.  For example, since we only
+        support days, if the last offset is today, there should be no intervals
+        to process, becuase the default is up through yesterday (UTC). If include_now
+        is True, then that final interval in the list will end before now (UTC) or the
+        end_date_override.
+        The existence of end_date_override ignores include_now = False.
 
         Args:
             last_offset (str): Last offset to use for getting proper intervals.
+            If None, then defaults to value of override or initial offsets.
 
         Returns:
             list[IntervalSet]: List of intervals to use for job processing.
-            Absense of an interval type will be a list with a single interval.
         """
-        # create the base interval set list
-        interval_sets = []
         # use override end date if provided
-        batch_end = (
-            self.override_batch_end
-            or flow_run.get_scheduled_start_time().to_iso8601_string()
-        )
+        # default to now UTC
+        batch_end = self.override_batch_end or pdm.now(tz="UTC").to_iso8601_string()
         # if last_offset is None, we use the initial offset
         if last_offset is None or last_offset == "None":
             last_offset = self.initial_last_offset
         # override last offset if provided
         last_offset_str = self.override_last_offset or str(last_offset)
-        last_offset_final = parse(last_offset_str)  # type: ignore
-        # the calculated intervals should start
-        # from the first full
-        # interval after the last offset
-        # offset will be incremented by 1 millisecond
+        # the resulting last_offset_str cannot be None
+        if last_offset_str is None or last_offset_str == "None":
+            raise ValueError(
+                "The resulting last offset cannot be None. "
+                "If last_offset is None, then initial_last_offset or "
+                "override_last_offset must be set"
+            )
+        # offset will be incremented by 1 microseconds
         # to support using '>=' and '<' for all intervals
-        start_offset = last_offset_final.add(microseconds=1000)  # type: ignore
-        start = start_offset.end_of("day").add(microseconds=1)  # type: ignore
+        # this is less aggressive than using 1000 (1 millisecond)
+        last_offset_final = parse(last_offset_str).add(microseconds=1)  # type: ignore
+        # the calculated intervals should start from
+        # the first full interval after the last offset
+        start = last_offset_final.end_of("day").add(microseconds=1)  # type: ignore
         end = parse(batch_end)
         # create a pendulum period
-        period_range = pdm.period(start, end)  # type: ignore
-        # add offset as the initial item in staging list
-        intervals = [start_offset]
-        # create staging list of datetime object from period
-        intervals_between = [x for x in period_range.range("days")]
-        # combine the stanging lists
-        intervals.extend(intervals_between)
-        # set initial base end
-        initial_base_end = intervals[-1]
-        base_end = initial_base_end
-        # if last interval should end through now, then append it
-        if self.include_now:
-            # only if its greater than the last interval datetime
-            if end > initial_base_end:  # type: ignore
+        period_range = pdm.period(start, end, absolute=True)  # type: ignore
+        # create base list of datetime object from period
+        # only include if less then of equal to start of period
+        # end datetime
+        intervals = [
+            x
+            for x in period_range.range("days")
+            if x <= end.start_of("day")  # type: ignore
+        ]
+        if intervals:
+            # if we have intervals, insert offset as the first
+            intervals.insert(0, last_offset_final)
+        # setting base end to the last item in list
+        # this is for include_now and override logic
+        base_end = intervals[-1]
+        # only append base_end if needed and > then base_end
+        if self.include_now or self.override_batch_end:
+            if end > base_end:  # type: ignore
                 intervals.append(end)
                 base_end = end
-        # create base parameters for following for loop
+        # create base parameters for the for loop
         interval_len = len(intervals)
         last_idx = interval_len - 2
-        # create the final list of intervat sets
+        # create the staging list of intervat sets
+        interval_sets = []
         for idx, i in enumerate(intervals):
             is_initial = False
             is_final = False
@@ -267,12 +286,13 @@ class SqlJob(BaseModel):
                 IntervalSet(
                     batch_start=i.to_iso8601_string(),  # type: ignore
                     batch_end=intervals[end_idx].to_iso8601_string(),  # type: ignore
-                    base_start=start.to_iso8601_string(),  # type: ignore
-                    base_end=base_end.to_iso8601_string(),  # type: ignore
+                    first_interval_start=start.to_iso8601_string(),  # type: ignore
+                    sets_end=base_end.to_iso8601_string(),  # type: ignore
                     is_initial=is_initial,
                     is_final=is_final,
                 )
             )
+
         return interval_sets
 
 
@@ -297,8 +317,8 @@ def get_files_for_cleanup(
     batch_folder_datetime = interval_input.partition_datetime
     # get datetime object for first full day interval start
     # we will delete all file paths after the base start
-    date_folder_base_start = parse(interval_input.base_start)
-    date_folder_base_end = parse(interval_input.base_end)  # type: ignore
+    date_folder_base_start = parse(interval_input.first_interval_start)
+    date_folder_base_end = parse(interval_input.sets_end)  # type: ignore
     # initial list for collecting file paths
     clean_up_list = []
     # loop through the input file and append file paths to final results...
@@ -327,3 +347,13 @@ def get_files_for_cleanup(
                     break
                 clean_up_list.append(datetime_folder_str)
     return list(set(clean_up_list))
+
+
+if __name__ == "__main__":
+    t = SqlJob(
+        sql_folder_name="test",
+        override_last_offset="2023-06-17 21:59:59.999",
+        override_batch_end="2023-06-26 02:00:00",
+        include_now=True,
+    )
+    print(t.get_intervals())

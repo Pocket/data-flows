@@ -16,7 +16,7 @@ def test_sql_template_path():
         t = SqlEtlJob(
             sql_folder_name="test",
             initial_last_offset=SQL_JOB_TEST_DATETIME.subtract(days=3)
-            .subtract(microseconds=1000)
+            .subtract(microseconds=1)
             .to_iso8601_string(),
             kwargs={"destination_table_name": "test.test.test"},
             with_external_state=True,
@@ -30,7 +30,7 @@ def test_sql_job():
     t = SqlEtlJob(
         sql_folder_name="test",
         initial_last_offset=SQL_JOB_TEST_DATETIME.subtract(days=3)
-        .subtract(microseconds=1000)
+        .subtract(microseconds=1)
         .to_iso8601_string(),
         kwargs={"destination_table_name": "test.test.test"},
         with_external_state=True,
@@ -42,24 +42,30 @@ def test_sql_job():
         {
             "batch_start": SQL_JOB_TEST_DATETIME.subtract(days=3).to_iso8601_string(),
             "batch_end": SQL_JOB_TEST_DATETIME.subtract(days=2).to_iso8601_string(),
-            "base_start": SQL_JOB_TEST_DATETIME.subtract(days=2).to_iso8601_string(),
-            "base_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
+            "first_interval_start": SQL_JOB_TEST_DATETIME.subtract(
+                days=2
+            ).to_iso8601_string(),
+            "sets_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
             "is_initial": True,
             "is_final": False,
         },
         {
             "batch_start": SQL_JOB_TEST_DATETIME.subtract(days=2).to_iso8601_string(),
             "batch_end": SQL_JOB_TEST_DATETIME.subtract(days=1).to_iso8601_string(),
-            "base_start": SQL_JOB_TEST_DATETIME.subtract(days=2).to_iso8601_string(),
-            "base_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
+            "first_interval_start": SQL_JOB_TEST_DATETIME.subtract(
+                days=2
+            ).to_iso8601_string(),
+            "sets_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
             "is_initial": False,
             "is_final": False,
         },
         {
             "batch_start": SQL_JOB_TEST_DATETIME.subtract(days=1).to_iso8601_string(),
             "batch_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
-            "base_start": SQL_JOB_TEST_DATETIME.subtract(days=2).to_iso8601_string(),
-            "base_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
+            "first_interval_start": SQL_JOB_TEST_DATETIME.subtract(
+                days=2
+            ).to_iso8601_string(),
+            "sets_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
             "is_initial": False,
             "is_final": True,
         },
@@ -102,11 +108,11 @@ def test_sql_job_external_state_biqquery():
     assert [x.dict() for x in intervals] == [
         {
             "batch_start": SQL_JOB_TEST_DATETIME.subtract(days=1)
-            .add(microseconds=1000)
+            .add(microseconds=1)
             .to_iso8601_string(),
             "batch_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
-            "base_start": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
-            "base_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
+            "first_interval_start": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
+            "sets_end": SQL_JOB_TEST_DATETIME.to_iso8601_string(),
             "is_initial": True,
             "is_final": True,
         }
