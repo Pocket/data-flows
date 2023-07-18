@@ -1,3 +1,4 @@
+{% set sql_engine = "snowflake" %}
 copy into {{ destination_table_name }} (
               batch_id,
               submission_timestamp,

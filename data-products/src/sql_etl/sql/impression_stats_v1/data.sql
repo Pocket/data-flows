@@ -1,3 +1,4 @@
+{% set sql_engine = "bigquery" %}
 SELECT
 {% if for_new_offset %}
     max(submission_timestamp) as new_offset

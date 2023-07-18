@@ -1,15 +1,20 @@
 import os
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import pendulum as pdm
+from common.cloud.gcp_utils import PktGcpCredentials
+from common.databases.snowflake_utils import PktSnowflakeConnector
 from common.settings import Settings
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, Template
 from pendulum import from_format
 from pendulum.datetime import DateTime
 from pendulum.parser import parse
-from prefect import task
+from prefect import get_run_logger, task
+from prefect_gcp.bigquery import bigquery_query
+from prefect_snowflake.database import snowflake_multiquery, snowflake_query
+from prefect_sqlalchemy.database import sqlalchemy_query
 from pydantic import BaseModel, Field, PrivateAttr
 
 
@@ -20,21 +25,25 @@ class SharedUtilsSettings(Settings):
 
 
 class IntervalSet(BaseModel):
-    """Model to leverage for interacting with batch intervals"""
+    """Model to leverage for interacting with batch intervals.
+    Optional types are to support passing an interval set for full refresh.
+    """
 
     batch_start: str = Field(description="Interval start datetime.")
-    batch_end: str = Field(description="Interval end datetime.")
-    first_interval_start: str = Field(description="First full day in interval list.")
+    batch_end: Optional[str] = Field(description="Interval end datetime.")
+    first_interval_start: Optional[str] = Field(
+        description="First full day in interval list."
+    )
     sets_end: Optional[str] = Field(
         description="Batch end used to stop at.",
     )
-    is_initial: bool = Field(
+    is_initial: Optional[bool] = Field(
         description=(
             "Flag to use for SQL template because the initial "
             "start filter will '>' as opposed to '>='."
         )
     )
-    is_final: bool = Field(
+    is_final: Optional[bool] = Field(
         description=(
             "Flag to use for SQL template because the final interval "
             "may trigger special logic for offset."
@@ -98,6 +107,80 @@ class IntervalSet(BaseModel):
         return self.partition_datetime.int_timestamp  # type: ignore
 
 
+# Globals to help with enforcing engine types and dynamic tasks
+QUERY_ENGINE_MAPPING = {
+    "snowflake": {"snowflake_credentials": PktSnowflakeConnector},
+    "bigquery": {"gcp_credentials": PktGcpCredentials},
+    "postgres": {"sqlalchemy_credentials": None},
+    "mysql": {"sqlalchemy_credentials": None},
+}
+QUERY_ENGINE_TYPES_LITERAL = Literal["snowflake", "bigquery", "postgres", "mysql"]
+QUERY_ENGINE_TYPES_SET = QUERY_ENGINE_MAPPING.keys()
+
+
+class SqlStmt(BaseModel):
+    """Pydantic model representing a sql statement with
+    db engine to run on.
+    """
+
+    sql_text: str
+    sql_engine: QUERY_ENGINE_TYPES_LITERAL
+    is_multi_statement: bool
+    _creds_param_name: str = PrivateAttr()
+    _creds_param_value: Any = PrivateAttr()
+
+    def _init_private_attributes(self) -> None:
+        """Great way to update private attributes without
+        losing autocomplete on the model.
+
+        https://github.com/pydantic/pydantic/discussions/3512#discussioncomment-3226167
+
+        """
+        super()._init_private_attributes()
+        for k, v in QUERY_ENGINE_MAPPING[self.sql_engine].items():
+            self._creds_param_name = k
+            self._creds_param_value = v
+
+    @property
+    def standard_kwargs(self) -> dict:
+        """Returns a standard set of kwargs for query task
+        based on engine that gets passed to run_query_task.
+
+        Returns:
+            dict: standard kwargs.
+        """
+        return {
+            "query": self.sql_text,
+            self._creds_param_name: self._creds_param_value(),
+        }
+
+    async def run_query_task(self, task_name: str, task_kwargs={}) -> list[tuple]:
+        """Helper method to dynamically execute the proper
+        query task based on sql statement attributes.
+
+        Args:
+            task_name (str): Name to pass to query task
+
+        Returns:
+            list[tuple]: Query results.
+        """
+        task_mapping = {
+            "snowflake": {"single": snowflake_query, "multi": snowflake_multiquery},
+            "bigquery": {"single": bigquery_query},
+            "default": {"single": sqlalchemy_query},
+        }
+        query_task = task_mapping["default"]["single"]
+        sql_engine = self.sql_engine
+        is_multi_statement = self.is_multi_statement
+        if sql_engine in ["snowflake", "bigquery"]:
+            if sql_engine == "snowflake" and is_multi_statement:
+                query_task = task_mapping[sql_engine]["multi"]
+            else:
+                query_task = task_mapping[sql_engine]["single"]
+        task_kwargs.update(self.standard_kwargs)
+        return await query_task().with_options(name=task_name)(**task_kwargs)
+
+
 class SqlJob(BaseModel):
     """Model for parameters to passed to an sql job request."""
 
@@ -123,6 +206,10 @@ class SqlJob(BaseModel):
             "or scheduled start datetime."
         ),
     )
+    is_incremental: bool = Field(
+        False,
+        description="Whether is an incremental job, else just as run single subflow",
+    )
     kwargs: dict = Field(
         {},
         description=(
@@ -142,6 +229,10 @@ class SqlJob(BaseModel):
         self._sql_template_path = SharedUtilsSettings().sql_template_path  # type: ignore  # noqa: E501
 
     @property
+    def job_file_path(self):
+        return os.path.join(self._sql_template_path, self.sql_folder_name)  # type: ignore  # noqa: E501
+
+    @property
     def job_kwargs(self) -> dict:
         """Returns a flat dictionary of the kwargs parameter
         plus the other top level parameters.  This gets passed to
@@ -156,7 +247,47 @@ class SqlJob(BaseModel):
         job_kwargs.update(top_level_kwargs)
         return job_kwargs
 
-    def render_sql_string(self, sql_string: str, extra_kwargs: dict = {}) -> str:
+    def render_from_template(
+        self, template: Template, render_kwargs: dict, from_file: bool = False
+    ) -> SqlStmt:
+        """Helper function
+
+        Args:
+            template (Template): jinja2 Template object to render.
+            render_kwargs (dict): kwargs to pass to render function.
+            from_file (bool, optional): Flag to use for special file logic.
+            Defaults to False.
+
+        Raises:
+            Exception: Exception that enforces existence of sql engine variable.
+
+        Returns:
+            SqlStmt: SqlStmt object with sql text and db engine.
+        """
+
+        sql_engine = "snowflake"
+        is_multi_statement = False
+        if from_file:
+            try:
+                sql_engine = template.module.sql_engine  # type: ignore
+            except AttributeError:
+                raise Exception(
+                    'SQL file must have jinja2 block {% set engine = "<engine_type>" %}, '
+                    f"and must be one of {QUERY_ENGINE_TYPES_SET}"
+                )
+            try:
+                is_multi_statement = template.module.is_multi_statement  # type: ignore
+            except AttributeError:
+                logger = get_run_logger()
+                logger.info("Sql statement defaulting to single statement mode...")
+        sql_text = template.render(**render_kwargs)
+        return SqlStmt(
+            sql_engine=sql_engine,
+            sql_text=sql_text,
+            is_multi_statement=is_multi_statement,
+        )
+
+    def render_sql_string(self, sql_string: str, extra_kwargs: dict = {}) -> SqlStmt:
         """Helper method for rendering a jinj2 sql string
         using job kwargs plus optional additional kwargs.
 
@@ -166,16 +297,16 @@ class SqlJob(BaseModel):
             the job_kwargs.
 
         Returns:
-            str: Rendered sql text.
+            SqlStmt: SqlStmt object with sql text and db engine.
         """
         render_kwargs = deepcopy(self.job_kwargs)
         render_kwargs.update(extra_kwargs)
         environment = Environment()
         j2_env = environment
         template = j2_env.from_string(sql_string)
-        return template.render(**render_kwargs)
+        return self.render_from_template(template, render_kwargs)
 
-    def render_sql_file(self, sql_file: str, extra_kwargs: dict = {}) -> str:
+    def render_sql_file(self, sql_file: str, extra_kwargs: dict = {}) -> SqlStmt:
         """Helper method for rendering a jinja2 sql file using
         job kwargs plus optional additional kwargs.
 
@@ -185,17 +316,16 @@ class SqlJob(BaseModel):
             the job_kwargs.
 
         Returns:
-            str: Rendered sql text.
+            SqlStmt: SqlStmt object with sql text and db engine.
         """
-        template_path = self._sql_template_path
         render_kwargs = deepcopy(self.job_kwargs)
         render_kwargs.update(extra_kwargs)
         environment = Environment(
-            loader=FileSystemLoader(f"{template_path}/{self.sql_folder_name}")
+            loader=FileSystemLoader(self.job_file_path),
         )
         j2_env = environment
         template = j2_env.get_template(sql_file)
-        return template.render(**render_kwargs)
+        return self.render_from_template(template, render_kwargs, True)
 
     def get_intervals(self, last_offset: Union[str, None] = None) -> list[IntervalSet]:
         """Method that returns the intervals to be used for sql job.
@@ -317,7 +447,7 @@ def get_files_for_cleanup(
     batch_folder_datetime = interval_input.partition_datetime
     # get datetime object for first full day interval start
     # we will delete all file paths after the base start
-    date_folder_base_start = parse(interval_input.first_interval_start)
+    date_folder_base_start = parse(interval_input.first_interval_start)  # type: ignore
     date_folder_base_end = parse(interval_input.sets_end)  # type: ignore
     # initial list for collecting file paths
     clean_up_list = []
@@ -347,13 +477,3 @@ def get_files_for_cleanup(
                     break
                 clean_up_list.append(datetime_folder_str)
     return list(set(clean_up_list))
-
-
-if __name__ == "__main__":
-    t = SqlJob(
-        sql_folder_name="test",
-        override_last_offset="2023-06-17 21:59:59.999",
-        override_batch_end="2023-06-26 02:00:00",
-        include_now=True,
-    )
-    print(t.get_intervals())
