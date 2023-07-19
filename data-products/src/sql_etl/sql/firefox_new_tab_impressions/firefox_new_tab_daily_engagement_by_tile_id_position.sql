@@ -72,13 +72,13 @@ WITH
     3,
     4 )
 SELECT
-  DATE(TIMESTAMP_SECONDS(submission_timestamp)) AS activity_date,
+  DATE(TIMESTAMP_SECONDS(submission_timestamp)) AS happened_at,
   tile_id,
   position,
-  SUM(impressions) AS impressions,
-  SUM(clicks) AS clicks,
-  SUM(pocketed) AS pocketed,
-  SUM(blocked) AS blocked,
+  SUM(impressions) AS impression_count,
+  SUM(clicks) AS click_count,
+  SUM(pocketed) AS save_count,
+  SUM(blocked) AS dismiss_count,
   current_timestamp AS snowflake_loaded_at
 FROM
   flattened_impression_data

@@ -17,7 +17,7 @@ WITH
   WHERE
     row_number = 1 )
 SELECT
-  DATE(submission_timestamp) AS activity_date,
+  DATE(submission_timestamp) AS happened_at,
   CASE
     WHEN ( normalized_country_code IN ('US', 'CA') AND locale IN ('en-CA', 'en-GB', 'en-US') ) THEN 'NEW_TAB_EN_US'
     WHEN ( normalized_country_code IN ('GB',
@@ -59,8 +59,13 @@ END
 FROM
   deduplicated
 WHERE
-  release_channel = 'release' --this is only beta for now, this is why user numbers are so low
-  AND (version LIKE '6%'
+  release_channel = 'release' 
+  AND (version LIKE '1%'
+    OR version LIKE '2%'
+    OR version LIKE '3%'
+    OR version LIKE '4%'
+    OR version LIKE '5%'
+    OR version LIKE '6%'
     OR version LIKE '7%'
     OR version LIKE '8%'
     OR version LIKE '9%'
@@ -90,4 +95,5 @@ GROUP BY
   1,
   2
 ORDER BY
-  1;
+  1,
+  2;

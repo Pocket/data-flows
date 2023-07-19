@@ -1,21 +1,4 @@
 WITH
-  deduplicated AS (
-  SELECT
-    *
-  FROM (
-    SELECT
-      *,
-      ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
-        document_id
-      ORDER BY
-        submission_timestamp) AS row_number
-    FROM
-      `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`
-    WHERE
-      --replace with incremental logic
-      TIMESTAMP_TRUNC(submission_timestamp, DAY) = TIMESTAMP("2023-07-18") )
-  WHERE
-    row_number = 1 ),
   impression_data AS (
   SELECT
     s.*,
@@ -41,9 +24,11 @@ WITH
   END
     AS feed_name
   FROM
-    deduplicated AS s
+    `moz-fx-data-shared-prod.activity_stream.impression_stats` AS s
+    --replace with incremental logic
   WHERE
-    loaded IS NULL --don't include loaded ping
+    TIMESTAMP_TRUNC(submission_timestamp, DAY) > TIMESTAMP("2022-12-31")
+    AND loaded IS NULL --don't include loaded ping
     AND ARRAY_LENGTH(tiles) >= 1 --make sure data is valid/non-empty
     AND release_channel = 'release'
     AND ( ( normalized_country_code IN ('US',
@@ -66,7 +51,7 @@ WITH
       OR (normalized_country_code IN ('FR')
         AND locale IN ('fr'))
       OR (normalized_country_code IN ('ES')
-        AND locale IN ('es-ES')) )),
+        AND locale IN ('es-ES')) ) ),
   flattened_impression_data AS ( --need this step to filter out >2 clicks from a given client on the same tile within 1 second
   SELECT
     UNIX_SECONDS(submission_timestamp) AS submission_timestamp,
@@ -117,8 +102,8 @@ WITH
     5,
     6 )
 SELECT
-  DATE(TIMESTAMP_SECONDS(a.submission_timestamp)) AS happened_at,
-  a.feed_name,
+  DATE_TRUNC(DATE(TIMESTAMP_SECONDS(a.submission_timestamp)), month) AS happened_at,
+  feed_name,
   COUNT(DISTINCT
     CASE
       WHEN a.impressions > 0 THEN a.client_id
@@ -157,4 +142,5 @@ GROUP BY
   1,
   2
 ORDER BY
-  1;
+  1,
+  2;

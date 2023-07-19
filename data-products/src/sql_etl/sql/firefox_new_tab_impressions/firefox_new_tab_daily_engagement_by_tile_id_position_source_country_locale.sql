@@ -35,7 +35,7 @@ WITH
     flattened_tiles.id AS tile_id,
     IFNULL(flattened_tiles.pos, alt_pos) AS position,
     --the 3x1 layout has a bug where we need to use the position of each element in the tiles array instead of the actual pos field
-    SOURCE,
+    source,
     locale,
     normalized_country_code AS country,
     SUM(CASE
@@ -81,7 +81,7 @@ SELECT
   DATE(TIMESTAMP_SECONDS(submission_timestamp)) AS happened_at,
   tile_id,
   position,
-  SOURCE,
+  source,
   locale,
   country,
   SUM(impressions) AS impression_count,

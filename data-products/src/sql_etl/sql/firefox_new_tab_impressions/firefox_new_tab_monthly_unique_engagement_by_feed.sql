@@ -27,7 +27,7 @@ WITH
     `moz-fx-data-shared-prod.activity_stream.impression_stats` AS s
     --replace with incremental logic
   WHERE
-    TIMESTAMP_TRUNC(submission_timestamp, DAY) = TIMESTAMP("2023-07-18")
+    TIMESTAMP_TRUNC(submission_timestamp, DAY) > TIMESTAMP("2022-12-31")
     AND loaded IS NULL --don't include loaded ping
     AND ARRAY_LENGTH(tiles) >= 1 --make sure data is valid/non-empty
     AND release_channel = 'release'
@@ -142,4 +142,5 @@ GROUP BY
   1,
   2
 ORDER BY
-  1;
+  1,
+  2;

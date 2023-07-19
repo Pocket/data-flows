@@ -434,6 +434,25 @@ FLOW_SPEC = FlowSpec(
                 ),
             ],
         ),  # type: ignore
+        FlowDeployment(
+            deployment_name="firefox_new_tab_impressions",
+            parameters={
+                "etl_input": SqlEtlJob(
+                    sql_folder_name="firefox_new_tab_impressions",
+                    initial_last_offset="",
+                    kwargs={"destination_table_name": ""},
+                    source_system="bigquery",
+                ).dict()  # type: ignore
+            },
+            envars=[
+                FlowEnvar(
+                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
+                    envar_value=CS.deployment_type_value(
+                        dev="braun", staging="staging", main="mozilla"
+                    ),  # type: ignore
+                ),
+            ],
+        ),
     ],
 )
 
