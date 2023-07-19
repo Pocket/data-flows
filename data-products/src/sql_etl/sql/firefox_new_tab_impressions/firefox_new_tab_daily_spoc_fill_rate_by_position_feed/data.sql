@@ -137,8 +137,6 @@ WITH
       4,
       11,
       20)
-    --starting 2022-03-08, SPOC positions will change
-    --add as a separate OR statement to make it easier to drop the old SPOC positions once we have critical mass on the new version
     OR a.position IN (1,
       5,
       7,
