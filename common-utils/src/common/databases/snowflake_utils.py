@@ -1,11 +1,10 @@
 import os
 from typing import Optional, Union
 
+from common.settings import CommonSettings, NestedSettings, Settings
 from prefect import task
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
-from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
-
-from common.settings import CommonSettings, NestedSettings, Settings
+from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr, validator
 
 CS = CommonSettings()  # type: ignore
 
@@ -80,9 +79,19 @@ class PktSnowflakeConnector(SnowflakeConnector):
         data["credentials"] = SnowflakeCredentials(
             **settings.snowflake_credentials.dict()
         )
-        data["schema"] = settings.snowflake_schema
-        data["warehouse"] = settings.snowflake_warehouse
+
+        schema = data.get("schema", settings.snowflake_schema)
+        warehouse = data.get("warehouse", settings.snowflake_warehouse)
+
+        data["schema"] = schema
+        data["warehouse"] = warehouse
         super().__init__(**data)
+
+    # @validator('schema', 'warehouse')
+    # def check_sum(cls, v):
+    #     if sum(v) > 42:
+    #         raise ValueError('sum of numbers greater than 42')
+    #     return v
 
 
 class SfGcsStage(BaseModel):
@@ -107,16 +116,3 @@ def get_gcs_stage(stage_id: str = "default") -> SfGcsStage:
         stage_name=stage_config[f"{stage_id}_name"],
         stage_location=stage_config[f"{stage_id}_location"],
     )
-
-
-@task()
-def get_pocket_snowflake_connector_block(
-    warehouse_override: Union[str, None] = None,
-    schema_override: Union[str, None] = None,
-    **kwargs,
-):
-    if x := warehouse_override:
-        os.environ["DF_CONFIG_SNOWFLAKE_WAREHOUSE"] = x
-    if x := schema_override:
-        os.environ["DF_CONFIG_SNOWFLAKE_SCHEMA"] = x
-    return PktSnowflakeConnector(**kwargs)

@@ -1,7 +1,7 @@
 import os
 from copy import deepcopy
 from pathlib import Path
-from typing import Union
+from typing import Literal, Union
 
 import pendulum as pdm
 from common import get_script_path
@@ -10,6 +10,7 @@ from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
 from prefect import flow, get_run_logger
 from prefect.server.schemas.schedules import CronSchedule
+from shared.async_utils import process_parallel_subflows
 from shared.utils import (
     IntervalSet,
     SharedUtilsSettings,
@@ -58,7 +59,6 @@ class SqlEtlJob(SqlJob):
 
     snowflake_stage_id: str = "default"
     with_external_state: bool = False
-    warehouse_override: Union[str, None] = None
 
     def _init_private_attributes(self) -> None:
         """Overriding the private attributes set to include
@@ -95,6 +95,10 @@ class SqlEtlJob(SqlJob):
             SfGcsStage: Model for stage metadata.
         """
         return get_gcs_stage(self.snowflake_stage_id)
+
+    def process_envar_overrides(self):
+        if not self.warehouse_override:
+            os.environ["DF_CONFIG_SNOWFLAKE_WAREHOUSE"]
 
     def get_gcs_uri(self, interval_input: IntervalSet) -> str:
         """Get the Gcp storage uri based on interval metadata.
@@ -306,22 +310,17 @@ async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
         # need a remove_file for downstream continuation
         remove_files = []
     # Run extraction
-    # Stop if no extraction sql exists
-    if not etl_input.has_extraction_sql:
-        message = "No extraction sql to execute. Ending flow run..."
-        logger.info(message)
-        return message
     logger.info("Running extraction...")
     extract_stmt = etl_input.get_extraction_sql(interval_input)
     extract = await extract_stmt.run_query_task(
-        "run-extraction", {"wait_for": [remove_files]}
+        "run-extraction", **{"wait_for": [remove_files]}
     )
     # run a post extraction load sql if it exists
     if etl_input.has_load_sql:
         logger.info("Applying new offset...")
         # commit the new offset
         load_sql = etl_input.get_load_sql(interval_input)
-        load = await load_sql.run_query_task("run-load", {"wait_for": [extract]})
+        load = await load_sql.run_query_task("run-load", **{"wait_for": [extract]})
         logger.info(f"Load logic completed with: {load[0]}")
     else:
         load = "No load sql to execute..."
@@ -333,7 +332,7 @@ async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
             # commit the new offset
             persist_offset_stmt = etl_input.get_persist_offset_sql(new_offset[0][0])
             persist_offset = await persist_offset_stmt.run_query_task(
-                "persist-new-offset", {"wait_for": [load]}
+                "persist-new-offset", **{"wait_for": [load]}
             )
             logger.info(f"Persist offset logic completed with: {persist_offset[0]}")
         else:
@@ -351,33 +350,51 @@ async def main(etl_input: SqlEtlJob):
     # get standard Prefect logger for logging
     logger = get_run_logger()
 
-    # iterate through the intervals and perform subflow
-    # if incremental
-    if etl_input.is_incremental:
+    # helper functions to reduce code
+    async def process_incremental(etl_input):
         # get the last offset
         last_offset_stmt = etl_input.get_last_offset_sql()
         last_offset = await last_offset_stmt.run_query_task("get-last-offset")
         logger.info(f"Last offset is: {last_offset[0][0]}...")
         for i in etl_input.get_intervals(last_offset[0][0]):
             await interval(etl_input, i)
-    else:
+
+    async def process_non_incremental(etl_input):
         # create static interval set to satisfy input params
         static_datetime_str = pdm.now(tz="UTC").to_iso8601_string()
         static_interval = IntervalSet(batch_start=static_datetime_str)  # type: ignore
-        # allow single level of nested sql collections for non-incremental
+        await interval(etl_input, static_interval)
+
+    async def process_all(processing_function):
         sub_paths = [
             path.parts[-1]
             for path in Path(etl_input.job_file_path).iterdir()
             if path.is_dir()
         ]
         if sub_paths:
+            logger.info("Sub directories exist...")
+            task_group = []
             for s in sub_paths:
                 new_input = deepcopy(etl_input)
-                new_input.sql_folder_name = os.path.join(etl_input.sql_folder_name, s)
-                await interval(new_input, static_interval)
-        # finally run any top level jobs
-        await interval.with_options(name="")(etl_input, static_interval)
-        # finally run any top level jobs
+                new_folder_name = os.path.join(etl_input.sql_folder_name, s)
+                new_input.sql_folder_name = new_folder_name
+                logger.info(f"Running for sub directory: {new_folder_name}...")
+                task_group.append(processing_function(new_input))
+            await process_parallel_subflows(task_group)
+        if etl_input.has_extraction_sql:
+            logger.info(
+                f"Running top level extraction for directory: {etl_input.sql_folder_name}..."  # noqa: E501
+            )
+            await processing_function(etl_input)
+        else:
+            logger.info(
+                f"No top level extraction for directory: {etl_input.sql_folder_name}..."
+            )
+
+    if etl_input.is_incremental:
+        await process_all(process_incremental)
+    else:
+        await process_all(process_non_incremental)
 
 
 # helper for passing stage id to deployment parameters
@@ -417,6 +434,7 @@ FLOW_SPEC = FlowSpec(
                     },
                     with_external_state=True,
                     snowflake_stage_id=SF_GCP_STAGE_ID,
+                    is_incremental=True,
                 ).dict()  # type: ignore
             },
             envars=[
@@ -435,6 +453,7 @@ FLOW_SPEC = FlowSpec(
                     sql_folder_name="impression_stats_v1",
                     initial_last_offset="2022-12-23",
                     kwargs={"destination_table_name": "impression_stats_v1_new"},
+                    is_incremental=True,
                 ).dict()  # type: ignore
             },
             envars=[
@@ -454,7 +473,9 @@ if __name__ == "__main__":
     from asyncio import run
 
     t = SqlEtlJob(
-        sql_folder_name="curated_feed_exports_aurora",
-        kwargs={},
+        # override_last_offset="2023-07-16 23:59:59.999999",
+        sql_folder_name="firefox_new_tab_impressions",
+        kwargs={"is_for_backfill": True},
+        is_incremental=True,
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore

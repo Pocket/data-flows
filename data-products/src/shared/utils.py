@@ -109,7 +109,7 @@ class IntervalSet(BaseModel):
 
 # Globals to help with enforcing engine types and dynamic tasks
 QUERY_ENGINE_MAPPING = {
-    "snowflake": {"snowflake_credentials": PktSnowflakeConnector},
+    "snowflake": {"snowflake_connector": PktSnowflakeConnector},
     "bigquery": {"gcp_credentials": PktGcpCredentials},
     "postgres": {"sqlalchemy_credentials": None},
     "mysql": {"sqlalchemy_credentials": None},
@@ -126,6 +126,7 @@ class SqlStmt(BaseModel):
     sql_text: str
     sql_engine: QUERY_ENGINE_TYPES_LITERAL
     is_multi_statement: bool
+    connection_overrides: dict
     _creds_param_name: str = PrivateAttr()
     _creds_param_value: Any = PrivateAttr()
 
@@ -151,10 +152,12 @@ class SqlStmt(BaseModel):
         """
         return {
             "query": self.sql_text,
-            self._creds_param_name: self._creds_param_value(),
+            self._creds_param_name: self._creds_param_value(
+                **self.connection_overrides.get(self._creds_param_name, {})
+            ),
         }
 
-    async def run_query_task(self, task_name: str, task_kwargs={}) -> list[tuple]:
+    async def run_query_task(self, task_name: str, **kwargs) -> list[tuple]:
         """Helper method to dynamically execute the proper
         query task based on sql statement attributes.
 
@@ -177,8 +180,8 @@ class SqlStmt(BaseModel):
                 query_task = task_mapping[sql_engine]["multi"]
             else:
                 query_task = task_mapping[sql_engine]["single"]
-        task_kwargs.update(self.standard_kwargs)
-        return await query_task().with_options(name=task_name)(**task_kwargs)
+        kwargs.update(self.standard_kwargs)
+        return await query_task.with_options(name=task_name)(**kwargs)
 
 
 class SqlJob(BaseModel):
@@ -209,6 +212,19 @@ class SqlJob(BaseModel):
     is_incremental: bool = Field(
         False,
         description="Whether is an incremental job, else just as run single subflow",
+    )
+    connection_overrides: dict[str, dict] = Field(
+        {},
+        description=(
+            """Any additional keyword arguments as a dictionary
+            to pass into the connector. Must in the form of:
+             
+                {"connector_param_name": {
+                        "arg_name": "arg_value"
+                    } 
+                }
+            """
+        ),
     )
     kwargs: dict = Field(
         {},
@@ -247,16 +263,12 @@ class SqlJob(BaseModel):
         job_kwargs.update(top_level_kwargs)
         return job_kwargs
 
-    def render_from_template(
-        self, template: Template, render_kwargs: dict, from_file: bool = False
-    ) -> SqlStmt:
+    def render_from_template(self, template: Template, render_kwargs: dict) -> SqlStmt:
         """Helper function
 
         Args:
             template (Template): jinja2 Template object to render.
             render_kwargs (dict): kwargs to pass to render function.
-            from_file (bool, optional): Flag to use for special file logic.
-            Defaults to False.
 
         Raises:
             Exception: Exception that enforces existence of sql engine variable.
@@ -267,24 +279,25 @@ class SqlJob(BaseModel):
 
         sql_engine = "snowflake"
         is_multi_statement = False
-        if from_file:
-            try:
-                sql_engine = template.module.sql_engine  # type: ignore
-            except AttributeError:
-                raise Exception(
-                    'SQL file must have jinja2 block {% set engine = "<engine_type>" %}, '
-                    f"and must be one of {QUERY_ENGINE_TYPES_SET}"
-                )
-            try:
-                is_multi_statement = template.module.is_multi_statement  # type: ignore
-            except AttributeError:
+        try:
+            sql_engine = template.module.sql_engine  # type: ignore
+        except AttributeError:
+            raise Exception(
+                'SQL file must have jinja2 block {% set sql_engine = "<engine_type>" %}, '
+                f"and must be one of {QUERY_ENGINE_TYPES_SET}"
+            )
+        try:
+            is_multi_statement = template.module.is_multi_statement  # type: ignore
+        except AttributeError:
+            if sql_engine == "snowflake":
                 logger = get_run_logger()
-                logger.info("Sql statement defaulting to single statement mode...")
+                logger.info("Snowflake query defaulting to single statement mode...")
         sql_text = template.render(**render_kwargs)
         return SqlStmt(
             sql_engine=sql_engine,
             sql_text=sql_text,
             is_multi_statement=is_multi_statement,
+            connection_overrides=self.connection_overrides,
         )
 
     def render_sql_string(self, sql_string: str, extra_kwargs: dict = {}) -> SqlStmt:
@@ -325,7 +338,7 @@ class SqlJob(BaseModel):
         )
         j2_env = environment
         template = j2_env.get_template(sql_file)
-        return self.render_from_template(template, render_kwargs, True)
+        return self.render_from_template(template, render_kwargs)
 
     def get_intervals(self, last_offset: Union[str, None] = None) -> list[IntervalSet]:
         """Method that returns the intervals to be used for sql job.
@@ -401,6 +414,14 @@ class SqlJob(BaseModel):
         last_idx = interval_len - 2
         # create the staging list of intervat sets
         interval_sets = []
+        # set proper first_interval_start
+        first_interval_start = start
+        first_item_time = intervals[0].to_time_string() # type: ignore
+        # this evaluation is needed because if the offset value...
+        # turns out to be the start of the day, then that is really...
+        # the first interval start and helper with more efficient file clean up
+        if first_item_time == "00:00:00":
+            first_interval_start = intervals[0] 
         for idx, i in enumerate(intervals):
             is_initial = False
             is_final = False
@@ -416,7 +437,7 @@ class SqlJob(BaseModel):
                 IntervalSet(
                     batch_start=i.to_iso8601_string(),  # type: ignore
                     batch_end=intervals[end_idx].to_iso8601_string(),  # type: ignore
-                    first_interval_start=start.to_iso8601_string(),  # type: ignore
+                    first_interval_start=first_interval_start.to_iso8601_string(),  # type: ignore
                     sets_end=base_end.to_iso8601_string(),  # type: ignore
                     is_initial=is_initial,
                     is_final=is_final,
@@ -456,8 +477,8 @@ def get_files_for_cleanup(
     for f in file_list:
         file_str = f[0].replace(f"{block_storage_prefix}://", "")
         file_parts = Path(file_str).parts
-        date_folder_str = file_parts[2]
-        datetime_folder_str = file_parts[2] + "/" + file_parts[3]
+        date_folder_str = file_parts[-3]
+        datetime_folder_str = file_parts[-3] + "/" + file_parts[-2]
         datetime_str = (
             datetime_folder_str.replace("date=", "")
             .replace("time=", "")
