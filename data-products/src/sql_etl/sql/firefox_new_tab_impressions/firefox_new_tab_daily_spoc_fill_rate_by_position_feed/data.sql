@@ -8,20 +8,20 @@
 
 WITH
   deduplicated AS (
-  SELECT
-    *   
-  FROM
-    {% if for_backfill %}
-    `moz-fx-data-shared-prod.activity_stream_stable.impression_stats_v1`
-  {% else %}
-    `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`  
-  {% endif %}
-  WHERE submission_timestamp >= DATETIME_SUB({{ parse_iso8601(batch_end) }}, INTERVAL 1 DAY) 
-  AND < {{ parse_iso8601(batch_end) }}
-  QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
+    SELECT
+      *   
+    FROM
+      {% if for_backfill %}
+      `moz-fx-data-shared-prod.activity_stream_stable.impression_stats_v1`
+    {% else %}
+      `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`  
+    {% endif %}
+    WHERE submission_timestamp BETWEEN DATETIME_SUB({{ parse_iso8601(batch_start) }}, INTERVAL 1 DAY) AND {{ parse_iso8601(batch_start) }}
+    QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
     document_id
     ORDER BY
-    submission_timestamp desc) = 1),
+    submission_timestamp desc) = 1
+),
   impression_data AS (
   SELECT
     s.*,

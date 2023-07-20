@@ -23,7 +23,7 @@ class GcpSettings(Settings):
     See pytest.ini at the common-utils root for examples.
     """
 
-    gcp_credentials: GcpCredSettings
+    gcp_credentials: Optional[GcpCredSettings]
 
 
 class PktGcpCredentials(GcpCredentials):
@@ -35,8 +35,11 @@ class PktGcpCredentials(GcpCredentials):
 
     def __init__(self, **data):
         settings = GcpSettings()  # type: ignore
-        data["service_account_info"] = settings.gcp_credentials.service_account_info
-        data["service_account_file"] = settings.gcp_credentials.service_account_file
+        if x := settings.gcp_credentials:
+            if xs:= x.service_account_info:
+                data["service_account_info"] = xs
+            elif xs:= x.service_account_file:
+                data["service_account_file"]= xs
         super().__init__(**data)
 
 
