@@ -66,7 +66,12 @@ FROM
   deduplicated
 WHERE
   release_channel = 'release' --this is only beta for now, this is why user numbers are so low
-  AND (version LIKE '6%'
+  AND (version LIKE '1%'
+    OR version LIKE '2%'
+    OR version LIKE '3%'
+    OR version LIKE '4%'
+    OR version LIKE '5%'
+    OR version LIKE '6%'
     OR version LIKE '7%'
     OR version LIKE '8%'
     OR version LIKE '9%'
