@@ -474,8 +474,8 @@ if __name__ == "__main__":
 
     t = SqlEtlJob(
         # override_last_offset="2023-07-16 23:59:59.999999",
-        sql_folder_name="firefox_new_tab_impressions",
+        sql_folder_name="firefox_new_tab_impressions/firefox_new_tab_daily_disable_rate_by_feed",
         kwargs={"is_for_backfill": True},
         is_incremental=True,
     )  # type: ignore
-    run(main(etl_input=t))  # type: ignore
+    run(main(etl_input=t))  # type: ignore  
