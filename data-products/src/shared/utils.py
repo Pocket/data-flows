@@ -205,13 +205,8 @@ class SqlJob(BaseModel):
     include_now: bool = Field(
         False,
         description=(
-            "Whether to include current_time (for manual runs) "
-            "or scheduled start datetime."
+            "Whether to include up to current utc datetime in extraction"
         ),
-    )
-    is_incremental: bool = Field(
-        False,
-        description="Whether is an incremental job, else just as run single subflow",
     )
     connection_overrides: dict[str, dict] = Field(
         {},

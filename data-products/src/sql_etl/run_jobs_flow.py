@@ -1,7 +1,6 @@
 import os
 from copy import deepcopy
 from pathlib import Path
-from typing import Literal, Union
 
 import pendulum as pdm
 from common import get_script_path
@@ -55,7 +54,15 @@ EXISTING_FILES_SQL = (
 
 
 class SqlEtlJob(SqlJob):
-    """Model for parameters to passed to an etl job request."""
+    """Model for parameters to passed to an etl job request.
+
+    Attributes:
+        snowflake_stage_id (str): Snowflake stage identifier for use in the etl job.
+            Defaults to `default`.
+        with_external_state (bool): Whether or not to store
+            offset in the `sql_offset_state` table.
+
+    """
 
     snowflake_stage_id: str = "default"
     with_external_state: bool = False
@@ -88,6 +95,13 @@ class SqlEtlJob(SqlJob):
         return Path(os.path.join(self.job_file_path, "load.sql")).exists()
 
     @property
+    def is_incremental(self):
+        return (
+            Path(os.path.join(self.job_file_path, "offset.sql")).exists()
+            or self.with_external_state
+        )
+
+    @property
     def snowflake_stage(self) -> SfGcsStage:
         """Get Snowflake Gcp Stage to use based on deployment type.
 
@@ -95,10 +109,6 @@ class SqlEtlJob(SqlJob):
             SfGcsStage: Model for stage metadata.
         """
         return get_gcs_stage(self.snowflake_stage_id)
-
-    def process_envar_overrides(self):
-        if not self.warehouse_override:
-            os.environ["DF_CONFIG_SNOWFLAKE_WAREHOUSE"]
 
     def get_gcs_uri(self, interval_input: IntervalSet) -> str:
         """Get the Gcp storage uri based on interval metadata.
@@ -351,21 +361,32 @@ async def main(etl_input: SqlEtlJob):
     logger = get_run_logger()
 
     # helper functions to reduce code
-    async def process_incremental(etl_input):
-        # get the last offset
-        last_offset_stmt = etl_input.get_last_offset_sql()
-        last_offset = await last_offset_stmt.run_query_task("get-last-offset")
-        logger.info(f"Last offset is: {last_offset[0][0]}...")
-        for i in etl_input.get_intervals(last_offset[0][0]):
-            await interval(etl_input, i)
+    async def process_intervals(etl_input):
+        if etl_input.has_extraction_sql:
+            if etl_input.is_incremental:
+                logger.info(
+                    f"Running directory: {etl_input.sql_folder_name}..."  # noqa: E501
+                )
+                # get the last offset
+                last_offset_stmt = etl_input.get_last_offset_sql()
+                last_offset = await last_offset_stmt.run_query_task("get-last-offset")
+                logger.info(f"Last offset is: {last_offset[0][0]}...")
+                for i in etl_input.get_intervals(last_offset[0][0]):
+                    await interval(etl_input, i)
+            else:
+                static_datetime_str = (
+                    etl_input.override_last_offset
+                    or pdm.now(tz="UTC").to_iso8601_string()
+                )
+                static_interval = IntervalSet(
+                    batch_start=static_datetime_str
+                )  # type: ignore
+                await interval(etl_input, static_interval)
 
-    async def process_non_incremental(etl_input):
-        # create static interval set to satisfy input params
-        static_datetime_str = pdm.now(tz="UTC").to_iso8601_string()
-        static_interval = IntervalSet(batch_start=static_datetime_str)  # type: ignore
-        await interval(etl_input, static_interval)
+        else:
+            logger.info(f"No extraction for directory: {etl_input.sql_folder_name}...")
 
-    async def process_all(processing_function):
+    async def process_all():
         sub_paths = [
             path.parts[-1]
             for path in Path(etl_input.job_file_path).iterdir()
@@ -379,22 +400,11 @@ async def main(etl_input: SqlEtlJob):
                 new_folder_name = os.path.join(etl_input.sql_folder_name, s)
                 new_input.sql_folder_name = new_folder_name
                 logger.info(f"Running for sub directory: {new_folder_name}...")
-                task_group.append(processing_function(new_input))
+                task_group.append(process_intervals(new_input))
             await process_parallel_subflows(task_group)
-        if etl_input.has_extraction_sql:
-            logger.info(
-                f"Running top level extraction for directory: {etl_input.sql_folder_name}..."  # noqa: E501
-            )
-            await processing_function(etl_input)
-        else:
-            logger.info(
-                f"No top level extraction for directory: {etl_input.sql_folder_name}..."
-            )
+        await process_intervals(etl_input)
 
-    if etl_input.is_incremental:
-        await process_all(process_incremental)
-    else:
-        await process_all(process_non_incremental)
+    await process_all()
 
 
 # helper for passing stage id to deployment parameters
@@ -434,7 +444,6 @@ FLOW_SPEC = FlowSpec(
                     },
                     with_external_state=True,
                     snowflake_stage_id=SF_GCP_STAGE_ID,
-                    is_incremental=True,
                 ).dict()  # type: ignore
             },
             envars=[
@@ -453,7 +462,6 @@ FLOW_SPEC = FlowSpec(
                     sql_folder_name="impression_stats_v1",
                     initial_last_offset="2022-12-23",
                     kwargs={"destination_table_name": "impression_stats_v1_new"},
-                    is_incremental=True,
                 ).dict()  # type: ignore
             },
             envars=[
@@ -475,7 +483,6 @@ if __name__ == "__main__":
     t = SqlEtlJob(
         # override_last_offset="2023-07-16 23:59:59.999999",
         sql_folder_name="firefox_new_tab_impressions/firefox_new_tab_daily_disable_rate_by_feed",
-        kwargs={"is_for_backfill": True},
-        is_incremental=True,
+        kwargs={"is_for_backfill": True}
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore  

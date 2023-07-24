@@ -1,17 +1,20 @@
-# Welcome to MkDocs
+# Getting Started
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+`data_products` consists of [Prefect](https://docs.prefect.io) flows and shared utilities.  All flows in the project can leverage these shared utilities for the use of common abstractions specific to this project. Flows themselves live in a folder specific to that flow, which can also contain specific helpers to aid in flow development.
 
-## Commands
+Flows can be thought of as data applications that run on a specific schedule or on-demand via manual execution.
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+Flows and flow specific code lives in separate folders in `src`.  For example, `src/sql_etl`.  Everything in that folder will be available to the flow at run time.
 
-## Project layout
+Shared utilities live in `src/shared` can will be available to all flows.
 
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+## Installation and Setup
+
+This project uses [Poetry](https://python-poetry.org/) for dependency management.
+We also use the (Poetry dotenv plugin)[https://github.com/volopivoshenko/poetry-plugin-dotenv] to apply environment variables at runtime through the use of a `.env` file that should live at the root of this project.
+
+NOTE:  If you get a dependency error on installion of the plug, you just need to update Poetry using `poetry self update`.
+
+These should be deployed using the details offered by each project's respective documentation.
+
+Once all Poetry requirements are installed.  You can install all project dependencies through the `poetry install` command.  This will install both `dev` and `main` sets of dependencies.
