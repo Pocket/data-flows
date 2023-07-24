@@ -54,15 +54,7 @@ EXISTING_FILES_SQL = (
 
 
 class SqlEtlJob(SqlJob):
-    """Model for parameters to passed to an etl job request.
-
-    Attributes:
-        snowflake_stage_id (str): Snowflake stage identifier for use in the etl job.
-            Defaults to `default`.
-        with_external_state (bool): Whether or not to store
-            offset in the `sql_offset_state` table.
-
-    """
+    """Model for parameters to passed to an etl job request."""
 
     snowflake_stage_id: str = "default"
     with_external_state: bool = False
@@ -256,6 +248,11 @@ class SqlEtlJob(SqlJob):
         extra_kwargs = {
             "snowflake_stage_uri": self.get_snowflake_stage_uri(interval_input),
             "partition_timestamp": interval_input.partition_timestamp,
+            "metadata_column_definitions": """_gs_file_name string,
+            _gs_file_row_number number,
+            _gs_file_date string,
+            _gs_file_time string,
+            _loaded_at timestamp_tz""",
             "metadata_keys": """_gs_file_name,
             _gs_file_row_number,
             _gs_file_date,
@@ -263,10 +260,12 @@ class SqlEtlJob(SqlJob):
             _loaded_at""",
             "metadata_values": """metadata$filename,
             metadata$file_row_number,
+            split_part(metadata$filename,'/', -3),
             split_part(metadata$filename,'/', -2),
-            split_part(metadata$filename,'/', -1),
             sysdate()""",
+            "table_name": self.sql_folder_name.split("/")[-1],
         }
+        extra_kwargs.update(interval_input.dict())
         return self.render_sql_file(load_sql_file_name, extra_kwargs)
 
 
@@ -481,8 +480,10 @@ if __name__ == "__main__":
     from asyncio import run
 
     t = SqlEtlJob(
-        # override_last_offset="2023-07-16 23:59:59.999999",
+        override_last_offset="2023-07-22 23:59:59.999999",
         sql_folder_name="firefox_new_tab_impressions/firefox_new_tab_daily_disable_rate_by_feed",
-        kwargs={"is_for_backfill": True}
+        kwargs={
+            "is_for_backfill": True,
+        },
     )  # type: ignore
-    run(main(etl_input=t))  # type: ignore  
+    run(main(etl_input=t))  # type: ignore

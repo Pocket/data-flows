@@ -16,14 +16,15 @@ WITH
     {% else %}
       `moz-fx-data-shared-prod.activity_stream_live.sessions_v1`  
     {% endif %}
-    WHERE submission_timestamp BETWEEN DATETIME_SUB({{ parse_iso8601(batch_start) }}, INTERVAL 1 DAY) AND {{ parse_iso8601(batch_start) }}
+    WHERE submission_timestamp >= {{ parse_iso8601(batch_start) }}
+    AND submission_timestamp < {{ parse_iso8601(batch_end) }}
     QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
     document_id
     ORDER BY
     submission_timestamp desc) = 1
 )
 SELECT
-  DATE(submission_timestamp) AS activity_date,
+  DATE(submission_timestamp) AS happened_at,
   CASE
     WHEN ( normalized_country_code IN ('US', 'CA') AND locale IN ('en-CA', 'en-GB', 'en-US') ) THEN 'NEW_TAB_EN_US'
     WHEN ( normalized_country_code IN ('GB',

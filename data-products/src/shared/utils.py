@@ -172,15 +172,20 @@ class SqlStmt(BaseModel):
             "bigquery": {"single": bigquery_query},
             "default": {"single": sqlalchemy_query},
         }
+        standard_kwargs = self.standard_kwargs
         query_task = task_mapping["default"]["single"]
         sql_engine = self.sql_engine
         is_multi_statement = self.is_multi_statement
         if sql_engine in ["snowflake", "bigquery"]:
             if sql_engine == "snowflake" and is_multi_statement:
                 query_task = task_mapping[sql_engine]["multi"]
+                standard_kwargs["queries"] = (
+                    standard_kwargs["query"].rstrip(";").split(";")
+                )
+                standard_kwargs.pop("query")
             else:
                 query_task = task_mapping[sql_engine]["single"]
-        kwargs.update(self.standard_kwargs)
+        kwargs.update(standard_kwargs)
         return await query_task.with_options(name=task_name)(**kwargs)
 
 
@@ -204,9 +209,7 @@ class SqlJob(BaseModel):
     )
     include_now: bool = Field(
         False,
-        description=(
-            "Whether to include up to current utc datetime in extraction"
-        ),
+        description=("Whether to include up to current utc datetime in extraction"),
     )
     connection_overrides: dict[str, dict] = Field(
         {},
@@ -411,12 +414,12 @@ class SqlJob(BaseModel):
         interval_sets = []
         # set proper first_interval_start
         first_interval_start = start
-        first_item_time = intervals[0].to_time_string() # type: ignore
+        first_item_time = intervals[0].to_time_string()  # type: ignore
         # this evaluation is needed because if the offset value...
         # turns out to be the start of the day, then that is really...
         # the first interval start and helper with more efficient file clean up
         if first_item_time == "00:00:00":
-            first_interval_start = intervals[0] 
+            first_interval_start = intervals[0]
         for idx, i in enumerate(intervals):
             is_initial = False
             is_final = False
