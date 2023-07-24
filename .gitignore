@@ -44,3 +44,7 @@ dask-worker-space/
 # VCS
 .git/
 .hg/
+
+# docs
+site
+
