@@ -1,10 +1,9 @@
-import os
-from typing import Optional, Union
+from typing import Optional
+
+from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
+from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
 
 from common.settings import CommonSettings, NestedSettings, Settings
-from prefect import task
-from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
-from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr, validator
 
 CS = CommonSettings()  # type: ignore
 
@@ -44,7 +43,7 @@ class SnowflakeSettings(Settings):
     _database: str = PrivateAttr()
     snowflake_warehouse: constr(regex=WAREHOUSE_REGEX) = f"prefect_wh_{CS.dev_or_production}"  # type: ignore  # noqa: E501
     snowflake_schema: str = "public"
-    snowflake_gcp_stages: dict
+    snowflake_gcp_stages: Optional[dict]
 
     def __init__(self, **data):
         super().__init__(**data)
