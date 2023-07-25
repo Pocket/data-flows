@@ -86,12 +86,6 @@ class PktSnowflakeConnector(SnowflakeConnector):
         data["warehouse"] = warehouse
         super().__init__(**data)
 
-    # @validator('schema', 'warehouse')
-    # def check_sum(cls, v):
-    #     if sum(v) > 42:
-    #         raise ValueError('sum of numbers greater than 42')
-    #     return v
-
 
 class SfGcsStage(BaseModel):
     stage_name: str

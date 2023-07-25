@@ -13,7 +13,7 @@ SELECT
   excerpt,
   image_src
 FROM curated_feed_prospects
-INTO OUTFILE S3 's3-us-east-1://pocket-astronomer-airflow/curated_feed_exports_aurora/curated_feed_prospects'
+INTO OUTFILE S3 's3-us-east-1://pocket-astronomer-airflow/curated_feed_exports_aurora/curated_feed_prospects{{environment}}'
 FIELDS TERMINATED BY '|'
 LINES TERMINATED BY '\n'
 OVERWRITE ON;

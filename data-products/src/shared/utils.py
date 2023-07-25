@@ -6,6 +6,7 @@ from typing import Any, Literal, Optional, Union
 import pendulum as pdm
 from common.cloud.gcp_utils import PktGcpCredentials
 from common.databases.snowflake_utils import PktSnowflakeConnector
+from common.databases.sqlalchemy_utils import MzsSqlalchemy
 from common.settings import Settings
 from jinja2 import Environment, FileSystemLoader, Template
 from pendulum import from_format
@@ -111,8 +112,8 @@ class IntervalSet(BaseModel):
 QUERY_ENGINE_MAPPING = {
     "snowflake": {"snowflake_connector": PktSnowflakeConnector},
     "bigquery": {"gcp_credentials": PktGcpCredentials},
-    "postgres": {"sqlalchemy_credentials": None},
-    "mysql": {"sqlalchemy_credentials": None},
+    "postgres": {"sqlalchemy_credentials": MzsSqlalchemy},
+    "mysql": {"sqlalchemy_credentials": MzsSqlalchemy},
 }
 QUERY_ENGINE_TYPES_LITERAL = Literal["snowflake", "bigquery", "postgres", "mysql"]
 QUERY_ENGINE_TYPES_SET = QUERY_ENGINE_MAPPING.keys()
