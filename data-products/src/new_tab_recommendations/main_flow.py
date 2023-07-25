@@ -3,9 +3,10 @@ from asyncio import run
 import pandas as pd
 from common.cloud.gcp_utils import PktGcpCredentials
 from common.databases.snowflake_utils import PktSnowflakeConnector
-from prefect import flow, task
+from prefect import flow
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
+from snowflake.connector import DictCursor
 
 from shared.feature_store import dataframe_to_feature_group, FeatureGroupSettings
 
@@ -64,13 +65,15 @@ async def fx_newtab_aggregate_engagement():
         to_dataframe=True,
     )
 
-    df_corpus_item_keys = await snowflake_query(
+    corpus_item_keys_records = await snowflake_query(
         snowflake_connector=PktSnowflakeConnector(),
         query=EXPORT_CORPUS_ITEM_KEYS_SQL,
+        cursor_type=DictCursor,
         params={"tile_ids": df_telemetry["TILE_ID"].tolist()},
     )
 
-    if not df_corpus_item_keys.empty:
+    if corpus_item_keys_records:
+        df_corpus_item_keys = pd.DataFrame(corpus_item_keys_records)
         # Combine the BigQuery and Snowflake results on TILE_ID.
         df_keyed_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
         # Drop TILE_ID now we no longer need it, to match the dataframe columns with the feature group.
