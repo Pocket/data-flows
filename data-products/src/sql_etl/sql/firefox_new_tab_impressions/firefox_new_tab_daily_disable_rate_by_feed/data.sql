@@ -1,11 +1,8 @@
 {% set sql_engine = "bigquery" %}
+{% import 'helpers.j2' as helpers with context %}
 {% if for_new_offset %}
     select current_timestamp()
 {% else %}
-{% macro parse_iso8601(datetime) %}
-    PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E*SZ', '{{ datetime }}')
-{% endmacro %}
-
 WITH
   deduplicated AS (
     SELECT
@@ -16,8 +13,8 @@ WITH
     {% else %}
       `moz-fx-data-shared-prod.activity_stream_live.sessions_v1`  
     {% endif %}
-    WHERE submission_timestamp >= {{ parse_iso8601(batch_start) }}
-    AND submission_timestamp < {{ parse_iso8601(batch_end) }}
+    WHERE submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
+    AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }}
     QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
     document_id
     ORDER BY

@@ -1,0 +1,35 @@
+{% macro parse_iso8601(datetime) %}
+    PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E*SZ', '{{ datetime }}')
+{% endmacro %}
+
+{% macro sf_merge(table_def, merge_key)%}
+
+    create temporary table {{ table_name }}_tmp (
+        {{ table_def }},
+        {{ metadata_column_definitions }}
+    );
+
+    {% set columns = table_def.split(',') %}
+
+    copy into {{ table_name }}_tmp 
+    from (select
+            {% for c in columns %}
+                {% set column_def = c.split() %}
+                $1:{{ column_def[0] }}::{{ column_def[1] }},
+            {% endfor %}
+            {{ metadata_values }}
+        from {{ snowflake_stage_uri }}
+    );
+
+    create table if not exists {{ table_name }}  like {{ table_name }}_tmp;
+
+    set merge_key = (select min({{merge_key}}) from {{ table_name }}_tmp);
+    
+    begin;
+    delete from {{ table_name }} 
+    where {{ merge_key }} >= $merge_key;
+    insert into {{ table_name }} 
+    select * from {{ table_name }}_tmp;
+    commit;
+    
+{% endmacro %}

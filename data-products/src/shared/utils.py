@@ -180,7 +180,7 @@ class SqlStmt(BaseModel):
             if sql_engine == "snowflake" and is_multi_statement:
                 query_task = task_mapping[sql_engine]["multi"]
                 standard_kwargs["queries"] = (
-                    standard_kwargs["query"].rstrip(";").split(";")
+                    standard_kwargs["query"].rstrip().rstrip(";").split(";")
                 )
                 standard_kwargs.pop("query")
             else:
@@ -246,6 +246,10 @@ class SqlJob(BaseModel):
     def job_file_path(self):
         return os.path.join(self._sql_template_path, self.sql_folder_name)  # type: ignore  # noqa: E501
 
+    @property
+    def extras_file_path(self):
+        return os.path.join(self._sql_template_path, "extras")  # type: ignore  # noqa: E501
+    
     @property
     def job_kwargs(self) -> dict:
         """Returns a flat dictionary of the kwargs parameter
@@ -332,7 +336,7 @@ class SqlJob(BaseModel):
         render_kwargs = deepcopy(self.job_kwargs)
         render_kwargs.update(extra_kwargs)
         environment = Environment(
-            loader=FileSystemLoader(self.job_file_path),
+            loader=FileSystemLoader([self.job_file_path, self.extras_file_path]),
         )
         j2_env = environment
         template = j2_env.get_template(sql_file)
