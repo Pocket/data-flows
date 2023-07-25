@@ -1,17 +1,24 @@
 # Usage
 
-`sql_etl` is a Prefect flow meant to act as a service for executing simple SQL based extract and load workflows.  This means a SQL statement extracts the data to cloud storage.  Then a SQL statement loads this data into a cloud-based Data Warehouse.  That is the expectation for this should be used.
+`sql_etl` is a Prefect flow meant to act as a service for executing simple SQL based extract and load workflows.  This means a SQL statement extracts the data to cloud storage.  Then a SQL statement loads this data into a cloud-based Data Warehouse.  That is the expectation for how this should be used.
 
 This is technically more of an `el`, but `etl` is a more common term to use.
 
+A `sql_etl` job can be incremental and use offset logic or simply just run an extract-load process without worring about tracking offset or batching by day.
+
 Code lives at `src/sql_etl` and is described [here](/flows/sql_etl/code).
 
-A `sql_etl` job consists of 2 elements:
+## Expectations
 
-- a folder containing SQL statements
-- a Prefect deployment configuration
+To leverage this service for jobs, `sql_etl` you will need to know:
+
+- How to create the SQL expected for things to work
+- How the offset and interval logic works
+- How to setup your local environment
+- How to create a deployment
 
 Below we go through each element.
+
 
 ## SQL statments
 
@@ -61,11 +68,13 @@ sql_etl
 
 Notice that we can have up to three files possible in a folder:
 
-- data.sql
-- load.sql
-- offset.sql
+- `data.sql`
+- `load.sql`
+- `offset.sql`
 
 Also, notice that we support files liveing at the top level of a folder within the `sql` folder.  We also support a single level of nesting files in subdirectories of a folder in `sql`.
+
+
 
 ### Extraction
 
@@ -119,9 +128,9 @@ NOTE:  Currently all data exports from `snowflake` and `bigquery` will be in `PA
 
 ### Offset
 
-This service provides the option to run either `incremental` or `non-incremental` extract-load jobs, via the `is_incremental` flag.
+This service provides the option to run either `incremental` or `non-incremental` extract-load jobs.
 
-When you have the ability to pull the `last_offset` from the destination table on an incremental job, you will need to provide an `offset.sql` file.
+When you have the ability to pull the `last_offset` from the destination table on an incremental job, you will need to provide an `offset.sql` file.  This activates the incremental logic.
 
 For example:
 ```sql
@@ -130,6 +139,7 @@ select max(timestamp_field) as last_offset
 from TABLE_TO_BE_LOADED
 ```
 
-There is also the option to track offset using an external table called `sql_offset_state` with the `with_external_state` flag.
+There is also the option to track offset using an external table called `sql_offset_state` with the `with_external_state` flag.  If this flag is set, then `offset.sql` is not required to activate incremental logic.
 
-`is_incremental` and `with_external_state` flags will discussed in the Prefect deployment configuration section.
+`with_external_state` and the incremental logic will be discussed later on.
+
