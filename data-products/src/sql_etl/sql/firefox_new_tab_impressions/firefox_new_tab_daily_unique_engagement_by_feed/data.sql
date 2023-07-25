@@ -148,7 +148,6 @@ SELECT
       WHEN a.clicks > 0 AND a.user_prefs & 4 = 4 AND a.user_prefs & 32 = 32 AND t.type = 'spoc' THEN a.client_id
   END
     ) AS users_clicking_spocs_count,
-  current_timestamp AS snowflake_loaded_at
 FROM
   flattened_impression_data AS a
 LEFT JOIN

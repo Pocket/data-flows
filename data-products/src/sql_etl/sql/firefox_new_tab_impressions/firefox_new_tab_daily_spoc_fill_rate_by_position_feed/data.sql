@@ -157,7 +157,6 @@ SELECT
   new_tab_impression_count,
   position_total_impression_count,
   IFNULL(position_spoc_impression_count, 0) AS position_spoc_impression_count,
-  current_timestamp AS snowflake_loaded_at
 FROM
   impression_counts
 ORDER BY

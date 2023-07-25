@@ -4,15 +4,11 @@
 
 {% macro table_def() %}
     happened_at date not null,
-    tile_id number not null,
+    feed_name string,
     position number not null,
-    source string,
-    locale string,
-    country string,
-    impression_count number not null,
-    click_count number not null,
-    save_count number not null,
-    dismiss_count number not null 
+    new_tab_impression_count number not null,
+    position_total_impression_count number not null,
+    position_spoc_impression_count number not null
 {% endmacro %}
 
 {{ helpers.sf_merge(table_def(), 'happened_at') }}
