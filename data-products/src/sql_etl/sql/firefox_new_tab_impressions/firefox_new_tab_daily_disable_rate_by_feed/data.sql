@@ -62,7 +62,6 @@ END
       WHEN user_prefs & 4 = 4 AND user_prefs & 32 = 32 THEN client_id
   END
     ) AS users_eligible_for_spocs_count,
-  current_timestamp AS snowflake_loaded_at
 FROM
   deduplicated
 WHERE

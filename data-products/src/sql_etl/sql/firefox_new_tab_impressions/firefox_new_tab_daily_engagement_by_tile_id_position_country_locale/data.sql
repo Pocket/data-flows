@@ -95,7 +95,6 @@ SELECT
   SUM(clicks) AS click_count,
   SUM(pocketed) AS save_count,
   SUM(blocked) AS dismiss_count,
-  current_timestamp AS snowflake_loaded_at
 FROM
   flattened_impression_data
 WHERE
