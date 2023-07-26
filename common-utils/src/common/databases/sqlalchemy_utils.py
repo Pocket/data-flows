@@ -12,7 +12,7 @@ class SqlalchemySettings(Settings):
     sqlalchemy_url: str
 
 
-class MzsSqlalchemy(DatabaseCredentials):
+class MzsSqlalchemyCredentials(DatabaseCredentials):
     """Moz Social version of the Sqlalchemy DatabaseCredentials provided
     by Prefect-Sqlalchemy with settings already applied.
     All other base model attributes can be set explicitly here.

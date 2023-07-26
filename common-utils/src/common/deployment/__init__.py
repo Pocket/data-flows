@@ -16,7 +16,6 @@ from prefect.server.schemas.schedules import CronSchedule
 from pydantic import (
     BaseModel,
     DirectoryPath,
-    Field,
     FilePath,
     PrivateAttr,
     StrictStr,
@@ -251,29 +250,18 @@ class FlowEnvar(BaseModel):
 class FlowDeployment(BaseModel):
     """Model that describes an abstracted flow deployment."""
 
-    deployment_name: str = Field(
-        ...,
-        description="Name of the deployment, which will show as flow-name/deployment-name",
-    )
-    cpu: str = Field(
-        "256", description="CPU amount that this deployment's flow runs should use."
-    )
-    memory: str = Field(
-        "512", description="Memory amount that this deployment's flow runs should use."
-    )
-    parameters: dict[str, Any] = Field(
-        {},
-        description="Dictionary of parameter values to pass to this deployment's flow runs.",
-    )
-    schedule: Optional[CronSchedule] = Field(
-        description=(
-            "Schedule configuration for this deployment using Prefect Cron Schedule."
-        )
-    )  # type: ignore
-    envars: list[FlowEnvar] = Field(
-        [],
-        description="List of plain text environment variables to pass to task run overrides",
-    )
+    deployment_name: str
+    """"Name of the deployment, which will show as flow-name/deployment-name"""
+    cpu: str = "256"
+    """CPU amount that this deployment's flow runs should use."""
+    memory: str = "512"
+    """Memory amount that this deployment's flow runs should use."""
+    parameters: dict[str, Any] = {}
+    """Dictionary of parameter values to pass to this deployment's flow runs."""
+    schedule: Optional[CronSchedule]
+    """Schedule configuration for this deployment using Prefect Cron Schedule."""
+    envars: list[FlowEnvar] = []
+    """List of plain text environment variables to pass to task run overrides"""
 
     def _get_schedule_arg(self):
         """Helper function to translate Prefect Schedule Cron Object
@@ -309,11 +297,13 @@ class FlowDeployment(BaseModel):
         pythonpath_addition: str,
         base_envars: dict,
     ) -> None:
-        """This method will push a Prefect deployment to Prefect using the deployment cli.
+        """This method will push a Prefect deployment to Prefect
+        using the deployment cli.
 
         Args:
             storage_block_path (str): Remote storage block path to use for flow files.
-            infrastructure (str): ECS Task block name to use for the flow execution environment.
+            infrastructure (str): ECS Task block name to use for the flow
+            execution environment.
             flow_path (Path): Relative path to the flow python file.
             flow_function_name: (str): Name of the flow function to deploy.
             flow_name: (str): Properly enforced flow name for deployment.
@@ -393,32 +383,25 @@ class FlowDeployment(BaseModel):
         )
 
         LOGGER.info(
-            f"Deployment: {deployment_name} for flow: {flow_path} applied successfully..."
+            f"Deployment: {deployment_name} for flow: "
+            f"{flow_path} applied successfully..."
         )
 
 
 class FlowSpec(BaseModel):
     """This is the object we use to deploy a flow."""
 
-    flow: Flow = Field(..., description="Flow funciton object.")
-    secrets: list[FlowEnvar] = Field(
-        [],
-        description=(
-            "List of secrets as FlowEnvar objects to pass to task definition."
-            "These should only be the secret names and not full arn."
-        ),
-    )
-    envars: list[FlowEnvar] = Field(
-        [],
-        description=(
-            "List of global envars as FlowEnvar objects to pass to task definition. "
-            "Any deployment envars that share the same key will be overriden."
-        ),
-    )
-    docker_env: StrictStr = Field(
-        ...,
-        description="docker environment name from pyproject.toml, which is the key name in '[tool.prefect.envs.<>]'",
-    )
+    flow: Flow
+    """Flow funciton object."""
+    secrets: list[FlowEnvar] = []
+    """List of secrets as FlowEnvar objects to pass to task definition.
+       These should only be the secret names and not full arn."""
+    envars: list[FlowEnvar] = []
+    """List of global envars as FlowEnvar objects to pass to task definition. 
+       Any deployment envars that share the same key will be overriden."""
+    docker_env: StrictStr
+    """docker environment name from pyproject.toml, which is the 
+    key name in '[tool.prefect.envs.<>]'"""
     ephemeral_storage_gb: conint(gt=20, lt=201) = 21  # type: ignore
     deployments: list[FlowDeployment] = []
 
@@ -452,13 +435,13 @@ class FlowSpec(BaseModel):
         # start building the task definition elements from FlowSpec and globals
         # these values plus other defaults will be the basis for task def diff analysis
         task_name = f"{slugified_flow_name}-{DEPLOYMENT_TYPE}"
-        image_name = f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:{self.docker_env}-{GIT_SHA}"
-        task_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role"
-        execution_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role"
+        image_name = f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:{self.docker_env}-{GIT_SHA}"  # noqa: E501
+        task_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role"  # noqa: E501
+        execution_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role"  # noqa: E501
         secrets = [
             {
                 "name": i.envar_name,
-                "valueFrom": f"arn:aws:secretsmanager:{AWS_REGION}:{account_id}:secret:{i.envar_value}",
+                "valueFrom": f"arn:aws:secretsmanager:{AWS_REGION}:{account_id}:secret:{i.envar_value}",  # noqa: E501
             }
             for i in self.secrets
         ]
@@ -531,10 +514,12 @@ class FlowSpec(BaseModel):
             ],
         }
         # check to see if we have any registered task definitions
-        task_def_arns = ecs_client.list_task_definitions(familyPrefix=task_name, maxResults=5)  # type: ignore
-        # if we have some then we treat this as an existing task definition and start diff
+        task_def_arns = ecs_client.list_task_definitions(  # type: ignore
+            familyPrefix=task_name, maxResults=5
+        )
+        # if we have some then we treat as an existing task definition and start diff
         if task_def_arns["taskDefinitionArns"]:
-            current_task_def_response = ecs_client.describe_task_definition(  # type: ignore
+            current_task_def_response = ecs_client.describe_task_definition(  # type: ignore  # noqa: E501
                 taskDefinition=task_name
             )
             current_task_def = current_task_def_response["taskDefinition"]
@@ -545,32 +530,38 @@ class FlowSpec(BaseModel):
                 for key in task_def_compare_keys
             ):
                 LOGGER.info(
-                    f"Task definition state has changed for {task_name}, registering new definition..."
+                    f"Task definition state has changed for {task_name},"
+                    "registering new definition..."
                 )
                 register = True
-            # if any of our container definition keys have changed we mark as "register = True"
+            # if any container definition keys have changed we mark as "register = True"
             elif not all(
                 new_task_def_dict.get("containerDefinitions", [{}])[0].get(key)
                 == current_task_def.get("containerDefinitions", [{}])[0].get(key)
                 for key in container_def_compare_keys
             ):
                 LOGGER.info(
-                    f"Task definition state has changed for {task_name}, registering new definition..."
+                    f"Task definition state has changed for {task_name}, "
+                    "registering new definition..."
                 )
                 register = True
-        # if no registered arns, we treat this a brand new and mark  "register = True" for initial registration
+        # if no registered arns, we treat as brand new and mark  "register = True"
         else:
             LOGGER.info(
-                f"Task definition not registered for {task_name}, registering new definition..."
+                f"Task definition not registered for {task_name}, "
+                "registering new definition..."
             )
             register = True
         # if "register = True" we register a task definition
         if register:
-            response = ecs_client.register_task_definition(**new_task_def_dict)  # type: ignore
+            response = ecs_client.register_task_definition(  # type: ignore
+                **new_task_def_dict
+            )
             final_task_def_arn = response["taskDefinition"]["taskDefinitionArn"]
         else:
             LOGGER.info(
-                f"Task definition state has not changed {task_name}, new revision not needed..."
+                f"Task definition state has not changed {task_name}, "
+                "new revision not needed..."
             )
         # this will return the current or newly registered task definition version arn
         return final_task_def_arn
@@ -594,7 +585,7 @@ class FlowSpec(BaseModel):
 
         # create Prefect ECSTask Block
         # we are using a predefined task definition
-        # also turing off any additional handling of task definition in the ECSTask methods
+        # also turing off any additional handling of task definition in ECSTask methods
         block_name = f"{slugified_flow_name}-{DEPLOYMENT_TYPE}"
         ecs_block = ECSTask(
             name=block_name,
@@ -635,7 +626,7 @@ class FlowSpec(BaseModel):
         # init private attrs that are needed downstream
         project_name = pyproject_metadata.project_name
         slugified_fn_name = standard_slugify(self.flow.fn.__name__)
-        # setting flow name to "<subproject name>/<parent directory>/<flow function name>
+        # set flow name to "<subproject name>/<parent directory>/<flow function name>
         flow_name = f"{project_name}.{get_flow_folder(flow_path)}.{slugified_fn_name}"
 
         # update docker_env to proper image name
@@ -675,7 +666,7 @@ class FlowSpec(BaseModel):
 
 
 class PrefectProject(BaseModel):
-    """Model used for fetching the project configuration to deploy docker envs and flows as needed."""
+    """Model used for fetching the project configuration to deploy envs and flows."""
 
     _pyproject_metadata: PyProjectMetadata = PrivateAttr()
     _project_docker_envs: list[FlowDockerEnv] = PrivateAttr()
@@ -703,7 +694,8 @@ class PrefectProject(BaseModel):
         pyproject.toml
 
         Args:
-            build_only (bool, optional): Whether to run docker build only. Defaults to False.
+            build_only (bool, optional): Whether to run docker build only.
+            Defaults to False.
         """
         envs = self._project_docker_envs
         # create ProjectEnvs model from private attributes
@@ -718,7 +710,8 @@ class PrefectProject(BaseModel):
         pyproject.toml
 
         Args:
-            validate_only (bool, optional): If set to True, we will only validate the FLOW_SPEC model. Defaults to False.
+            validate_only (bool, optional): If set to True, we will only
+            validate the FLOW_SPEC model. Defaults to False.
 
         Raises:
             Exception: Exception will thrown for bad FLOW_SPEC definitions.
@@ -763,7 +756,9 @@ class PrefectProject(BaseModel):
                 # validate docker env is registered in pyproject.toml
                 if x.docker_env not in self._pyproject_metadata.docker_envs.keys():
                     raise ValueError(
-                        "Docker env does not exist in pyproject.toml.  It must be the key name in a '[tool.prefect.envs.<key name>]' configuration."
+                        "Docker env does not exist in pyproject.toml.  "
+                        "It must be the key name in a "
+                        "'[tool.prefect.envs.<key name>]' configuration."
                     )
                 # only run deployment when validate_only is False
                 if not validate_only:
@@ -788,11 +783,13 @@ class PrefectProject(BaseModel):
                 flow_errors.append(mod)
         if missing_flow_specs:
             LOGGER.info(
-                f"The following flows are missing FLOW_SPEC defintions: {missing_flow_specs}"
+                f"The following flows are missing FLOW_SPEC "
+                f"defintions: {missing_flow_specs}"
             )
             LOGGER.info("This is assumed as expected and will not throw an Exception.")
         if flow_errors:
             raise Exception(f"The following flows failed {command_type}: {flow_errors}")
         LOGGER.info(
-            f"All flows with proper FLOW_SPEC definitions have completed {command_type} successfully!"
+            f"All flows with proper FLOW_SPEC definitions "
+            f"have completed {command_type} successfully!"
         )

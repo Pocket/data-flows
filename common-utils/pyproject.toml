@@ -25,6 +25,8 @@ prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-pr
 prefect-snowflake = "^0.26.1"
 prefect-gcp = {extras = ["bigquery"], version = "^0.4.1"}
 pytest-asyncio = "^0.21.0"
+ruff = "^0.0.280"
+prefect-sqlalchemy = "^0.2.4"
 
 [build-system]
 requires = ["poetry-core"]
@@ -54,5 +56,6 @@ env = [
     'R:DF_CONFIG_GCP_CREDENTIALS={"service_account_file": "tests/test.json"}',
     'DF_CONFIG_SNOWFLAKE_SCHEMA=test',
     'DF_CONFIG_SNOWFLAKE_WAREHOUSE=prefect_wh_test',
-    'R:DF_CONFIG_SNOWFLAKE_GCP_STAGES={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED", "gcs_pocket_shared_location": "gs://test"}'
+    'R:DF_CONFIG_SNOWFLAKE_GCP_STAGES={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED", "gcs_pocket_shared_location": "gs://test"}',
+    'DF_CONFIG_SQLALCHEMY_URL=mysql://scott:tiger@localhost:5432'
 ]

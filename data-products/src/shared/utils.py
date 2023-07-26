@@ -6,13 +6,13 @@ from typing import Any, Literal, Optional, Union
 import pendulum as pdm
 from common.cloud.gcp_utils import PktGcpCredentials
 from common.databases.snowflake_utils import PktSnowflakeConnector
-from common.databases.sqlalchemy_utils import MzsSqlalchemy
+from common.databases.sqlalchemy_utils import MzsSqlalchemyCredentials
 from common.settings import Settings
 from jinja2 import Environment, FileSystemLoader, Template
 from pendulum import from_format
 from pendulum.datetime import DateTime
 from pendulum.parser import parse
-from prefect import get_run_logger, task
+from prefect import task
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_multiquery, snowflake_query
 from prefect_sqlalchemy.database import sqlalchemy_query
@@ -86,7 +86,7 @@ class IntervalSet(BaseModel):
         Returns:
             str: Partition time folder used.
         """
-        time_str = self.partition_datetime.format(self.time_format_string)  # type: ignore
+        time_str = self.partition_datetime.format(self.time_format_string)  # type: ignore  # noqa: E501
         return f"time={time_str}"
 
     @property
@@ -112,8 +112,8 @@ class IntervalSet(BaseModel):
 QUERY_ENGINE_MAPPING = {
     "snowflake": {"snowflake_connector": PktSnowflakeConnector},
     "bigquery": {"gcp_credentials": PktGcpCredentials},
-    "postgres": {"sqlalchemy_credentials": MzsSqlalchemy},
-    "mysql": {"sqlalchemy_credentials": MzsSqlalchemy},
+    "postgres": {"sqlalchemy_credentials": MzsSqlalchemyCredentials},
+    "mysql": {"sqlalchemy_credentials": MzsSqlalchemyCredentials},
 }
 QUERY_ENGINE_TYPES_LITERAL = Literal["snowflake", "bigquery", "postgres", "mysql"]
 QUERY_ENGINE_TYPES_SET = QUERY_ENGINE_MAPPING.keys()
@@ -250,7 +250,7 @@ class SqlJob(BaseModel):
     @property
     def extras_file_path(self):
         return os.path.join(self._sql_template_path, "extras")  # type: ignore  # noqa: E501
-    
+
     @property
     def job_kwargs(self) -> dict:
         """Returns a flat dictionary of the kwargs parameter
@@ -286,15 +286,13 @@ class SqlJob(BaseModel):
             sql_engine = template.module.sql_engine  # type: ignore
         except AttributeError:
             raise Exception(
-                'SQL file must have jinja2 block {% set sql_engine = "<engine_type>" %}, '
-                f"and must be one of {QUERY_ENGINE_TYPES_SET}"
+                'SQL file must have jinja2 block {% set sql_engine = "<engine_type>" %}'
+                f", and must be one of {QUERY_ENGINE_TYPES_SET}"
             )
         try:
             is_multi_statement = template.module.is_multi_statement  # type: ignore
         except AttributeError:
-            if sql_engine == "snowflake":
-                logger = get_run_logger()
-                logger.info("Snowflake query defaulting to single statement mode...")
+            pass
         sql_text = template.render(**render_kwargs)
         return SqlStmt(
             sql_engine=sql_engine,
@@ -440,7 +438,7 @@ class SqlJob(BaseModel):
                 IntervalSet(
                     batch_start=i.to_iso8601_string(),  # type: ignore
                     batch_end=intervals[end_idx].to_iso8601_string(),  # type: ignore
-                    first_interval_start=first_interval_start.to_iso8601_string(),  # type: ignore
+                    first_interval_start=first_interval_start.to_iso8601_string(),  # type: ignore  # noqa: E501
                     sets_end=base_end.to_iso8601_string(),  # type: ignore
                     is_initial=is_initial,
                     is_final=is_final,

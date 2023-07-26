@@ -36,10 +36,10 @@ class PktGcpCredentials(GcpCredentials):
     def __init__(self, **data):
         settings = GcpSettings()  # type: ignore
         if x := settings.gcp_credentials:
-            if xs:= x.service_account_info:
+            if xs := x.service_account_info:
                 data["service_account_info"] = xs
-            elif xs:= x.service_account_file:
-                data["service_account_file"]= xs
+            elif xs := x.service_account_file:
+                data["service_account_file"] = xs
         super().__init__(**data)
 
 

@@ -35,15 +35,20 @@ def parse_args(args: list[str]) -> Namespace:
     )
     subparsers = parser.add_subparsers(
         title="subcommands",
-        help="these are the subcommands to use for deploying flows and environments as needed",
+        help=(
+            "these are the subcommands to use for "
+            "deploying flows and environments as needed"
+        ),
         metavar="",
         dest="subparser_name",
     )
     deploy_envs = subparsers.add_parser(
         "deploy-envs",
-        help="""use this command to deploy the docker envs configured in your pyproject.toml
-this will also deploy your project's filesystem.
-        """,
+        help=(
+            "use this command to deploy the docker envs "
+            "configured in your pyproject.toml"
+            "this will also deploy your project's filesystem."
+        ),
     )
     deploy_envs.add_argument(
         "--build-only",
@@ -52,7 +57,10 @@ this will also deploy your project's filesystem.
     )
     deploy_flows = subparsers.add_parser(
         "deploy-flows",
-        help="use this command to deploy flows from the flows_folder configured in your pyproject.toml",
+        help=(
+            "use this command to deploy flows from the "
+            "flows_folder configured in your pyproject.toml"
+        ),
     )
     deploy_flows.add_argument(
         "--validate-only",

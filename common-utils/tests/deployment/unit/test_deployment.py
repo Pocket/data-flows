@@ -1,5 +1,4 @@
 import os
-from datetime import timedelta
 from pathlib import Path, PosixPath
 from unittest.mock import MagicMock, call, patch
 
@@ -90,16 +89,16 @@ def test_project_envs(mock_cmd):
     assert mock_cmd.call_count == 4
     assert mock_cmd.call_args_list == [
         call(
-            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-1-py-3.10 tests/deployment/unit/testDockerfile1 3.10 tests/deployment/unit"
+            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-1-py-3.10 tests/deployment/unit/testDockerfile1 3.10 tests/deployment/unit"  # noqa: E501
         ),
         call(
-            f"{cwd}/src/common/deployment/push_image.sh common-utils-test-1-py-3.10 123456789012"
+            f"{cwd}/src/common/deployment/push_image.sh common-utils-test-1-py-3.10 123456789012"  # noqa: E501
         ),
         call(
-            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-2-py-3.10 tests/deployment/unit/testDockerfile2 3.10 tests/deployment/unit"
+            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-2-py-3.10 tests/deployment/unit/testDockerfile2 3.10 tests/deployment/unit"  # noqa: E501
         ),
         call(
-            f"{cwd}/src/common/deployment/push_image.sh common-utils-test-2-py-3.10 123456789012"
+            f"{cwd}/src/common/deployment/push_image.sh common-utils-test-2-py-3.10 123456789012"  # noqa: E501
         ),
     ]
 
@@ -133,10 +132,10 @@ def test_project_envs_build_only(mock_cmd):
     assert mock_cmd.call_count == 2
     assert mock_cmd.call_args_list == [
         call(
-            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-1-py-3.10 tests/deployment/unit/testDockerfile1 3.10 tests/deployment/unit"
+            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-1-py-3.10 tests/deployment/unit/testDockerfile1 3.10 tests/deployment/unit"  # noqa: E501
         ),
         call(
-            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-2-py-3.10 tests/deployment/unit/testDockerfile2 3.10 tests/deployment/unit"
+            f"{cwd}/src/common/deployment/build_image.sh common-utils-test-2-py-3.10 tests/deployment/unit/testDockerfile2 3.10 tests/deployment/unit"  # noqa: E501
         ),
     ]
 
@@ -145,7 +144,7 @@ def test_project_envs_build_only(mock_cmd):
 @patch("common.deployment.run_command")
 def test_flow_deployment(mock_cmd):
     # Test schedule method return cli arg as expected.
-    d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
+    d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore  # noqa: E501
     x1 = d1._get_schedule_arg()
     assert x1 == "--cron '0 0 * * *'"
     d2 = FlowDeployment(deployment_name="test")  # type: ignore
@@ -155,7 +154,7 @@ def test_flow_deployment(mock_cmd):
     # Validate push deployment method using mock on run_command.
     d3 = FlowDeployment(
         deployment_name="test",
-        schedule=CronSchedule(cron="0 6 * * *", timezone="America/Los_Angeles"),  # type: ignore
+        schedule=CronSchedule(cron="0 6 * * *", timezone="America/Los_Angeles"),  # type: ignore  # noqa: E501
         cpu="1024",
         memory="4096",
         parameters={"test_param": "test_value"},
@@ -170,7 +169,7 @@ def test_flow_deployment(mock_cmd):
         base_envars={"TEST": "test"},
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n        --cron \'0 6 * * *\' --timezone America/Los_Angeles --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n        --cron \'0 6 * * *\' --timezone America/Los_Angeles --skip-upload && \\\n        popd"""  # noqa: E501
     mock_cmd.assert_called_with(call_text)
 
     d4 = FlowDeployment(
@@ -191,7 +190,7 @@ def test_flow_deployment(mock_cmd):
         base_envars={"TEST": "test"},
     )
     assert mock_cmd.call_count == 2
-    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n        --cron \'0 6 * * *\' --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n        --cron \'0 6 * * *\' --skip-upload && \\\n        popd"""  # noqa: E501
     mock_cmd.assert_called_with(call_text)
 
     d5 = FlowDeployment(
@@ -211,7 +210,7 @@ def test_flow_deployment(mock_cmd):
         base_envars={"TEST": "test"},
     )
     assert mock_cmd.call_count == 3
-    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n         --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-main \\\n        -sb github/data-flows-main/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-main \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t main \\\n        -a \\\n         --skip-upload && \\\n        popd"""  # noqa: E501
     mock_cmd.assert_called_with(call_text)
 
 
@@ -219,7 +218,7 @@ def test_flow_deployment(mock_cmd):
 @patch("common.deployment.run_command")
 def test_flow_deployment_prod_test(mock_cmd):
     # Test schedule method return cli arg as expected.
-    d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
+    d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore  # noqa: E501
     x1 = d1._get_schedule_arg()
     assert x1 == ""
     d2 = FlowDeployment(deployment_name="test")  # type: ignore
@@ -229,7 +228,7 @@ def test_flow_deployment_prod_test(mock_cmd):
     # Validate push deployment method using mock on run_command.
     d3 = FlowDeployment(
         deployment_name="test",
-        schedule=CronSchedule(cron="0 6 * * *", timezone="America/Los_Angeles"),  # type: ignore
+        schedule=CronSchedule(cron="0 6 * * *", timezone="America/Los_Angeles"),  # type: ignore  # noqa: E501
         cpu="1024",
         memory="4096",
         parameters={"test_param": "test_value"},
@@ -244,7 +243,7 @@ def test_flow_deployment_prod_test(mock_cmd):
         base_envars={"TEST": "test"},
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-staging \\\n        -sb github/data-flows-staging/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-staging \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t staging \\\n        -a \\\n         --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-staging \\\n        -sb github/data-flows-staging/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-staging \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t staging \\\n        -a \\\n         --skip-upload && \\\n        popd"""  # noqa: E501
     mock_cmd.assert_called_with(call_text)
 
 
@@ -252,7 +251,7 @@ def test_flow_deployment_prod_test(mock_cmd):
 @patch("common.deployment.run_command")
 def test_flow_deployment_dev_test(mock_cmd):
     # Test schedule method return cli arg as expected.
-    d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore
+    d1 = FlowDeployment(deployment_name="test", schedule=CronSchedule(cron="0 0 * * *"))  # type: ignore  # noqa: E501
     x1 = d1._get_schedule_arg()
     assert x1 == ""
     d2 = FlowDeployment(deployment_name="test")  # type: ignore
@@ -276,7 +275,7 @@ def test_flow_deployment_dev_test(mock_cmd):
         base_envars={"TEST": "test"},
     )
     assert mock_cmd.call_count == 1
-    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-dev \\\n        -sb github/data-flows-dev/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-dev \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t dev \\\n        -a \\\n         --skip-upload && \\\n        popd"""
+    call_text = f"""export POCKET_PREFECT_FLOW_NAME=test.test.test && \\\n        export PYTHONPATH={TEST_PYTHONPATH} && \\\n        pushd ../ && \\\n        prefect deployment build common-utils/tests/deployment/unit/test_deployment.py:test_function \\\n        -n test-dev \\\n        -sb github/data-flows-dev/common-utils/tests/deployment/unit \\\n        -ib ecs-task/test-ECS-block \\\n        --override env.TEST=test --override \'task_customizations=[{{"op": "add", "path": "/overrides/cpu", "value": "1024"}}, {{"op": "add", "path": "/overrides/memory", "value": "4096"}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/subnets", "value": ["subnet-1234", "subnet-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/securityGroups", "value": ["sg-1234"]}}, {{"op": "add", "path": "/networkConfiguration/awsvpcConfiguration/assignPublicIp", "value": "DISABLED"}}]\' \\\n        -q prefect-v2-queue-dev \\\n        -v {GIT_SHA} \\\n        --params \'{{"test_param": "test_value"}}\' \\\n        -t test -t unit -t dev \\\n        -a \\\n         --skip-upload && \\\n        popd"""  # noqa: E501
     mock_cmd.assert_called_with(call_text)
 
 
@@ -461,17 +460,17 @@ def test_flow_spec_bad_env(mock_ecs_save, mock_deployment):
 BASE_TASK_DEF = {
     "family": "common-utils-flow-group-1-flow-1-dev",
     "taskRoleArn": "arn:aws:iam::123456789012:role/data-flows-prefect-dev-task-role",
-    "executionRoleArn": "arn:aws:iam::123456789012:role/data-flows-prefect-dev-exec-role",
+    "executionRoleArn": "arn:aws:iam::123456789012:role/data-flows-prefect-dev-exec-role",  # noqa: E501
     "networkMode": "awsvpc",
     "containerDefinitions": [
         {
             "name": "prefect",
-            "image": f"123456789012.dkr.ecr.us-east-1.amazonaws.com/data-flows-prefect-v2-envs:common-utils-base-py-3.10-{GIT_SHA}",
+            "image": f"123456789012.dkr.ecr.us-east-1.amazonaws.com/data-flows-prefect-v2-envs:common-utils-base-py-3.10-{GIT_SHA}",  # noqa: E501
             "environment": [{"name": "DF_CONFIG_DEPLOYMENT_TYPE", "value": "dev"}],
             "secrets": [
                 {
                     "name": "MY_SECRET_JSON",
-                    "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:/my/secretsmanager/secret",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:/my/secretsmanager/secret",  # noqa: E501
                 }
             ],
             "logConfiguration": {
@@ -581,7 +580,7 @@ def test_flow_spec_handle_task_definition(mock_ecs_save, mock_deployment):
     )
     assert (
         result["taskDefinition"]["taskDefinitionArn"]
-        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-group-1-flow-1-dev:1"
+        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-group-1-flow-1-dev:1"  # noqa: E501
     )
 
 
@@ -660,7 +659,7 @@ def test_flow_spec_handle_task_definition_container_change(
     )
     assert (
         result["taskDefinition"]["taskDefinitionArn"]
-        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-group-1-flow-1-dev:2"
+        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-group-1-flow-1-dev:2"  # noqa: E501
     )
 
 
@@ -737,7 +736,7 @@ def test_flow_spec_handle_task_definition_state_change(mock_ecs_save, mock_deplo
     )
     assert (
         result["taskDefinition"]["taskDefinitionArn"]
-        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-group-1-flow-1-dev:2"
+        == "arn:aws:ecs:us-east-1:123456789012:task-definition/common-utils-flow-group-1-flow-1-dev:2"  # noqa: E501
     )
 
 
