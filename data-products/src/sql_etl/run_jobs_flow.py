@@ -511,7 +511,7 @@ FLOW_SPEC = FlowSpec(
                     ),  # type: ignore
                 ),
             ],
-        )
+        ),
     ],
 )
 

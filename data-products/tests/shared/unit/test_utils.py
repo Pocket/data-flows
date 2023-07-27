@@ -1,4 +1,5 @@
 import os
+import json
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
@@ -203,7 +204,7 @@ def test_intervals_1():
         override_last_offset="2023-06-17 21:59:59.999",
         override_batch_end="2023-06-26 02:00:00",
         include_now=True,
-    ) # type: ignore
+    )  # type: ignore
     assert [x.dict() for x in t.get_intervals()] == TEST_INTERVAL_SETS
 
 
@@ -226,7 +227,7 @@ def test_intervals_2():
         override_last_offset="2023-06-17 21:59:59.999",
         override_batch_end="2023-06-26 00:00:00",
         include_now=True,
-    ) # type: ignore
+    )  # type: ignore
     test_list = deepcopy(TEST_INTERVAL_SETS)
     test_list.pop()
     test_list[-1] = {
@@ -252,7 +253,7 @@ def test_intervals_3():
         override_last_offset="2023-06-17 21:59:59.999",
         override_batch_end="2023-06-26 00:00:00",
         include_now=False,
-    ) # type: ignore
+    )  # type: ignore
     test_list = deepcopy(TEST_INTERVAL_SETS)
     test_list.pop()
     test_list[-1] = {
@@ -327,7 +328,7 @@ def test_intervals_4():
         sql_folder_name="test",
         override_last_offset=LAST_OFFSET_STR,
         include_now=False,
-    ) # type: ignore
+    )  # type: ignore
     assert [x.dict() for x in t.get_intervals()] == DYNAMIC_TEST_INTERVAL_SETS
 
 
@@ -338,7 +339,7 @@ def test_intervals_5():
     t = SqlJob(
         sql_folder_name="test",
         include_now=False,
-    ) # type: ignore
+    )  # type: ignore
     assert [
         x.dict()
         for x in t.get_intervals(
@@ -356,7 +357,7 @@ def test_intervals_6():
         sql_folder_name="test",
         override_last_offset=LAST_OFFSET_STR,
         include_now=True,
-    ) # type: ignore
+    )  # type: ignore
     interval_list = [x.dict() for x in t.get_intervals()]
     test_list = deepcopy(DYNAMIC_TEST_INTERVAL_SETS)
     extra_item = deepcopy(DYNAMIC_TEST_EXTRA_INTERVAL)
@@ -377,7 +378,7 @@ def test_intervals_7():
     t = SqlJob(
         sql_folder_name="test",
         include_now=True,
-    ) # type: ignore
+    )  # type: ignore
     interval_list = [x.dict() for x in t.get_intervals(last_offset=LAST_OFFSET_STR)]
     test_list = deepcopy(DYNAMIC_TEST_INTERVAL_SETS)
     extra_item = deepcopy(DYNAMIC_TEST_EXTRA_INTERVAL)
@@ -398,7 +399,7 @@ def test_intervals_no_offset():
     t = SqlJob(
         sql_folder_name="test",
         include_now=True,
-    ) # type: ignore
+    )  # type: ignore
     with pytest.raises(Exception) as e:
         t.get_intervals()
     assert (
@@ -541,9 +542,9 @@ async def test_sql_stmt_snowflake_mulit():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("sql_engine", ["mysql", "postgres"])
 async def test_sql_stmt_sqlalchemy(sql_engine):
-    os.environ[
-        "DF_CONFIG_SQLALCHEMY_URL"
-    ] = f"{sql_engine}://scott:tiger@localhost:5432"
+    os.environ["DF_CONFIG_SQLALCHEMY_CREDENTIALS"] = json.dumps(
+        {"url": f"{sql_engine}://scott:tiger@localhost:5432"}
+    )
     sql = SqlStmt(
         sql_engine="mysql",
         sql_text="select 1",
@@ -577,7 +578,7 @@ async def test_sql_stmt_sqlalchemy(sql_engine):
 
 
 def test_no_sql_engine():
-    t = SqlJob(sql_folder_name="test_bad_engine") # type: ignore
+    t = SqlJob(sql_folder_name="test_bad_engine")  # type: ignore
     with pytest.raises(Exception) as e:
         t.render_sql_file("data.sql")
     assert (
