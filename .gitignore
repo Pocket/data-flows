@@ -48,3 +48,6 @@ dask-worker-space/
 # docs
 site
 
+# ruff
+.ruff_cache
+

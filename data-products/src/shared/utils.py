@@ -15,7 +15,7 @@ from pendulum.parser import parse
 from prefect import task
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_multiquery, snowflake_query
-from prefect_sqlalchemy.database import sqlalchemy_query
+from prefect_sqlalchemy.database import sqlalchemy_execute
 from pydantic import BaseModel, Field, PrivateAttr
 
 
@@ -171,7 +171,7 @@ class SqlStmt(BaseModel):
         task_mapping = {
             "snowflake": {"single": snowflake_query, "multi": snowflake_multiquery},
             "bigquery": {"single": bigquery_query},
-            "default": {"single": sqlalchemy_query},
+            "default": {"single": sqlalchemy_execute},
         }
         standard_kwargs = self.standard_kwargs
         query_task = task_mapping["default"]["single"]
@@ -186,6 +186,9 @@ class SqlStmt(BaseModel):
                 standard_kwargs.pop("query")
             else:
                 query_task = task_mapping[sql_engine]["single"]
+        else:
+            standard_kwargs["statement"] = standard_kwargs["query"]
+            standard_kwargs.pop("query")
         kwargs.update(standard_kwargs)
         return await query_task.with_options(name=task_name)(**kwargs)
 

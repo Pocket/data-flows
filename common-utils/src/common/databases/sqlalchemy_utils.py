@@ -1,15 +1,25 @@
-from common.settings import CommonSettings, Settings
 from prefect_sqlalchemy import DatabaseCredentials
+
+from common.settings import CommonSettings, NestedSettings, Settings
 
 CS = CommonSettings()  # type: ignore
 
 
-class SqlalchemySettings(Settings):
-    """Settings that can be passed in for
-    Sqlalchemy Credentials.
+class SqlalchemyCredSettings(NestedSettings):
+    """Settings that can be passed in to
+    Snowflake Credentials.  This is mean to be used as
+    a sub model of the SqlalchemySettings model.
     """
 
-    sqlalchemy_url: str
+    url: str
+
+
+class SqlalchemySettings(Settings):
+    """Settings that can be passed in for
+    Sqlalchemy connection.
+    """
+
+    sqlalchemy_credentials: SqlalchemyCredSettings
 
 
 class MzsSqlalchemyCredentials(DatabaseCredentials):
@@ -25,5 +35,5 @@ class MzsSqlalchemyCredentials(DatabaseCredentials):
         model.
         """
         settings = SqlalchemySettings()  # type: ignore
-        data["url"] = settings.sqlalchemy_url
+        data["url"] = settings.sqlalchemy_credentials.url
         super().__init__(**data)

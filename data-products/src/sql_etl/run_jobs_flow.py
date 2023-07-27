@@ -454,24 +454,6 @@ FLOW_SPEC = FlowSpec(
                 ),
             ],
         ),
-        FlowDeployment(
-            deployment_name="impression_stats_v1",
-            parameters={
-                "etl_input": SqlEtlJob(
-                    sql_folder_name="impression_stats_v1",
-                    initial_last_offset="2022-12-23",
-                    kwargs={"destination_table_name": "impression_stats_v1_new"},
-                ).dict()  # type: ignore
-            },
-            envars=[
-                FlowEnvar(
-                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
-                    envar_value=CS.deployment_type_value(
-                        dev="braun", staging="staging", main="mozilla"
-                    ),  # type: ignore
-                ),
-            ],
-        ),  # type: ignore
     ],
 )
 

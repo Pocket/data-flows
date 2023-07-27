@@ -571,7 +571,7 @@ async def test_sql_stmt_sqlalchemy(sql_engine):
     async def fake_flow(*args, **kwargs):
         await sql.run_query_task("test")
 
-    with patch("shared.utils.sqlalchemy_query", fake_task):
+    with patch("shared.utils.sqlalchemy_execute", fake_task):
         await fake_flow()
     assert mock_state["call_count"] == 1
 
