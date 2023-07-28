@@ -79,11 +79,11 @@ async def fx_newtab_aggregate_engagement():
         # Drop TILE_ID now we no longer need it, to match the dataframe columns with the feature group.
         df_keyed_telemetry = df_keyed_telemetry.drop(columns=['TILE_ID'])
 
-        dataframe_to_feature_group(
+        await dataframe_to_feature_group(
             dataframe=df_keyed_telemetry,
             feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name
         )
 
 
 if __name__ == "__main__":
-    run(fx_newtab_aggregate_engagement()) # type: ignore
+    run(fx_newtab_aggregate_engagement())
