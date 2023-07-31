@@ -6,6 +6,7 @@ from typing import NamedTuple
 
 import aioboto3
 import pandas as pd
+from common.deployment import FlowSpec, FlowDeployment
 from common.settings import Settings, CommonSettings
 from prefect import get_run_logger, task, flow
 from prefect_dask import DaskTaskRunner
@@ -114,6 +115,17 @@ async def ingest_row(
             else:
                 # Success
                 break
+
+
+FLOW_SPEC = FlowSpec(
+    flow=dataframe_to_feature_group,
+    docker_env="base",
+    deployments=[
+        FlowDeployment(
+            deployment_name="dataframe_to_feature_group",
+        ),
+    ],
+)
 
 
 if __name__ == "__main__":

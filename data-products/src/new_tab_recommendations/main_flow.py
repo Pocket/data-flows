@@ -104,7 +104,7 @@ FLOW_SPEC = FlowSpec(
     ],
     deployments=[
         FlowDeployment(
-            deployment_name="backend_events_for_mozilla",
+            deployment_name="new_tab_recommendations_aggregate_engagement",
             schedule=CronSchedule(cron="*/15 * * * *"),
         ),
     ],
