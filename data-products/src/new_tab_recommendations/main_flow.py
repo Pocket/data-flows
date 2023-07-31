@@ -3,12 +3,16 @@ from asyncio import run
 import pandas as pd
 from common.cloud.gcp_utils import PktGcpCredentials
 from common.databases.snowflake_utils import PktSnowflakeConnector
+from common.deployment import FlowSpec, FlowEnvar, FlowDeployment
 from prefect import flow
+from prefect.server.schemas.schedules import CronSchedule
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
 from snowflake.connector import DictCursor
 
 from shared.feature_store import dataframe_to_feature_group, FeatureGroupSettings
+
+CS = CommonSettings()  # type: ignore
 
 EXPORT_FIREFOX_TELEMETRY_SQL = """
         WITH impressions_data AS (
@@ -83,6 +87,28 @@ async def fx_newtab_aggregate_engagement():
             dataframe=df_keyed_telemetry,
             feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name,
         )
+
+
+FLOW_SPEC = FlowSpec(
+    flow=fx_newtab_aggregate_engagement,
+    docker_env="base",
+    secrets=[
+        FlowEnvar(
+            envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
+            envar_value=f"data-flows/{CS.deployment_type}/snowflake-credentials",
+        ),
+        FlowEnvar(
+            envar_name="DF_CONFIG_GCP_CREDENTIALS",
+            envar_value=f"data-flows/{CS.deployment_type}/gcp-credentials",
+        ),
+    ],
+    deployments=[
+        FlowDeployment(
+            deployment_name="backend_events_for_mozilla",
+            schedule=CronSchedule(cron="*/15 * * * *"),
+        ),
+    ],
+)
 
 
 if __name__ == "__main__":
