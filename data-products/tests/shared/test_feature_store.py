@@ -114,7 +114,9 @@ async def test_dataframe_to_feature_group(df_features, caplog):
 @pytest.mark.asyncio
 async def test_dataframe_to_feature_group_exception(df_features, caplog):
     with prefect_test_harness():
-        with mock.patch("shared.feature_store.ingest_row", new_callable=mock.AsyncMock) as mock_ingest_row:
+        with mock.patch(
+            "shared.feature_store.ingest_row", new_callable=mock.AsyncMock
+        ) as mock_ingest_row:
             mock_ingest_row.side_effect = ValueError()
             with pytest.raises(ValueError):
                 await dataframe_to_feature_group(
