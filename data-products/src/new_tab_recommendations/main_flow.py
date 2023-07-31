@@ -77,11 +77,11 @@ async def fx_newtab_aggregate_engagement():
         # Combine the BigQuery and Snowflake results on TILE_ID.
         df_keyed_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
         # Drop TILE_ID now we no longer need it, to match the dataframe columns with the feature group.
-        df_keyed_telemetry = df_keyed_telemetry.drop(columns=['TILE_ID'])
+        df_keyed_telemetry = df_keyed_telemetry.drop(columns=["TILE_ID"])
 
         await dataframe_to_feature_group(
             dataframe=df_keyed_telemetry,
-            feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name
+            feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name,
         )
 
 

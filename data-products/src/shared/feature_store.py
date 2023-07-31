@@ -17,11 +17,15 @@ class FeatureGroupSettings(Settings):
     """Settings for Sagemaker Feature Groups."""
 
     feature_group_prefix: str = "production" if CS.is_production else "development"
-    corpus_engagement_feature_group_name: str = f"{feature_group_prefix}-corpus-engagement-v1"
+    corpus_engagement_feature_group_name: str = (
+        f"{feature_group_prefix}-corpus-engagement-v1"
+    )
 
 
 @flow(validate_parameters=False)
-async def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name: str, concurrency_limit: int = 100):
+async def dataframe_to_feature_group(
+    dataframe: pd.DataFrame, feature_group_name: str, concurrency_limit: int = 100
+):
     """
     Update SageMaker feature group.
 
@@ -35,7 +39,9 @@ async def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name
     aioboto3_session = aioboto3.Session()
     semaphore = asyncio.Semaphore(concurrency_limit)
 
-    async with aioboto3_session.client('sagemaker-featurestore-runtime') as featurestore:
+    async with aioboto3_session.client(
+        "sagemaker-featurestore-runtime"
+    ) as featurestore:
         tasks = [
             ingest_row(
                 semaphore=semaphore,
@@ -48,9 +54,13 @@ async def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    exception_count = len([result for result in results if isinstance(result, Exception)])
+    exception_count = len(
+        [result for result in results if isinstance(result, Exception)]
+    )
     success_count = len(results) - exception_count
-    logger.info(f'Successfully ingested {success_count} records. Failed to ingest {exception_count} records.')
+    logger.info(
+        f"Successfully ingested {success_count} records. Failed to ingest {exception_count} records."
+    )
 
     if exception_count:
         # Re-raise first exception to let the flow fail.
@@ -84,15 +94,17 @@ async def ingest_row(
                     FeatureGroupName=feature_group_name,
                     Record=[
                         {
-                            'FeatureName': column_name,
-                            'ValueAsString': str(getattr(row, column_name)),
+                            "FeatureName": column_name,
+                            "ValueAsString": str(getattr(row, column_name)),
                         }
                         for column_name in row._fields  # Seems this is a common way to iterate over a NamedTuple's fields?
-                    ]
+                    ],
                 )
             except Exception as e:
                 logger = get_run_logger()
-                logger.error(f"Failed featurestore.put_record on retry {retry}/{retries} with {e}")
+                logger.error(
+                    f"Failed featurestore.put_record on retry {retry}/{retries} with {e}"
+                )
                 if retry == retries:
                     raise e
 
@@ -103,18 +115,29 @@ async def ingest_row(
 
 
 if __name__ == "__main__":
-    run(dataframe_to_feature_group(
-        dataframe=pd.DataFrame([{
-            'KEY': 'NEW_TAB_FR_FR/41081474-0b70-5cd8-8177-f495b371030b/eca15def-ec21-49c4-b828-5014815b1918',
-            'UPDATED_AT': '2023-07-28T18:52:17Z',
-            'RECOMMENDATION_SURFACE_ID': 'NEW_TAB_FR_FR',
-            'CORPUS_SLATE_CONFIGURATION_ID': '41081474-0b70-5cd8-8177-f495b371030b',
-            'CORPUS_ITEM_ID': 'eca15def-ec21-49c4-b828-5014815b1918',
-            'TRAILING_1_DAY_IMPRESSIONS': 3487376, 'TRAILING_1_DAY_OPENS': 17304,
-            'TRAILING_7_DAY_IMPRESSIONS': 0, 'TRAILING_7_DAY_OPENS': 0,
-            'TRAILING_14_DAY_IMPRESSIONS': 0, 'TRAILING_14_DAY_OPENS': 0,
-            'TRAILING_21_DAY_IMPRESSIONS': 0, 'TRAILING_21_DAY_OPENS': 0,
-            'TRAILING_28_DAY_IMPRESSIONS': 0, 'TRAILING_28_DAY_OPENS': 0,
-        }]),
-        feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name,
-    ))
+    run(
+        dataframe_to_feature_group(
+            dataframe=pd.DataFrame(
+                [
+                    {
+                        "KEY": "NEW_TAB_FR_FR/41081474-0b70-5cd8-8177-f495b371030b/eca15def-ec21-49c4-b828-5014815b1918",
+                        "UPDATED_AT": "2023-07-28T18:52:17Z",
+                        "RECOMMENDATION_SURFACE_ID": "NEW_TAB_FR_FR",
+                        "CORPUS_SLATE_CONFIGURATION_ID": "41081474-0b70-5cd8-8177-f495b371030b",
+                        "CORPUS_ITEM_ID": "eca15def-ec21-49c4-b828-5014815b1918",
+                        "TRAILING_1_DAY_IMPRESSIONS": 3487376,
+                        "TRAILING_1_DAY_OPENS": 17304,
+                        "TRAILING_7_DAY_IMPRESSIONS": 0,
+                        "TRAILING_7_DAY_OPENS": 0,
+                        "TRAILING_14_DAY_IMPRESSIONS": 0,
+                        "TRAILING_14_DAY_OPENS": 0,
+                        "TRAILING_21_DAY_IMPRESSIONS": 0,
+                        "TRAILING_21_DAY_OPENS": 0,
+                        "TRAILING_28_DAY_IMPRESSIONS": 0,
+                        "TRAILING_28_DAY_OPENS": 0,
+                    }
+                ]
+            ),
+            feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name,
+        )
+    )
