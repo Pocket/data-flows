@@ -34,7 +34,7 @@ async def dataframe_to_feature_group(
     :param concurrency_limit: Maximum number of concurrent HTTP requests to make to the FeatureGroup.
     """
     logger = get_run_logger()
-    logger.info(f"Feature Group: {feature_group_name}")
+    logger.info(f"Ingesting {len(dataframe)} records into {feature_group_name}")
 
     aioboto3_session = aioboto3.Session()
     semaphore = asyncio.Semaphore(concurrency_limit)
@@ -48,6 +48,7 @@ async def dataframe_to_feature_group(
                 row=row,
                 feature_group_name=feature_group_name,
                 featurestore=featurestore,
+                logger=logger,
             )
             for row in dataframe.itertuples(index=False)
         ]
@@ -73,6 +74,7 @@ async def ingest_row(
     row: NamedTuple,
     feature_group_name: str,
     featurestore,
+    logger: logging.Logger,
     retries=2,
     retry_delay_seconds=1,
 ):
@@ -83,6 +85,7 @@ async def ingest_row(
         :param row: current row that is being ingested
         :param feature_group_name: name of the Feature Group.
         :param featurestore: aioboto3 client for sagemaker-featurestore-runtime
+        :param logger:
         :param retries: Number of times to retry on failure
         :param retry_delay_seconds: Delay in seconds before retrying
     """
@@ -101,7 +104,6 @@ async def ingest_row(
                     ],
                 )
             except Exception as e:
-                logger = get_run_logger()
                 logger.error(
                     f"Failed featurestore.put_record on retry {retry}/{retries} with {e}"
                 )
