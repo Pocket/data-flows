@@ -52,6 +52,10 @@ async def dataframe_to_feature_group(dataframe: pd.DataFrame, feature_group_name
     success_count = len(results) - exception_count
     logger.info(f'Successfully ingested {success_count} records. Failed to ingest {exception_count} records.')
 
+    if exception_count:
+        # Re-raise first exception to let the flow fail.
+        raise next(result for result in results if isinstance(result, Exception))
+
 
 # @task(retries=3)  # Wrapping function in a Prefect task results in RuntimeErrors "bound to a different event loop"
 async def ingest_row(
@@ -73,6 +77,7 @@ async def ingest_row(
         :param retry_delay_seconds: Delay in seconds before retrying
     """
     async with semaphore:
+        # Ideally, we use Prefect to retry, but this resulted in an event loop error, and seemed much slower.
         for retry in range(retries + 1):
             try:
                 await featurestore.put_record(
