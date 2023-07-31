@@ -8,16 +8,11 @@ import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 import toml
 from prefect import Flow
-from prefect.server.schemas.schedules import (
-    SCHEDULE_TYPES,
-    CronSchedule,
-    IntervalSchedule,
-    RRuleSchedule,
-)
+from prefect.server.schemas.schedules import CronSchedule
 from pydantic import (
     BaseModel,
     DirectoryPath,
@@ -270,33 +265,39 @@ class FlowDeployment(BaseModel):
         {},
         description="Dictionary of parameter values to pass to this deployment's flow runs.",
     )
-    schedule: SCHEDULE_TYPES = (Field(None, description="Schedule configuration for this deployment using Prefect Schedule Objects."),)  # type: ignore
+    schedule: Optional[CronSchedule] = Field(
+        description=(
+            "Schedule configuration for this deployment using Prefect Cron Schedule."
+        )
+    )  # type: ignore
     envars: list[FlowEnvar] = Field(
         [],
         description="List of plain text environment variables to pass to task run overrides",
     )
 
     def _get_schedule_arg(self):
-        """Helper function to translate Prefect Schedule Object into a command line argument.
+        """Helper function to translate Prefect Schedule Cron Object
+        into a command line argument.
 
         Returns:
             str: Command line argument to use for setting the deployment's schedule.
         """
         schedule = self.schedule
+        extra_flags = []
+
         # we should only schedule for main flows
         if not DEPLOYMENT_TYPE == "main":
             return ""
         else:
-            if isinstance(schedule, CronSchedule):
-                return shlex.join(["--cron", schedule.cron])
-            elif isinstance(schedule, RRuleSchedule):
-                return shlex.join(["--rrule", schedule.rrule])
-            elif isinstance(schedule, IntervalSchedule):
-                return shlex.join(
-                    ["--interval", str(int(schedule.interval.total_seconds()))]
-                )
-            else:
+            if not schedule:
                 return ""
+            else:
+                if tz := schedule.timezone:
+                    tz_flag = ["--timezone", tz]
+                    extra_flags.extend(tz_flag)
+                cron_flags = ["--cron", schedule.cron]
+                cron_flags.extend(extra_flags)
+                return shlex.join(cron_flags)
 
     def push_deployment(
         self,

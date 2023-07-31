@@ -10,7 +10,6 @@ from common.deployment import (
     FlowDeployment,
     FlowEnvar,
     FlowSpec,
-    IntervalSchedule,
     get_pyproject_metadata,
 )
 
@@ -55,7 +54,7 @@ def test_flow_spec_disable_handle_task_definition(mock_ecs_save, mock_deployment
                 cpu="1024",
                 memory="4096",
                 parameters={"param_name": "param_value"},
-                schedule=IntervalSchedule(interval=timedelta(hours=1)),
+                schedule=None,
             ),  # type: ignore
         ],  # type: ignore
     )
