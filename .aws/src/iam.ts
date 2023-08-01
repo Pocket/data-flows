@@ -283,7 +283,8 @@ export class DataFlowsIamRoles extends Construct {
     // build the policy document for the Task role using Policy statement functions
     const flowTaskPolicyStatements = [
       this.getFlowS3BucketAccess(),
-      this.getFlowS3ObjectAccess()
+      this.getFlowS3ObjectAccess(),
+      this.putFeatureGroupRecordsAccess()
     ];
 
     this.createFlowIamRole(
@@ -309,6 +310,14 @@ export class DataFlowsIamRoles extends Construct {
       actions: ['s3:*Object'],
       effect: 'Allow',
       resources: [`${this.fileSystem.arn}/*`]
+    };
+  }
+  // Give access to put records into a feature group
+  private putFeatureGroupRecordsAccess(): DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: ['sagemaker:PutRecord'],
+      resources: ['arn:aws:sagemaker:*:*:feature-group/*'],
+      effect: 'Allow',
     };
   }
   // build policy statment for S3 object access
