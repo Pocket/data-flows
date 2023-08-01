@@ -63,7 +63,7 @@ EXPORT_CORPUS_ITEM_KEYS_SQL = """
 
 
 @flow()
-async def fx_newtab_aggregate_engagement():
+async def aggregate_engagement():
     df_telemetry = await bigquery_query(
         gcp_credentials=PktGcpCredentials(),
         query=EXPORT_FIREFOX_TELEMETRY_SQL,
@@ -91,7 +91,7 @@ async def fx_newtab_aggregate_engagement():
 
 
 FLOW_SPEC = FlowSpec(
-    flow=fx_newtab_aggregate_engagement,
+    flow=aggregate_engagement,
     docker_env="base",
     secrets=[
         FlowEnvar(
@@ -109,7 +109,7 @@ FLOW_SPEC = FlowSpec(
     ],
     deployments=[
         FlowDeployment(
-            deployment_name="new_tab_recommendations_aggregate_engagement",
+            deployment_name="deployment",
             schedule=CronSchedule(cron="*/15 * * * *"),
         ),
     ],
