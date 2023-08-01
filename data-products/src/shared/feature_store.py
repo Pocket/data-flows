@@ -1,12 +1,12 @@
 import asyncio
-import logging
 from asyncio import run
 from typing import NamedTuple
 
 import aioboto3
 import pandas as pd
 from common.settings import Settings, CommonSettings
-from prefect import get_run_logger, flow
+from prefect import get_run_logger, flow, task
+from prefect_dask import DaskTaskRunner
 
 CS = CommonSettings()
 
@@ -20,7 +20,12 @@ class FeatureGroupSettings(Settings):
     )
 
 
-@flow(validate_parameters=False)
+@flow(
+    validate_parameters=False,
+    task_runner=DaskTaskRunner(
+        cluster_kwargs={"n_workers": 4, "threads_per_worker": 1}
+    ),
+)
 async def dataframe_to_feature_group(
     dataframe: pd.DataFrame, feature_group_name: str, concurrency_limit: int = 100
 ):
@@ -31,87 +36,63 @@ async def dataframe_to_feature_group(
     :param feature_group_name: the name of the feature group to upload the data to
     :param concurrency_limit: Maximum number of concurrent HTTP requests to make to the FeatureGroup.
     """
+    tasks = [
+        ingest_rows(
+            dataframe=dataframe[i : i + concurrency_limit],
+            feature_group_name=feature_group_name,
+        )
+        for i in range(0, dataframe.shape[0], concurrency_limit)
+    ]
+
     logger = get_run_logger()
-    logger.info(f"Ingesting {len(dataframe)} records into {feature_group_name}")
+    logger.info(
+        f"Ingesting {len(dataframe)} records in {len(tasks)} chunks into {feature_group_name}"
+    )
+    await asyncio.gather(*tasks)
 
-    aioboto3_session = aioboto3.Session()
-    semaphore = asyncio.Semaphore(concurrency_limit)
 
-    async with aioboto3_session.client(
+INGEST_ROWS_RETRIES = 2
+
+
+@task(retries=INGEST_ROWS_RETRIES)
+async def ingest_rows(dataframe: pd.DataFrame, feature_group_name: str):
+    async with aioboto3.Session().client(
         "sagemaker-featurestore-runtime"
     ) as featurestore:
         tasks = [
             ingest_row(
-                semaphore=semaphore,
                 row=row,
-                feature_group_name=feature_group_name,
                 featurestore=featurestore,
-                logger=logger,
+                feature_group_name=feature_group_name,
             )
             for row in dataframe.itertuples(index=False)
         ]
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    exception_count = len(
-        [result for result in results if isinstance(result, Exception)]
-    )
-    success_count = len(results) - exception_count
-    logger.info(
-        f"Successfully ingested {success_count} records. Failed to ingest {exception_count} records."
-    )
-
-    if exception_count:
-        # Re-raise first exception to let the flow fail.
-        raise next(result for result in results if isinstance(result, Exception))
+        await asyncio.gather(*tasks)
 
 
-# @task(retries=3)  # Wrapping function in a Prefect task results in RuntimeErrors "bound to a different event loop"
 async def ingest_row(
-    semaphore: asyncio.Semaphore,
     row: NamedTuple,
     feature_group_name: str,
     featurestore,
-    logger: logging.Logger,
-    retries=2,
-    retry_delay_seconds=1,
 ):
     """Ingest a single Dataframe row into FeatureStore.
 
     Args:
-        :param semaphore: Semaphore to limit concurrency.
         :param row: current row that is being ingested
         :param feature_group_name: name of the Feature Group.
         :param featurestore: aioboto3 client for sagemaker-featurestore-runtime
-        :param logger:
-        :param retries: Number of times to retry on failure
-        :param retry_delay_seconds: Delay in seconds before retrying
     """
-    async with semaphore:
-        # Ideally, we use Prefect to retry, but this resulted in an event loop error, and seemed much slower.
-        for retry in range(retries + 1):
-            try:
-                await featurestore.put_record(
-                    FeatureGroupName=feature_group_name,
-                    Record=[
-                        {
-                            "FeatureName": column_name,
-                            "ValueAsString": str(getattr(row, column_name)),
-                        }
-                        for column_name in row._fields  # Seems this is a common way to iterate over a NamedTuple's fields?
-                    ],
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed featurestore.put_record on retry {retry}/{retries} with {e}"
-                )
-                if retry == retries:
-                    raise e
-
-                await asyncio.sleep(retry_delay_seconds)
-            else:
-                # Success
-                break
+    await featurestore.put_record(
+        FeatureGroupName=feature_group_name,
+        Record=[
+            {
+                "FeatureName": column_name,
+                "ValueAsString": str(getattr(row, column_name)),
+            }
+            for column_name in row._fields  # Seems this is a common way to iterate over a NamedTuple's fields?
+        ],
+    )
 
 
 if __name__ == "__main__":

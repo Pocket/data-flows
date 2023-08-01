@@ -111,10 +111,12 @@ FLOW_SPEC = FlowSpec(
         FlowDeployment(
             deployment_name="deployment",
             schedule=CronSchedule(cron="*/15 * * * *"),
+            cpu="4096",
+            memory="8192",
         ),
     ],
 )
 
 
 if __name__ == "__main__":
-    run(fx_newtab_aggregate_engagement())
+    run(aggregate_engagement())

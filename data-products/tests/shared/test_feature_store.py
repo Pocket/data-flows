@@ -4,6 +4,7 @@ from unittest import mock
 from typing import Dict, List
 
 import aioboto3
+import botocore
 import pandas as pd
 import pytest
 import pytest_asyncio
@@ -12,7 +13,12 @@ from botocore.stub import Stubber
 from common.settings import CommonSettings
 from prefect.testing.utilities import prefect_test_harness
 
-from shared.feature_store import ingest_row, dataframe_to_feature_group
+from shared.feature_store import (
+    ingest_rows,
+    dataframe_to_feature_group,
+    INGEST_ROWS_RETRIES,
+    ingest_row,
+)
 
 CS = CommonSettings()  # type: ignore
 
@@ -29,66 +35,68 @@ def features_row(df_features):
     return list(df_features.itertuples(index=False))[0]
 
 
-def stub_featurestore(
-    client, expected_feature_group_name: str, expected_record: List[Dict]
-):
-    stubber = Stubber(client)
-    stubber.add_response(
-        "put_record",
-        {},
-        expected_params={
-            "FeatureGroupName": expected_feature_group_name,
-            "Record": expected_record,
-        },
-    )
-    stubber.activate()
+@pytest.fixture()
+def features_row_expected_params(features_row):
+    return {
+        "FeatureGroupName": "my_feature_group",
+        "Record": [
+            {"FeatureName": "id", "ValueAsString": str(features_row.id)},
+            {"FeatureName": "clicks", "ValueAsString": str(features_row.clicks)},
+        ],
+    }
 
 
 @pytest_asyncio.fixture
-async def stubbed_featurestore():
+async def stubbed_featurestore(features_row_expected_params):
     async with aioboto3.Session().client(
         "sagemaker-featurestore-runtime"
     ) as featurestore:
-        stub_featurestore(
-            featurestore,
-            expected_feature_group_name="my_feature_group",
-            expected_record=[
-                {"FeatureName": "id", "ValueAsString": "foobar-1"},
-                {"FeatureName": "clicks", "ValueAsString": "200"},
-            ],
+        stubber = Stubber(featurestore)
+        stubber.add_response(
+            "put_record",
+            {},
+            expected_params=features_row_expected_params,
         )
+        stubber.activate()
 
         yield featurestore
+        stubber.assert_no_pending_responses()
+
+
+@pytest_asyncio.fixture
+async def stubbed_featurestore_error(features_row_expected_params):
+    async with aioboto3.Session().client(
+        "sagemaker-featurestore-runtime"
+    ) as featurestore:
+        stubber = Stubber(featurestore)
+        stubber.add_client_error(
+            "put_record",
+            service_error_code='ServiceUnavailable',
+            expected_params=features_row_expected_params,
+        )
+        stubber.activate()
+
+        yield featurestore
+        stubber.assert_no_pending_responses()
 
 
 @pytest.mark.asyncio
 async def test_ingest_row(features_row, stubbed_featurestore, caplog):
     await ingest_row(
-        semaphore=asyncio.Semaphore(1),
         row=features_row,
         feature_group_name="my_feature_group",
         featurestore=stubbed_featurestore,
-        logger=logging.getLogger(),
     )
-
-    assert not any(r.levelname == "ERROR" for r in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_ingest_row_exception(features_row, stubbed_featurestore, caplog):
-    with pytest.raises(StubAssertionError):
+async def test_ingest_row_exception(features_row, stubbed_featurestore_error, caplog):
+    with pytest.raises(stubbed_featurestore_error.exceptions.ServiceUnavailable):
         await ingest_row(
-            semaphore=asyncio.Semaphore(1),
             row=features_row,
-            feature_group_name="wrong_name_will_raise_exception",
-            featurestore=stubbed_featurestore,
-            logger=logging.getLogger(),
-            retry_delay_seconds=0.1,
+            feature_group_name="my_feature_group",
+            featurestore=stubbed_featurestore_error,
         )
-
-        error_log_records = [r for r in caplog.records if r.levelname == "ERROR"]
-        assert len(error_log_records) == 3
-        assert "StubAssertionError" in error_log_records[0].message
 
 
 @pytest.mark.asyncio
@@ -98,17 +106,12 @@ async def test_dataframe_to_feature_group(df_features, caplog):
             "shared.feature_store.ingest_row",
             new_callable=mock.AsyncMock,
             return_value=None,
-        ):
+        ) as mock_ingest_row:
             await dataframe_to_feature_group(
-                df_features,
-                feature_group_name="my_feature_group",
+                df_features, feature_group_name="my_feature_group"
             )
 
-            assert any(
-                r.message
-                == "Successfully ingested 2 records. Failed to ingest 0 records."
-                for r in caplog.records
-            )
+            assert mock_ingest_row.call_count == len(df_features)
 
 
 @pytest.mark.asyncio
@@ -124,8 +127,6 @@ async def test_dataframe_to_feature_group_exception(df_features, caplog):
                     feature_group_name="my_feature_group",
                 )
 
-                assert any(
-                    r.message
-                    == "Successfully ingested 0 records. Failed to ingest 2 records."
-                    for r in caplog.records
-                )
+            assert mock_ingest_row.call_count == (INGEST_ROWS_RETRIES + 1) * len(
+                df_features
+            )
