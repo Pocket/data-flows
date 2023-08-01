@@ -317,7 +317,7 @@ export class DataFlowsIamRoles extends Construct {
     return {
       actions: ['sagemaker:PutRecord'],
       resources: ['arn:aws:sagemaker:*:*:feature-group/*'],
-      effect: 'Allow',
+      effect: 'Allow'
     };
   }
   // build policy statment for S3 object access
