@@ -4,6 +4,7 @@ import pandas as pd
 from common.cloud.gcp_utils import PktGcpCredentials
 from common.databases.snowflake_utils import PktSnowflakeConnector
 from common.deployment import FlowSpec, FlowEnvar, FlowDeployment
+from common.settings import CommonSettings
 from prefect import flow
 from prefect.server.schemas.schedules import CronSchedule
 from prefect_gcp.bigquery import bigquery_query
