@@ -62,7 +62,7 @@ END
 FROM
   deduplicated
 WHERE
-  release_channel = 'release' --this is only beta for now, this is why user numbers are so low
+  release_channel = 'release'
   AND (version LIKE '1%'
     OR version LIKE '2%'
     OR version LIKE '3%'
