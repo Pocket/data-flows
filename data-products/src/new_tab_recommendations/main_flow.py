@@ -101,6 +101,10 @@ FLOW_SPEC = FlowSpec(
             envar_name="DF_CONFIG_GCP_CREDENTIALS",
             envar_value=f"data-flows/{CS.deployment_type}/gcp-credentials",
         ),
+        FlowEnvar(
+            envar_name="DF_CONFIG_SNOWFLAKE_GCP_STAGES",
+            envar_value=f"data-flows/{CS.deployment_type}/snowflake-gcp-stage-data",
+        ),
     ],
     deployments=[
         FlowDeployment(

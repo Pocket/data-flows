@@ -117,17 +117,6 @@ async def ingest_row(
                 break
 
 
-FLOW_SPEC = FlowSpec(
-    flow=dataframe_to_feature_group,
-    docker_env="base",
-    deployments=[
-        FlowDeployment(
-            deployment_name="dataframe_to_feature_group",
-        ),
-    ],
-)
-
-
 if __name__ == "__main__":
     run(
         dataframe_to_feature_group(
