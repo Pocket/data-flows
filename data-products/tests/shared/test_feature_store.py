@@ -14,7 +14,7 @@ from common.settings import CommonSettings
 from prefect.testing.utilities import prefect_test_harness
 
 from shared.feature_store import (
-    ingest_rows,
+    ingest_dataframe,
     dataframe_to_feature_group,
     INGEST_ROWS_RETRIES,
     ingest_row,

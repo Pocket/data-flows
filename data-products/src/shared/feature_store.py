@@ -36,8 +36,9 @@ async def dataframe_to_feature_group(
     :param feature_group_name: the name of the feature group to upload the data to
     :param concurrency_limit: Maximum number of concurrent HTTP requests to make to the FeatureGroup.
     """
+    # Split dataframe into chunks with at most concurrency_limit rows.
     tasks = [
-        ingest_rows(
+        ingest_dataframe(
             dataframe=dataframe[i : i + concurrency_limit],
             feature_group_name=feature_group_name,
         )
@@ -55,7 +56,7 @@ INGEST_ROWS_RETRIES = 2
 
 
 @task(retries=INGEST_ROWS_RETRIES)
-async def ingest_rows(dataframe: pd.DataFrame, feature_group_name: str):
+async def ingest_dataframe(dataframe: pd.DataFrame, feature_group_name: str):
     async with aioboto3.Session().client(
         "sagemaker-featurestore-runtime"
     ) as featurestore:
