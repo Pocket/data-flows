@@ -1,20 +1,14 @@
-import asyncio
-import logging
 from unittest import mock
-from typing import Dict, List
 
 import aioboto3
-import botocore
 import pandas as pd
 import pytest
 import pytest_asyncio
-from botocore.exceptions import StubAssertionError
 from botocore.stub import Stubber
 from common.settings import CommonSettings
 from prefect.testing.utilities import prefect_test_harness
 
 from shared.feature_store import (
-    ingest_dataframe,
     dataframe_to_feature_group,
     INGEST_ROWS_RETRIES,
     ingest_row,
@@ -71,7 +65,7 @@ async def stubbed_featurestore_error(features_row_expected_params):
         stubber = Stubber(featurestore)
         stubber.add_client_error(
             "put_record",
-            service_error_code='ServiceUnavailable',
+            service_error_code="ServiceUnavailable",
             expected_params=features_row_expected_params,
         )
         stubber.activate()
