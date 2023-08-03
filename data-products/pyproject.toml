@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.5.0"
+version = "0.6.0"
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
