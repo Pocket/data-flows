@@ -8,6 +8,10 @@ A `sql_etl` job can be incremental and use offset logic or simply just run an ex
 
 Code lives at `src/sql_etl` and is described [here](/flows/sql_etl/code).
 
+Here is a flow diagram showing how it all works:
+
+![](/flows/sql_etl/sql-etl-flow-diagram.jpg)
+
 ## Expectations
 
 To leverage this service for jobs, `sql_etl` you will need to know:
