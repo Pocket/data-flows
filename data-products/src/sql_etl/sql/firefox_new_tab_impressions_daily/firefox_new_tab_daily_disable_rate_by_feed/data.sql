@@ -72,7 +72,6 @@ WHERE
     OR version LIKE '7%'
     OR version LIKE '8%'
     OR version LIKE '9%'
-    OR version LIKE '10%'
     AND ( ( normalized_country_code IN ('US',
           'CA',
           'GB',
