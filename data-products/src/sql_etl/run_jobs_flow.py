@@ -88,10 +88,25 @@ class SqlEtlJob(SqlJob):
 
     @property
     def is_incremental(self):
+        """Logic for this property is based on existence of offset.sql
+        or with_external_state property.
+
+        Returns:
+            bool: is incremental?
+        """
         return (
             Path(os.path.join(self.job_file_path, "offset.sql")).exists()
             or self.with_external_state
         )
+
+    @property
+    def default_table_name(self):
+        """Default table name based on sql folder that can be used.
+
+        Returns:
+            str: default table name
+        """
+        return self.sql_folder_name.split("/")[-1]
 
     @property
     def snowflake_stage(self) -> SfGcsStage:
@@ -263,7 +278,7 @@ class SqlEtlJob(SqlJob):
             split_part(metadata$filename,'/', -3),
             split_part(metadata$filename,'/', -2),
             sysdate()""",
-            "table_name": self.sql_folder_name.split("/")[-1],
+            "table_name": self.default_table_name,
         }
         extra_kwargs.update(interval_input.dict())
         return self.render_sql_file(load_sql_file_name, extra_kwargs)
