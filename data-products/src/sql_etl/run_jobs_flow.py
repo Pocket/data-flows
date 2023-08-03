@@ -520,9 +520,6 @@ if __name__ == "__main__":
     from asyncio import run
 
     t = SqlEtlJob(
-        sql_folder_name="curated_feed_exports_aurora",
-        kwargs={
-            "environment": CS.deployment_type,
-        },
+        sql_folder_name="firefox_new_tab_impressions_hourly"
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore

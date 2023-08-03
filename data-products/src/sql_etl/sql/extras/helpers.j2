@@ -33,3 +33,8 @@
     commit;
     
 {% endmacro %}
+
+{% macro rolling_24_hours_filter() %}
+    WHERE submission_timestamp >= timestamp_sub(timestamp_trunc(current_timestamp, HOUR), INTERVAL 1 DAY)
+    AND submission_timestamp < timestamp_trunc(current_timestamp, HOUR)
+{% endmacro %}
