@@ -519,7 +519,5 @@ FLOW_SPEC = FlowSpec(
 if __name__ == "__main__":
     from asyncio import run
 
-    t = SqlEtlJob(
-        sql_folder_name="firefox_new_tab_impressions_hourly"
-    )  # type: ignore
+    t = SqlEtlJob(sql_folder_name="firefox_new_tab_impressions_hourly")  # type: ignore
     run(main(etl_input=t))  # type: ignore
