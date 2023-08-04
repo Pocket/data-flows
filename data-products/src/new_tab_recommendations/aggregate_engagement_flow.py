@@ -107,6 +107,12 @@ FLOW_SPEC = FlowSpec(
             envar_value=f"data-flows/{CS.deployment_type}/snowflake-gcp-stage-data",
         ),
     ],
+    envars=[
+        FlowEnvar(
+            envar_name="PREFECT_API_ENABLE_HTTP2",
+            envar_value="False",
+        )
+    ],
     deployments=[
         FlowDeployment(
             deployment_name="deployment",
