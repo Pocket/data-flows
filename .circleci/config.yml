@@ -74,7 +74,7 @@ jobs:
 
   test_app:
     docker:
-      - image: python:3.8
+      - image: python:3.9
         auth:
           username: $DOCKERHUB_USERNAME
           password: $DOCKERHUB_PASSWORD
