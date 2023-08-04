@@ -45,3 +45,10 @@ dask-worker-space/
 # VCS
 .git/
 .hg/
+
+# docs
+site
+
+# ruff
+.ruff_cache
+

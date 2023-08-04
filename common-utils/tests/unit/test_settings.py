@@ -12,7 +12,7 @@ def test_json():
     class SettingsTest(Settings):
         test_json: NestedTest
 
-    assert SettingsTest().test_json.dict() == {"test_name": "test_value"}  # type: ignore
+    assert SettingsTest().test_json.dict() == {"test_name": "test_value"}  # type: ignore  # noqa: E501
 
 
 def test_single_value():

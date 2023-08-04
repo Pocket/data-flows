@@ -1,7 +1,5 @@
-import os
-from typing import Optional, Union
+from typing import Optional
 
-from prefect import task
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
 from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
 
@@ -45,7 +43,7 @@ class SnowflakeSettings(Settings):
     _database: str = PrivateAttr()
     snowflake_warehouse: constr(regex=WAREHOUSE_REGEX) = f"prefect_wh_{CS.dev_or_production}"  # type: ignore  # noqa: E501
     snowflake_schema: str = "public"
-    snowflake_gcp_stages: dict
+    snowflake_gcp_stages: Optional[dict]
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -80,8 +78,12 @@ class PktSnowflakeConnector(SnowflakeConnector):
         data["credentials"] = SnowflakeCredentials(
             **settings.snowflake_credentials.dict()
         )
-        data["schema"] = settings.snowflake_schema
-        data["warehouse"] = settings.snowflake_warehouse
+
+        schema = data.get("schema", settings.snowflake_schema)
+        warehouse = data.get("warehouse", settings.snowflake_warehouse)
+
+        data["schema"] = schema
+        data["warehouse"] = warehouse
         super().__init__(**data)
 
 
@@ -107,16 +109,3 @@ def get_gcs_stage(stage_id: str = "default") -> SfGcsStage:
         stage_name=stage_config[f"{stage_id}_name"],
         stage_location=stage_config[f"{stage_id}_location"],
     )
-
-
-@task()
-def get_pocket_snowflake_connector_block(
-    warehouse_override: Union[str, None] = None,
-    schema_override: Union[str, None] = None,
-    **kwargs,
-):
-    if x := warehouse_override:
-        os.environ["DF_CONFIG_SNOWFLAKE_WAREHOUSE"] = x
-    if x := schema_override:
-        os.environ["DF_CONFIG_SNOWFLAKE_SCHEMA"] = x
-    return PktSnowflakeConnector(**kwargs)

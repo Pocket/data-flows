@@ -1,3 +1,4 @@
+{% set sql_engine = "snowflake" %}
 select 
 {% if for_new_offset %}
     max(collector_tstamp) as new_offset

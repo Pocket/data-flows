@@ -1,8 +1,15 @@
+import os
+import json
 from copy import deepcopy
+from pathlib import Path
+from unittest.mock import patch
 
-from pendulum import now
-from shared.utils import SqlJob, get_files_for_cleanup
 import pytest
+from pendulum import now
+from prefect import flow, task
+from prefect_snowflake import SnowflakeCredentials
+from pydantic import SecretStr
+from shared.utils import QUERY_ENGINE_MAPPING, SqlJob, SqlStmt, get_files_for_cleanup
 
 # create a fake list of files existing in a Snowflake stage
 FAKE_FILE_LIST = [
@@ -197,7 +204,7 @@ def test_intervals_1():
         override_last_offset="2023-06-17 21:59:59.999",
         override_batch_end="2023-06-26 02:00:00",
         include_now=True,
-    )
+    )  # type: ignore
     assert [x.dict() for x in t.get_intervals()] == TEST_INTERVAL_SETS
 
 
@@ -220,7 +227,7 @@ def test_intervals_2():
         override_last_offset="2023-06-17 21:59:59.999",
         override_batch_end="2023-06-26 00:00:00",
         include_now=True,
-    )
+    )  # type: ignore
     test_list = deepcopy(TEST_INTERVAL_SETS)
     test_list.pop()
     test_list[-1] = {
@@ -246,7 +253,7 @@ def test_intervals_3():
         override_last_offset="2023-06-17 21:59:59.999",
         override_batch_end="2023-06-26 00:00:00",
         include_now=False,
-    )
+    )  # type: ignore
     test_list = deepcopy(TEST_INTERVAL_SETS)
     test_list.pop()
     test_list[-1] = {
@@ -321,7 +328,7 @@ def test_intervals_4():
         sql_folder_name="test",
         override_last_offset=LAST_OFFSET_STR,
         include_now=False,
-    )
+    )  # type: ignore
     assert [x.dict() for x in t.get_intervals()] == DYNAMIC_TEST_INTERVAL_SETS
 
 
@@ -332,7 +339,7 @@ def test_intervals_5():
     t = SqlJob(
         sql_folder_name="test",
         include_now=False,
-    )
+    )  # type: ignore
     assert [
         x.dict()
         for x in t.get_intervals(
@@ -350,7 +357,7 @@ def test_intervals_6():
         sql_folder_name="test",
         override_last_offset=LAST_OFFSET_STR,
         include_now=True,
-    )
+    )  # type: ignore
     interval_list = [x.dict() for x in t.get_intervals()]
     test_list = deepcopy(DYNAMIC_TEST_INTERVAL_SETS)
     extra_item = deepcopy(DYNAMIC_TEST_EXTRA_INTERVAL)
@@ -371,7 +378,7 @@ def test_intervals_7():
     t = SqlJob(
         sql_folder_name="test",
         include_now=True,
-    )
+    )  # type: ignore
     interval_list = [x.dict() for x in t.get_intervals(last_offset=LAST_OFFSET_STR)]
     test_list = deepcopy(DYNAMIC_TEST_INTERVAL_SETS)
     extra_item = deepcopy(DYNAMIC_TEST_EXTRA_INTERVAL)
@@ -392,11 +399,190 @@ def test_intervals_no_offset():
     t = SqlJob(
         sql_folder_name="test",
         include_now=True,
-    )
+    )  # type: ignore
     with pytest.raises(Exception) as e:
         t.get_intervals()
     assert (
         "The resulting last offset cannot be None. "
         "If last_offset is None, then initial_last_offset or "
         "override_last_offset must be set"
+    ) in str(e.value)
+
+
+@pytest.mark.asyncio
+async def test_sql_stmt_gcp():
+    sql = SqlStmt(
+        sql_engine="bigquery",
+        sql_text="select 1",
+        is_multi_statement=False,
+        connection_overrides={},
+    )
+    assert sql.standard_kwargs == {
+        "gcp_credentials": QUERY_ENGINE_MAPPING["bigquery"]["gcp_credentials"](
+            service_account_file="tests/test.json",
+            service_account_info=None,
+            project="test",
+        ),
+        "query": "select 1",
+    }
+
+    mock_state = {
+        "call_count": 0,
+    }
+
+    @task
+    async def fake_task(*args, **kwargs):
+        mock_state["call_count"] += 1
+
+    @flow
+    async def fake_flow(*args, **kwargs):
+        await sql.run_query_task("test")
+
+    with patch("shared.utils.bigquery_query", fake_task):
+        await fake_flow()
+    assert mock_state["call_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sql_stmt_sf():
+    sql = SqlStmt(
+        sql_engine="snowflake",
+        sql_text="select 1",
+        is_multi_statement=False,
+        connection_overrides={},
+    )
+    assert sql.standard_kwargs == {
+        "query": "select 1",
+        "snowflake_connector": QUERY_ENGINE_MAPPING["snowflake"]["snowflake_connector"](
+            credentials=SnowflakeCredentials(
+                account="test.us-test-1",
+                user="test@mozilla.com",
+                password=None,
+                private_key=None,
+                private_key_path=Path("tmp/test.p8"),
+                private_key_passphrase=SecretStr("**********"),
+                authenticator="snowflake",
+                token=None,
+                endpoint=None,
+                role="test",
+                autocommit=None,
+            ),
+            database="development",
+            warehouse="prefect_wh_test",
+            fetch_size=1,
+            poll_frequency_s=1,
+        ),
+    }
+
+    mock_state = {
+        "call_count": 0,
+    }
+
+    @task
+    async def fake_task(*args, **kwargs):
+        mock_state["call_count"] += 1
+
+    @flow
+    async def fake_flow(*args, **kwargs):
+        await sql.run_query_task("test")
+
+    with patch("shared.utils.snowflake_query", fake_task):
+        await fake_flow()
+    assert mock_state["call_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sql_stmt_snowflake_mulit():
+    sql = SqlStmt(
+        sql_engine="snowflake",
+        sql_text="select 1; select 2; select3;",
+        is_multi_statement=True,
+        connection_overrides={},
+    )
+    assert sql.standard_kwargs == {
+        "query": "select 1; select 2; select3;",
+        "snowflake_connector": QUERY_ENGINE_MAPPING["snowflake"]["snowflake_connector"](
+            credentials=SnowflakeCredentials(
+                account="test.us-test-1",
+                user="test@mozilla.com",
+                password=None,
+                private_key=None,
+                private_key_path=Path("tmp/test.p8"),
+                private_key_passphrase=SecretStr("**********"),
+                authenticator="snowflake",
+                token=None,
+                endpoint=None,
+                role="test",
+                autocommit=None,
+            ),
+            database="development",
+            warehouse="prefect_wh_test",
+            fetch_size=1,
+            poll_frequency_s=1,
+        ),
+    }
+
+    mock_state = {
+        "call_count": 0,
+    }
+
+    @task
+    async def fake_task(*args, **kwargs):
+        mock_state["call_count"] += 1
+
+    @flow
+    async def fake_flow(*args, **kwargs):
+        await sql.run_query_task("test")
+
+    with patch("shared.utils.snowflake_multiquery", fake_task):
+        await fake_flow()
+    assert mock_state["call_count"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sql_engine", ["mysql", "postgres"])
+async def test_sql_stmt_sqlalchemy(sql_engine):
+    os.environ["DF_CONFIG_SQLALCHEMY_CREDENTIALS"] = json.dumps(
+        {"url": f"{sql_engine}://scott:tiger@localhost:5432"}
+    )
+    sql = SqlStmt(
+        sql_engine="mysql",
+        sql_text="select 1",
+        is_multi_statement=False,
+        connection_overrides={},
+    )
+    assert sql.standard_kwargs == {
+        "sqlalchemy_credentials": QUERY_ENGINE_MAPPING[sql_engine][
+            "sqlalchemy_credentials"
+        ](
+            url="test",
+        ),
+        "query": "select 1",
+    }
+
+    mock_state = {
+        "call_count": 0,
+    }
+
+    @task
+    async def fake_task(*args, **kwargs):
+        mock_state["call_count"] += 1
+
+    @flow
+    async def fake_flow(*args, **kwargs):
+        await sql.run_query_task("test")
+
+    with patch("shared.utils.sqlalchemy_execute", fake_task):
+        await fake_flow()
+    assert mock_state["call_count"] == 1
+
+
+def test_no_sql_engine():
+    t = SqlJob(sql_folder_name="test_bad_engine")  # type: ignore
+    with pytest.raises(Exception) as e:
+        t.render_sql_file("data.sql")
+    assert (
+        'SQL file must have jinja2 block {% set sql_engine = "<engine_type>" %}, '
+        "and must be one of "
+        "dict_keys(['snowflake', 'bigquery', 'postgres', 'mysql'])"
     ) in str(e.value)

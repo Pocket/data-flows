@@ -1,3 +1,27 @@
 site_name: data-flows/data-products
 theme:
   name: material
+
+nav:
+  - Getting Started: index.md
+  - Flows:
+    - sql_etl:
+      - Usage: flows/sql_etl/usage.md
+      - Code: flows/sql_etl/code.md
+
+watch:
+  - "src"
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: True
+            show_object_full_path: False
+            show_category_heading: True
+            show_bases: True
+            show_signature: False
+            heading_level: 1
+            filters: ["!^_[^_]", "!^__[^__]"]
