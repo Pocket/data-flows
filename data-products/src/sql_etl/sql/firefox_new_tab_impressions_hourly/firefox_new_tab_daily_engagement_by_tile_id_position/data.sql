@@ -6,7 +6,7 @@ WITH
       *   
     FROM
       `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`  
-    {{helpers.rolling_24_hours_filter()}} 
+    {{helpers.legacy_rolling_24_hours_filter()}}
     QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
     document_id
     ORDER BY
@@ -88,3 +88,4 @@ ORDER BY
   1,
   2,
   3;
+{% endif %}
