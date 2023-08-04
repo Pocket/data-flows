@@ -35,5 +35,5 @@
 {% endmacro %}
 
 {% macro legacy_rolling_24_hours_filter() %}
-    WHERE EXTRACT(date FROM submission_timestamp) BETWEEN DATE_ADD('{{ start_date }}', INTERVAL -1 DAY) AND '{{ start_date }}'
+    WHERE EXTRACT(date FROM submission_timestamp) BETWEEN DATE_ADD(current_date('UTC'), INTERVAL -1 DAY) AND current_date('UTC')
 {% endmacro %}
