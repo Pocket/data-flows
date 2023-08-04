@@ -2590,7 +2590,7 @@ files = [
 name = "platformdirs"
 version = "3.8.1"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -4058,6 +4058,7 @@ files = [
 name = "tomlkit"
 version = "0.12.1"
 description = "Style preserving TOML library"
+category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -4536,4 +4537,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "82b7fbdb33adb9b89912d1d5113e6690a4081618d780fac0ce16b5c946c70cfa"
+content-hash = "1111df07c56a94a1edc682693b415d7d341ca9adf3af4e37cabb6fba844d873c"
