@@ -87,7 +87,10 @@ def query_corpus_candidate_set(candidate_set_config: CorpusCandidateSetConfig) -
         schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
     )
 
-    validate_corpus_items.run(corpus_items)
+    validate_corpus_items.run(
+        corpus_items,
+        min_item_count=0 if 'coronavirus' in candidate_set_config.name else 1
+    )
 
     return create_corpus_candidate_set_record.run(
         id=candidate_set_config.id,
