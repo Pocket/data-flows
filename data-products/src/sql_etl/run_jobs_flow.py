@@ -534,7 +534,9 @@ FLOW_SPEC = FlowSpec(
 if __name__ == "__main__":
     from asyncio import run
 
-    t = SqlEtlJob(sql_folder_name="firefox_new_tab_impressions_daily/firefox_new_tab_monthly_unique_engagement_by_feed"
-                  ,kwargs={"for_backfill": True},
-                  override_last_offset="2023-08-01 23:59:59.999999")  # type: ignore
+    t = SqlEtlJob(
+        sql_folder_name="firefox_new_tab_impressions_daily/firefox_new_tab_monthly_unique_engagement_by_feed",
+        kwargs={"for_backfill": True},
+        override_last_offset="2023-08-01 23:59:59.999999",
+    )  # type: ignore
     run(main(etl_input=t))  # type: ignore
