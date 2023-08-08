@@ -13,4 +13,4 @@ async def process_parallel_subflows(
 
     group = [with_concurrency_limit(coroutine) for coroutine in coroutines]
 
-    await asyncio.gather(*group)
+    await asyncio.gather(*group, return_exceptions=True)
