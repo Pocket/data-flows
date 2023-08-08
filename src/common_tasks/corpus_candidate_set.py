@@ -12,8 +12,7 @@ from utils import config
 
 
 @task()
-def validate_corpus_items(corpus_items: List[Dict]):
-    min_item_count = 1
+def validate_corpus_items(corpus_items: List[Dict], min_item_count: int = 1):
     expected_keys = ['ID', 'TOPIC', 'PUBLISHER']
 
     assert len(corpus_items) >= min_item_count
