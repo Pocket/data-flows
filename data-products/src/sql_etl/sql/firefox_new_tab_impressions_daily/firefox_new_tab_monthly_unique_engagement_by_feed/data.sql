@@ -16,7 +16,7 @@ WITH
     {% else %}
       `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`  
     {% endif %}
-    WHERE submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
+    WHERE submission_timestamp >= CAST(DATE_SUB(CAST({{ helpers.parse_iso8601(batch_start) }} as DATE), INTERVAL 1 MONTH) as TIMESTAMP)
     AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }}
     QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
     document_id
@@ -151,6 +151,7 @@ SELECT
       WHEN a.clicks > 0 AND a.user_prefs & 4 = 4 AND a.user_prefs & 32 = 32 AND t.type = 'spoc' THEN a.client_id
   END
     ) AS users_clicking_spocs_count,
+  CAST({{ helpers.parse_iso8601(batch_start) }} as DATE) as aggregation_date
 FROM
   flattened_impression_data AS a
 LEFT JOIN
