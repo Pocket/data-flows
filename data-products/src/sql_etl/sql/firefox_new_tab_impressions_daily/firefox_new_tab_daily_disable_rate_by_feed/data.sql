@@ -71,7 +71,7 @@ WHERE
     OR version LIKE '6%'
     OR version LIKE '7%'
     OR version LIKE '8%'
-    OR version LIKE '9%'
+    OR version LIKE '9%')
     AND ( ( normalized_country_code IN ('US',
           'CA',
           'GB',
@@ -92,7 +92,7 @@ WHERE
       OR (normalized_country_code IN ('FR')
         AND locale IN ('fr'))
       OR (normalized_country_code IN ('ES')
-        AND locale IN ('es-ES')) ))
+        AND locale IN ('es-ES')) )
 GROUP BY
   1,
   2

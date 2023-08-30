@@ -53,8 +53,6 @@ WITH
     AND click IS NULL
     AND block IS NULL
     AND pocket IS NULL --impressions only
-    AND normalized_country_code = 'US'
-    AND locale LIKE 'en%'
     AND release_channel = 'release'
     AND user_prefs & 4 = 4
     AND user_prefs & 32 = 32
