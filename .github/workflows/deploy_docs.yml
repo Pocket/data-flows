@@ -43,4 +43,4 @@ jobs:
       - name: Install Deps
         run: "../common-utils/common_utils_build.sh && poetry install --only main,docs --no-root --no-ansi"
       - name: Deploy Docs
-        run: "poetry run mkdocs gh-deploy"
+        run: "poetry run mkdocs gh-deploy --force"
