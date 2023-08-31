@@ -46,7 +46,7 @@ jobs:
       - name: Set .venv Config
         run : poetry config virtualenvs.in-project true
       - name: Install Deps
-        run: "../common-utils/common_utils_build.sh && poetry install --with-only main,docs --no-root --no-ansi"
+        run: "../common-utils/common_utils_build.sh && poetry install --only main,docs --no-root --no-ansi"
       - name: Build Docs
         run: "poetry run mkdocs build"
       - name: Setup Pages
