@@ -9,14 +9,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from prefect import flow, task
-#from prefect_snowflake.database import snowflake_query
 from prefect.server.schemas.schedules import CronSchedule
 from prefect_snowflake.database import snowflake_query_sync
 
 from common.databases.snowflake_utils import PktSnowflakeConnector
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
-#from common.databases.snowflake_utils import PktSnowflakeConnector
 
 CS = CommonSettings()  # type: ignore
 
