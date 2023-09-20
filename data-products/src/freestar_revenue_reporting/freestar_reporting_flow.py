@@ -2,7 +2,6 @@ import requests
 import json
 import os
 import time
-import shutil
 
 import pandas as pd
 import pyarrow as pa
@@ -18,15 +17,8 @@ from common.settings import CommonSettings
 
 CS = CommonSettings()  # type: ignore
 
-# Define a subdirectory to store JSON objects
-subdirectory = "json_data"
-
 # Initialize an empty list to store the data from each JSON file
 combined_data = []
-
-# Define the output JSON file to save the combined data
-output_json_filename = "data_combined.json"
-output_json_file = os.path.join(subdirectory, output_json_filename)
 
 # Define the output Parquet file
 output_parquet_filename = "data_combined.parquet"
@@ -69,7 +61,7 @@ def extract_freestar_data():
             "timeDimensions": [
                 {
                     "dimension": "NdrPrebid.record_date",
-                    "dateRange": "Yesterday" # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
+                    "dateRange": ["2023-08-29", "2023-08-29"] # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
                 }
             ],
             "limit": 2000,  # Retrieve 2,000 records at a time to accomodate 5 second timeout
@@ -83,23 +75,11 @@ def extract_freestar_data():
         "Content-Type": "application/json"
     }
 
-    # Create the subdirectory (if it exists, remove it first to ensure it's empty)
-    if os.path.exists(subdirectory):
-        shutil.rmtree(subdirectory)
-        os.makedirs(subdirectory)
-
-    # Define a function to save data to a file
-    def save_data_to_file(data, filename):
-        filepath = os.path.join(subdirectory, filename)
-        with open(filepath, "w") as output_file:
-            json.dump(data, output_file, indent=4)
-
     # Define a function to save combined data to a Parquet file
     def save_data_to_parquet(data, filename):
-        filepath = os.path.join(subdirectory, filename)
         df = pd.DataFrame(data)
         table = pa.Table.from_pandas(df)
-        pq.write_table(table, filepath)
+        pq.write_table(table, filename)
 
     page_number = 1  # Initialize the page number
 
@@ -111,6 +91,8 @@ def extract_freestar_data():
 
             # Parse the JSON response
             response_json = response.json()
+            print(f"Retrieved {len(response_json['data'])} records for page {page_number}.")
+
 
             # Remove the 'NdrPrebid' prefix from keys in the JSON response
             for item in response_json['data']:
@@ -118,11 +100,9 @@ def extract_freestar_data():
                     if key.startswith('NdrPrebid.'):
                         new_key = key[len('NdrPrebid.'):]
                         item[new_key] = item.pop(key)
-
-            # Save the JSON response to a separate file with a page number
-            filename = f"api_response_page_{page_number}.json"
-            save_data_to_file(response_json, filename)
-            print(f"Page {page_number} saved to {filename}")
+            
+            # Append the processed data to the combined_data list
+            combined_data.extend(response_json['data'])
 
             # Check if there are more records to retrieve
             if len(response_json['data']) < 2000:
@@ -141,19 +121,8 @@ def extract_freestar_data():
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON response: {e}")
 
-    # Combine paginated files
+    print(f"Total records retrieved: {len(combined_data)}")
 
-    # Loop through all JSON files in the directory
-    for filename in os.listdir(subdirectory):
-        if filename.endswith(".json"):
-            file_path = os.path.join(subdirectory, filename)
-            with open(file_path, "r") as json_file:
-                try:
-                    data = json.load(json_file)["data"]
-                    combined_data.extend(data)  # Extend the list with data blocks
-                except json.JSONDecodeError:
-                    print(f"Error reading JSON from {filename}")
-    
     # Convert the combined data to Parquet format and save it
     output_parquet_filename = "data_combined.parquet"
     save_data_to_parquet(combined_data, output_parquet_filename)
@@ -198,7 +167,7 @@ FILE_FORMAT = {snowflake_table}_format;
 """
 
 put_parquet_sql = f"""
-PUT file://{subdirectory}/{output_parquet_filename} @{snowflake_table}_stage
+PUT file://{output_parquet_filename} @{snowflake_table}_stage
 """
 
 load_sql = f"""
