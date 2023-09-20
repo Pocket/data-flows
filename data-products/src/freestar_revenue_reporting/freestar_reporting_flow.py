@@ -236,7 +236,9 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             deployment_name="freestar_extraction",
-            schedule=CronSchedule(cron="0 10 * * *"),
+            # Running at 10 a.m. UTC to ensure it runs after midnight
+            # since we are pulling from Freestar's "Yesterday"
+            schedule=CronSchedule(cron="0 10 * * *"), 
         ),
     ],
 )
