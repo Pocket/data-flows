@@ -61,10 +61,7 @@ def extract_freestar_data():
             "timeDimensions": [
                 {
                     "dimension": "NdrPrebid.record_date",
-                    "dateRange": [
-                        "2023-08-27",
-                        "2023-08-27",
-                    ],  # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
+                    "dateRange": ["Yesterday"],  # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
                 }
             ],
             "limit": 2000,  # Retrieve 2,000 records at a time to accomodate 5 second timeout
