@@ -23,13 +23,13 @@ combined_data = []
 # Define the output Parquet file
 output_parquet_filename = "data_combined.parquet"
 
+
 @task(retries=3, retry_delay_seconds=5)
 def extract_freestar_data():
-    
     # Define the API base URL and endpoint
     API_BASE_URL = "https://analytics.pub.network"
     API_ENDPOINT = "/cubejs-api/v1/load"
-    FREESTAR_API_KEY = json.loads(os.environ["FREESTAR_CREDENTIALS"])['api_key']
+    FREESTAR_API_KEY = json.loads(os.environ["FREESTAR_CREDENTIALS"])["api_key"]
 
     # Define the request payload with initial pagination parameters
     request_payload = {
@@ -38,7 +38,7 @@ def extract_freestar_data():
             "measures": [
                 "NdrPrebid.impressions",
                 "NdrPrebid.net_revenue",
-                "NdrPrebid.net_cpm"
+                "NdrPrebid.net_cpm",
             ],
             "dimensions": [
                 "NdrPrebid.record_date",
@@ -56,70 +56,66 @@ def extract_freestar_data():
                 "NdrPrebid.device_type",
                 "NdrPrebid.device_os",
                 "NdrPrebid.browser",
-                "NdrPrebid.integration_partner"
+                "NdrPrebid.integration_partner",
             ],
             "timeDimensions": [
                 {
                     "dimension": "NdrPrebid.record_date",
-                    "dateRange": "Yesterday" # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
+                    "dateRange": [
+                        "2023-08-27",
+                        "2023-08-27",
+                    ],  # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
                 }
             ],
             "limit": 2000,  # Retrieve 2,000 records at a time to accomodate 5 second timeout
-            "offset": 0  # Start with an offset of 0
+            "offset": 0,  # Start with an offset of 0
         }
     }
 
     # Set up the headers with the API token
     headers = {
         "Authorization": f"Bearer {FREESTAR_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
     # Define a function to save combined data to a Parquet file
     def save_data_to_parquet(data, filename):
         df = pd.DataFrame(data)
-        table = pa.Table.from_pandas(df)
-        pq.write_table(table, filename)
+        df.to_parquet(filename)
 
     page_number = 1  # Initialize the page number
 
     while True:
-        try:
-            # Send the POST request to the API with the current pagination parameters
-            response = requests.post(API_BASE_URL + API_ENDPOINT, json=request_payload, headers=headers)
-            response.raise_for_status()  # Raise an exception for HTTP errors
+        # Send the POST request to the API with the current pagination parameters
+        response = requests.post(
+            API_BASE_URL + API_ENDPOINT, json=request_payload, headers=headers
+        )
+        response.raise_for_status()  # Raise an exception for HTTP errors
 
-            # Parse the JSON response
-            response_json = response.json()
-            print(f"Retrieved {len(response_json['data'])} records for page {page_number}.")
+        # Parse the JSON response
+        response_json = response.json()
+        print(f"Retrieved {len(response_json['data'])} records for page {page_number}.")
 
+        # Remove the 'NdrPrebid' prefix from keys in the JSON response
+        for item in response_json["data"]:
+            for key in list(item.keys()):
+                if key.startswith("NdrPrebid."):
+                    new_key = key[len("NdrPrebid.") :]
+                    item[new_key] = item.pop(key)
 
-            # Remove the 'NdrPrebid' prefix from keys in the JSON response
-            for item in response_json['data']:
-                for key in list(item.keys()):
-                    if key.startswith('NdrPrebid.'):
-                        new_key = key[len('NdrPrebid.'):]
-                        item[new_key] = item.pop(key)
-            
-            # Append the processed data to the combined_data list
-            combined_data.extend(response_json['data'])
+        # Append the processed data to the combined_data list
+        combined_data.extend(response_json["data"])
 
-            # Check if there are more records to retrieve
-            if len(response_json['data']) < 2000:
-                break  # Stop if there are no more records
+        # Check if there are more records to retrieve
+        if len(response_json["data"]) < 2000:
+            break  # Stop if there are no more records
 
-            # Increment the offset for the next page
-            request_payload["query"]["offset"] += 2000
-            page_number += 1
+        # Increment the offset for the next page
+        request_payload["query"]["offset"] += 2000
+        page_number += 1
 
-            # Add a 5-second delay before fetching the next page
-            time.sleep(5)
-
-        except requests.exceptions.RequestException as e:
-            print(f"Error: {e}")
-
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON response: {e}")
+        # Add a 5-second delay before fetching the next page
+        time.sleep(5)
 
     print(f"Total records retrieved: {len(combined_data)}")
 
@@ -127,6 +123,7 @@ def extract_freestar_data():
     output_parquet_filename = "data_combined.parquet"
     save_data_to_parquet(combined_data, output_parquet_filename)
     print("Combined data saved to", output_parquet_filename)
+
 
 # Define table to load
 snowflake_table = "freestar_daily_extracts"
@@ -191,34 +188,31 @@ COPY INTO {snowflake_table}
                  $1:impressions::INTEGER,
                  $1:net_revenue::INTEGER,
                  $1:net_cpm::FLOAT
-        FROM @{snowflake_table}_stage/data_combined.parquet
+        FROM @{snowflake_table}_stage/{output_parquet_filename}
         );
 """
+
 
 # Define the Prefect flow
 @flow(name="Freestar Report Flow")
 async def freestar_report_flow():
     extract_freestar_data()
     await snowflake_query_sync(
-        query=create_table_sql,
-        snowflake_connector=PktSnowflakeConnector()
+        query=create_table_sql, snowflake_connector=PktSnowflakeConnector()
     )
     await snowflake_query_sync(
-        query=format_file_sql,
-        snowflake_connector=PktSnowflakeConnector()
+        query=format_file_sql, snowflake_connector=PktSnowflakeConnector()
     )
     await snowflake_query_sync(
-        query=create_stage_sql,
-        snowflake_connector=PktSnowflakeConnector()
+        query=create_stage_sql, snowflake_connector=PktSnowflakeConnector()
     )
     await snowflake_query_sync(
-        query=put_parquet_sql,
-        snowflake_connector=PktSnowflakeConnector()
+        query=put_parquet_sql, snowflake_connector=PktSnowflakeConnector()
     )
     await snowflake_query_sync(
-        query=load_sql,
-        snowflake_connector=PktSnowflakeConnector()
+        query=load_sql, snowflake_connector=PktSnowflakeConnector()
     )
+
 
 FLOW_SPEC = FlowSpec(
     flow=freestar_report_flow,
@@ -231,18 +225,19 @@ FLOW_SPEC = FlowSpec(
         FlowEnvar(
             envar_name="FREESTAR_CREDENTIALS",
             envar_value=f"data-flows/{CS.deployment_type}/freestar-credentials",
-        )
+        ),
     ],
     deployments=[
         FlowDeployment(
             deployment_name="freestar_extraction",
             # Running at 10 a.m. UTC to ensure it runs after midnight
             # since we are pulling from Freestar's "Yesterday"
-            schedule=CronSchedule(cron="0 10 * * *"), 
+            schedule=CronSchedule(cron="0 10 * * *"),
         ),
     ],
 )
 
 if __name__ == "__main__":
     from asyncio import run
+
     run(freestar_report_flow())
