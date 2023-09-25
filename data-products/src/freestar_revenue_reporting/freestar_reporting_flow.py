@@ -7,9 +7,9 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from prefect import flow, task
+from prefect import flow, task, get_run_logger
 from prefect.server.schemas.schedules import CronSchedule
-from prefect_snowflake.database import snowflake_query_sync
+from prefect_snowflake.database import snowflake_query_sync, snowflake_multiquery
 
 from common.databases.snowflake_utils import PktSnowflakeConnector
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
@@ -26,6 +26,7 @@ output_parquet_filename = "data_combined.parquet"
 
 @task(retries=3, retry_delay_seconds=5)
 def extract_freestar_data():
+    logger=get_run_logger()
     # Define the API base URL and endpoint
     API_BASE_URL = "https://analytics.pub.network"
     API_ENDPOINT = "/cubejs-api/v1/load"
@@ -61,9 +62,7 @@ def extract_freestar_data():
             "timeDimensions": [
                 {
                     "dimension": "NdrPrebid.record_date",
-                    "dateRange": [
-                        "Yesterday"
-                    ],  # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
+                    "dateRange": "Yesterday"  # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
                 }
             ],
             "limit": 2000,  # Retrieve 2,000 records at a time to accomodate 5 second timeout
@@ -93,7 +92,7 @@ def extract_freestar_data():
 
         # Parse the JSON response
         response_json = response.json()
-        print(f"Retrieved {len(response_json['data'])} records for page {page_number}.")
+        logger.info(f"Retrieved {len(response_json['data'])} records for page {page_number}.")
 
         # Remove the 'NdrPrebid' prefix from keys in the JSON response
         for item in response_json["data"]:
@@ -116,20 +115,14 @@ def extract_freestar_data():
         # Add a 5-second delay before fetching the next page
         time.sleep(5)
 
-    print(f"Total records retrieved: {len(combined_data)}")
+    logger.info(f"Total records retrieved: {len(combined_data)}")
 
     # Convert the combined data to Parquet format and save it
     output_parquet_filename = "data_combined.parquet"
     save_data_to_parquet(combined_data, output_parquet_filename)
-    print("Combined data saved to", output_parquet_filename)
+    logger.info("Combined data saved to", output_parquet_filename)
 
-
-# Define table to load
-snowflake_table = "freestar_daily_extracts"
-
-# Define SQL statements
-create_table_sql = f"""
-CREATE TABLE IF NOT EXISTS {snowflake_table} (
+table_schema = """
     record_date DATE,
     network STRING,
     url STRING,
@@ -149,6 +142,19 @@ CREATE TABLE IF NOT EXISTS {snowflake_table} (
     impressions INTEGER,
     net_revenue INTEGER,
     net_cpm FLOAT
+"""
+
+# Define table to load
+snowflake_table = "freestar_daily_extracts"
+
+# Define SQL statements
+create_schema_sql = f"""
+CREATE SCHEMA IF NOT EXISTS freestar;
+"""
+
+create_table_sql = f"""
+CREATE TABLE IF NOT EXISTS freestar.{snowflake_table} (
+    {table_schema}
 );
 """
 
@@ -166,8 +172,14 @@ put_parquet_sql = f"""
 PUT file://{output_parquet_filename} @{snowflake_table}_stage
 """
 
+create_temp_table = f"""
+CREATE TEMPORARY TABLE freestar.{snowflake_table}_tmp (
+    {table_schema}
+);
+"""
+
 load_sql = f"""
-COPY INTO {snowflake_table}
+COPY INTO freestar.{snowflake_table}_tmp
     FROM (SELECT $1:record_date::DATE,
                  $1:network::STRING,
                  $1:url::STRING,
@@ -191,25 +203,41 @@ COPY INTO {snowflake_table}
         );
 """
 
+begin_transaction = f"""
+BEGIN TRANSACTION;
+"""
+
+delete_sql = f"""
+DELETE FROM freestar.{snowflake_table}
+    WHERE record_date IN (SELECT record_date FROM freestar.{snowflake_table}_tmp);
+"""
+
+insert_sql = f"""
+INSERT INTO freestar.{snowflake_table}
+    SELECT * FROM freestar.{snowflake_table}_tmp;
+"""
 
 # Define the Prefect flow
 @flow(name="Freestar Report Flow")
 async def freestar_report_flow():
-    extract_freestar_data()
-    await snowflake_query_sync(
-        query=create_table_sql, snowflake_connector=PktSnowflakeConnector()
+    eft = extract_freestar_data()
+    create_schema = await snowflake_query_sync(
+        query=create_schema_sql, snowflake_connector=PktSnowflakeConnector(), wait_for=[eft]
     )
-    await snowflake_query_sync(
-        query=format_file_sql, snowflake_connector=PktSnowflakeConnector()
+    create = await snowflake_query_sync(
+        query=create_table_sql, snowflake_connector=PktSnowflakeConnector(), wait_for=[create_schema]
     )
-    await snowflake_query_sync(
-        query=create_stage_sql, snowflake_connector=PktSnowflakeConnector()
+    format_file = await snowflake_query_sync(
+        query=format_file_sql, snowflake_connector=PktSnowflakeConnector(), wait_for=[create]
     )
-    await snowflake_query_sync(
-        query=put_parquet_sql, snowflake_connector=PktSnowflakeConnector()
+    create_stage = await snowflake_query_sync(
+        query=create_stage_sql, snowflake_connector=PktSnowflakeConnector(), wait_for=[format_file]
     )
-    await snowflake_query_sync(
-        query=load_sql, snowflake_connector=PktSnowflakeConnector()
+    put_parquet = await snowflake_query_sync(
+        query=put_parquet_sql, snowflake_connector=PktSnowflakeConnector(), wait_for=[create_stage]
+    )
+    await snowflake_multiquery(
+        queries=[create_temp_table, load_sql, begin_transaction, delete_sql, insert_sql], snowflake_connector=PktSnowflakeConnector(), wait_for=[put_parquet], as_transaction=True
     )
 
 
