@@ -13,7 +13,8 @@ Shared utilities live in `src/shared` can will be available to all flows.
 This project uses [Poetry](https://python-poetry.org/) for dependency management.
 We also use the (Poetry dotenv plugin)[https://github.com/volopivoshenko/poetry-plugin-dotenv] to apply environment variables at runtime through the use of a `.env` file that should live at the root of this project.
 
-NOTE:  If you get a dependency error on installion of the plug, you just need to update Poetry using `poetry self update`.
+!!! note 
+    If you get a dependency error on installion of the plug, you just need to update Poetry using `poetry self update`.
 
 These should be deployed using the details offered by each project's respective documentation.
 

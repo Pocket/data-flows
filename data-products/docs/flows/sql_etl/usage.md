@@ -16,12 +16,16 @@ Here is a flow diagram showing how it all works:
 
 To leverage this service for jobs, `sql_etl` you will need to know:
 
+- How to create a deployment
 - How to create the SQL expected for things to work
 - How the offset and interval logic works
 - How to setup your local environment
-- How to create a deployment
 
 Below we go through each element.
+
+## Deployment
+
+The
 
 
 ## SQL statments
@@ -76,7 +80,7 @@ Notice that we can have up to three files possible in a folder:
 - `load.sql`
 - `offset.sql`
 
-Also, notice that we support files liveing at the top level of a folder within the `sql` folder.  We also support a single level of nesting files in subdirectories of a folder in `sql`.
+Also, notice that we support files living at the top level of a folder within the `sql` folder.  We also support a single level of nesting files in subdirectories of a folder in `sql`.  The `curated_feed_exports_aurora` is an example of the supporting nesting of subdirectories.  If, needed SQL files can live at the top of the parent directory and will executed after the subdirectories are completed.
 
 
 
@@ -103,15 +107,47 @@ FROM TABLE_TO_BE_EXTRACTED;
 
 Now when the service renders and uses this extract statment, it knows where to run it.  All configuration needed for connecting the engines we support is supplied via environment variables, which will be discussed in another section.
 
-NOTE: All SQL running through this service must have a `sql_engine` block.
+!!! note 
+    All SQL running through this service must have a `sql_engine` block.
 
-NOTE: For `snowflake` and `bigquery`, we will wrap the rendered `data.sql` in specific export logic located in this method:
+!!! note 
+    For `snowflake` and `bigquery`, we will wrap the rendered `data.sql` in specific export logic located in this method:
 
 [`get_extraction_sql`](/flows/sql_etl/code/#src.sql_etl.run_jobs_flow.SqlEtlJob.get_extraction_sql)
 
  `mysql` and `postgres` will not be wrapped in any logic as of now, which means the export logic must be built into the query.
 
  A single `data.sql` file means you are just loading to cloud storage.
+
+ Since these files are being formatted by jijnja2, we can add our own custom keywords to do things like this:
+
+```sql
+    SELECT
+    *   
+FROM
+{% if for_backfill %}
+    deduped_table
+{% else %}
+    live_table 
+{% endif %}
+WHERE submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
+AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }}
+QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
+document_id
+ORDER BY
+submission_timestamp desc) = 1
+```
+
+Also, since these are jinja2 templates we can import helpers using something like this toward the top of the file:
+
+`{% import 'helpers.j2' as helpers with context %}`
+
+This is what makes the `helpers.parse_iso8601` call possible in the last SQL example above.
+
+These parameters are available to all `data.sql` files:
+
+- The fields of the base `SQLJob` pydantic model described [here](/shared/utils/code/#src.shared.utils.SqlJob/).  Your custom parameter values are defined as a dictionary in `kwargs`.
+- The fields of the `SqlEtlJob` pydantic model described [here](/sql_etl/code/#src.sql_etl.run_jobs_flow.SqlEtlJob)
 
 ### Loading
 
@@ -127,14 +163,15 @@ FROM @my_ext_stage
 FILE_FORMAT = (TYPE = 'PARQUET')
 ```
 
-NOTE:  Currently all data exports from `snowflake` and `bigquery` will be in `PARQUET` format.
+!!! note
+    Currently all data exports from `snowflake` and `bigquery` will be in `PARQUET` format.
 
 
 ### Offset
 
 This service provides the option to run either `incremental` or `non-incremental` extract-load jobs.
 
-When you have the ability to pull the `last_offset` from the destination table on an incremental job, you will need to provide an `offset.sql` file.  This activates the incremental logic.
+When you have the need to produce a `last_offset` to make the flow run incremental, you will need to provide an `offset.sql` file.  This activates the incremental logic.
 
 For example:
 ```sql
@@ -143,7 +180,23 @@ select max(timestamp_field) as last_offset
 from TABLE_TO_BE_LOADED
 ```
 
-There is also the option to track offset using an external table called `sql_offset_state` with the `with_external_state` flag.  If this flag is set, then `offset.sql` is not required to activate incremental logic.
+Pretty much anything can be in the `offset.sql`.  For example, if you want to pin the offset to the last 24 hours you could do something like this:
 
-`with_external_state` and the incremental logic will be discussed later on.
+```sql
+{% set sql_engine = "snowflake" %}
+select (trunc(sysdate()::timestamp, 'day') - interval '1 day') - interval '1 microsecond';
+```
+
+If this is run on `2023-09-17 13:00`, this would result in a value of `2023-09-15 23:59:59.999999`.  When the incremental logic built into the service add 1 microsecond, the `data.sql` file will have access to a batch_start timestamp of `2023-09-16 00:00:00.000000` for a proper `>=` where clause declaration.
+
+There is also the option to track offset using an external table called `sql_offset_state` with the `with_external_state` flag.  If this flag is set, then `offset.sql` is not required to activate incremental logic because that value is pulled from the state table.  
+
+!!! note
+    Using the `with_external_state` does require the use of the `initial_last_offset` job parameter.
+
+`with_external_state`, incremental logic, and job parameters will be discussed later on.  
+
+### Intervals
+
+The interval logic in this 
 

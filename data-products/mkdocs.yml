@@ -4,6 +4,10 @@ theme:
 
 nav:
   - Getting Started: index.md
+  - Utilities:
+    - shared:
+      - utils:
+        - Code: shared/utils/code.md
   - Flows:
     - sql_etl:
       - Usage: flows/sql_etl/usage.md
@@ -25,3 +29,6 @@ plugins:
             show_signature: False
             heading_level: 1
             filters: ["!^_[^_]", "!^__[^__]"]
+
+markdown_extensions:
+  - admonition
