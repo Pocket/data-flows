@@ -1,0 +1,790 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../../../shared/utils/code/">
+      
+      
+        <link rel="next" href="../code/">
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.1, mkdocs-material-9.1.21">
+    
+    
+      
+        <title>Usage - data-flows/data-products</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.eebd395e.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#usage" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="data-flows/data-products" class="md-header__button md-logo" aria-label="data-flows/data-products" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            data-flows/data-products
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Usage
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="data-flows/data-products" class="md-nav__button md-logo" aria-label="data-flows/data-products" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    data-flows/data-products
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        Getting Started
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          Utilities
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Utilities
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+          shared
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_2_1">
+          <span class="md-nav__icon md-icon"></span>
+          shared
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_1" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2_1_1" id="__nav_2_1_1_label" tabindex="0">
+          utils
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_2_1_1">
+          <span class="md-nav__icon md-icon"></span>
+          utils
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../shared/utils/code/" class="md-nav__link">
+        Code
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          Flows
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          Flows
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+          sql_etl
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          sql_etl
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Usage
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Usage
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#expectations" class="md-nav__link">
+    Expectations
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    Deployment
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sql-statments" class="md-nav__link">
+    SQL statments
+  </a>
+  
+    <nav class="md-nav" aria-label="SQL statments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extraction" class="md-nav__link">
+    Extraction
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    Loading
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#offset" class="md-nav__link">
+    Offset
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intervals" class="md-nav__link">
+    Intervals
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code/" class="md-nav__link">
+        Code
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#expectations" class="md-nav__link">
+    Expectations
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    Deployment
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sql-statments" class="md-nav__link">
+    SQL statments
+  </a>
+  
+    <nav class="md-nav" aria-label="SQL statments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extraction" class="md-nav__link">
+    Extraction
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    Loading
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#offset" class="md-nav__link">
+    Offset
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intervals" class="md-nav__link">
+    Intervals
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+<h1 id="usage">Usage</h1>
+<p><code>sql_etl</code> is a Prefect flow meant to act as a service for executing simple SQL based extract and load workflows.  This means a SQL statement extracts the data to cloud storage.  Then a SQL statement loads this data into a cloud-based Data Warehouse.  That is the expectation for how this should be used.</p>
+<p>This is technically more of an <code>el</code>, but <code>etl</code> is a more common term to use.</p>
+<p>A <code>sql_etl</code> job can be incremental and use offset logic or simply just run an extract-load process without worring about tracking offset or batching by day.</p>
+<p>Code lives at <code>src/sql_etl</code> and is described <a href="/flows/sql_etl/code">here</a>.</p>
+<p>Here is a flow diagram showing how it all works:</p>
+<p><img alt="" src="/flows/sql_etl/sql-etl-flow-diagram.jpg" /></p>
+<h2 id="expectations">Expectations</h2>
+<p>To leverage this service for jobs, <code>sql_etl</code> you will need to know:</p>
+<ul>
+<li>How to create a deployment</li>
+<li>How to create the SQL expected for things to work</li>
+<li>How the offset and interval logic works</li>
+<li>How to setup your local environment</li>
+</ul>
+<p>Below we go through each element.</p>
+<h2 id="deployment">Deployment</h2>
+<p>The</p>
+<h2 id="sql-statments">SQL statments</h2>
+<p>SQL statments will live in subfolders at <code>src/sql_etl/sql</code></p>
+<p>Here is an example of what a set of sql job files looks like:</p>
+<pre><code>sql_etl
+└── sql
+    ├── backend_events_for_mozilla
+    │   └── data.sql
+    ├── curated_feed_exports_aurora
+    │   ├── curated_feed_items
+    │   │   ├── data.sql
+    │   │   └── load.sql
+    │   ├── curated_feed_items_deleted
+    │   │   ├── data.sql
+    │   │   └── load.sql
+    │   ├── curated_feed_prospects
+    │   │   ├── data.sql
+    │   │   └── load.sql
+    │   ├── curated_feed_queued_items
+    │   │   ├── data.sql
+    │   │   └── load.sql
+    │   └── tile_source
+    │       ├── data.sql
+    │       └── load.sql
+    ├── firefox_new_tab_impressions
+    │   ├── firefox_new_tab_daily_disable_rate_by_feed
+    │   │   ├── data.sql
+    │   │   └── offset.sql
+    │   ├── firefox_new_tab_daily_spoc_fill_rate_by_position_feed
+    │   │   ├── data.sql
+    │   │   └── offset.sql
+    │   ├── firefox_new_tab_daily_unique_engagement_by_feed
+    │   │   ├── data.sql
+    │   │   └── offset.sql
+    │   └── firefox_new_tab_monthly_unique_engagement_by_feed
+    │       ├── data.sql
+    │       └── offset.sql
+    └── impression_stats_v1
+        ├── data.sql
+        ├── load.sql
+        └── offset.sql
+</code></pre>
+<p>Notice that we can have up to three files possible in a folder:</p>
+<ul>
+<li><code>data.sql</code></li>
+<li><code>load.sql</code></li>
+<li><code>offset.sql</code></li>
+</ul>
+<p>Also, notice that we support files living at the top level of a folder within the <code>sql</code> folder.  We also support a single level of nesting files in subdirectories of a folder in <code>sql</code>.  The <code>curated_feed_exports_aurora</code> is an example of the supporting nesting of subdirectories.  If, needed SQL files can live at the top of the parent directory and will executed after the subdirectories are completed.</p>
+<h3 id="extraction">Extraction</h3>
+<p>At the very least your folder of SQL statements must contain a <code>data.sql</code></p>
+<p>This is the query which defines the data to be extracted.  </p>
+<p>For example:</p>
+<pre><code class="language-sql">SELECT *
+FROM TABLE_TO_BE_EXTRACTED;
+</code></pre>
+<p>By itself this will not do much and will fail. This is because we have not defined the <code>sql_engine</code> this needs to run on.  The engines this service supports are <code>["snowflake", "bigquery", "mysql", "postgres"]</code>.  All SQL is run through jinja2, which means we can add templating logic to our statements.  For <code>sql_engine</code> we need a block telling us where to run this.</p>
+<p>For example:</p>
+<pre><code class="language-sql">{% set sql_engine = &quot;bigquery&quot; %}
+SELECT *
+FROM TABLE_TO_BE_EXTRACTED;
+</code></pre>
+<p>Now when the service renders and uses this extract statment, it knows where to run it.  All configuration needed for connecting the engines we support is supplied via environment variables, which will be discussed in another section.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All SQL running through this service must have a <code>sql_engine</code> block.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For <code>snowflake</code> and <code>bigquery</code>, we will wrap the rendered <code>data.sql</code> in specific export logic located in this method:</p>
+</div>
+<p><a href="/flows/sql_etl/code/#src.sql_etl.run_jobs_flow.SqlEtlJob.get_extraction_sql"><code>get_extraction_sql</code></a></p>
+<p><code>mysql</code> and <code>postgres</code> will not be wrapped in any logic as of now, which means the export logic must be built into the query.</p>
+<p>A single <code>data.sql</code> file means you are just loading to cloud storage.</p>
+<p>Since these files are being formatted by jijnja2, we can add our own custom keywords to do things like this:</p>
+<pre><code class="language-sql">    SELECT
+    *   
+FROM
+{% if for_backfill %}
+    deduped_table
+{% else %}
+    live_table 
+{% endif %}
+WHERE submission_timestamp &gt;= {{ helpers.parse_iso8601(batch_start) }}
+AND submission_timestamp &lt; {{ helpers.parse_iso8601(batch_end) }}
+QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
+document_id
+ORDER BY
+submission_timestamp desc) = 1
+</code></pre>
+<p>Also, since these are jinja2 templates we can import helpers using something like this toward the top of the file:</p>
+<p><code>{% import 'helpers.j2' as helpers with context %}</code></p>
+<p>This is what makes the <code>helpers.parse_iso8601</code> call possible in the last SQL example above.</p>
+<p>These parameters are available to all <code>data.sql</code> files:</p>
+<ul>
+<li>The fields of the base <code>SQLJob</code> pydantic model described <a href="/shared/utils/code/#src.shared.utils.SqlJob/">here</a>.  Your custom parameter values are defined as a dictionary in <code>kwargs</code>.</li>
+<li>The fields of the <code>SqlEtlJob</code> pydantic model described <a href="/sql_etl/code/#src.sql_etl.run_jobs_flow.SqlEtlJob">here</a></li>
+</ul>
+<h3 id="loading">Loading</h3>
+<p>Loading requires the existence of a <code>load.sql</code>.</p>
+<p>This is the query which defines the data to be extracted.  </p>
+<p>For example:</p>
+<pre><code class="language-sql">{% set sql_engine = &quot;snowflake&quot; %}
+COPY INTO TABLE_TO_BE_LOADED
+FROM @my_ext_stage
+FILE_FORMAT = (TYPE = 'PARQUET')
+</code></pre>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Currently all data exports from <code>snowflake</code> and <code>bigquery</code> will be in <code>PARQUET</code> format.</p>
+</div>
+<h3 id="offset">Offset</h3>
+<p>This service provides the option to run either <code>incremental</code> or <code>non-incremental</code> extract-load jobs.</p>
+<p>When you have the need to produce a <code>last_offset</code> to make the flow run incremental, you will need to provide an <code>offset.sql</code> file.  This activates the incremental logic.</p>
+<p>For example:</p>
+<pre><code class="language-sql">{% set sql_engine = &quot;snowflake&quot; %}
+select max(timestamp_field) as last_offset
+from TABLE_TO_BE_LOADED
+</code></pre>
+<p>Pretty much anything can be in the <code>offset.sql</code>.  For example, if you want to pin the offset to the last 24 hours you could do something like this:</p>
+<pre><code class="language-sql">{% set sql_engine = &quot;snowflake&quot; %}
+select (trunc(sysdate()::timestamp, 'day') - interval '1 day') - interval '1 microsecond';
+</code></pre>
+<p>If this is run on <code>2023-09-17 13:00</code>, this would result in a value of <code>2023-09-15 23:59:59.999999</code>.  When the incremental logic built into the service add 1 microsecond, the <code>data.sql</code> file will have access to a batch_start timestamp of <code>2023-09-16 00:00:00.000000</code> for a proper <code>&gt;=</code> where clause declaration.</p>
+<p>There is also the option to track offset using an external table called <code>sql_offset_state</code> with the <code>with_external_state</code> flag.  If this flag is set, then <code>offset.sql</code> is not required to activate incremental logic because that value is pulled from the state table.  </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Using the <code>with_external_state</code> does require the use of the <code>initial_last_offset</code> job parameter.</p>
+</div>
+<p><code>with_external_state</code>, incremental logic, and job parameters will be discussed later on.  </p>
+<h3 id="intervals">Intervals</h3>
+<p>The interval logic in this </p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": [], "search": "../../../assets/javascripts/workers/search.74e28a9f.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.220ee61c.min.js"></script>
+      
+    
+  </body>
+</html>

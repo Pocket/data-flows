@@ -1,0 +1,3484 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../../..">
+      
+      
+        <link rel="next" href="../../../flows/sql_etl/usage/">
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.1, mkdocs-material-9.1.21">
+    
+    
+      
+        <title>Code - data-flows/data-products</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.eebd395e.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#src.shared.utils" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="data-flows/data-products" class="md-header__button md-logo" aria-label="data-flows/data-products" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            data-flows/data-products
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Code
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="data-flows/data-products" class="md-nav__button md-logo" aria-label="data-flows/data-products" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    data-flows/data-products
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        Getting Started
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          Utilities
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Utilities
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+          shared
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_2_1">
+          <span class="md-nav__icon md-icon"></span>
+          shared
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1_1" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2_1_1" id="__nav_2_1_1_label" tabindex="0">
+          utils
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_1_1_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_2_1_1">
+          <span class="md-nav__icon md-icon"></span>
+          utils
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Code
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Code
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#src.shared.utils-classes" class="md-nav__link">
+    Classes
+  </a>
+  
+    <nav class="md-nav" aria-label="Classes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet" class="md-nav__link">
+    IntervalSet
+  </a>
+  
+    <nav class="md-nav" aria-label="IntervalSet">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet-attributes" class="md-nav__link">
+    Attributes
+  </a>
+  
+    <nav class="md-nav" aria-label="Attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_date_folder" class="md-nav__link">
+    partition_date_folder
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_datetime" class="md-nav__link">
+    partition_datetime
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_folders" class="md-nav__link">
+    partition_folders
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_time_folder" class="md-nav__link">
+    partition_time_folder
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_timestamp" class="md-nav__link">
+    partition_timestamp
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.time_format_string" class="md-nav__link">
+    time_format_string
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SharedUtilsSettings" class="md-nav__link">
+    SharedUtilsSettings
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob" class="md-nav__link">
+    SqlJob
+  </a>
+  
+    <nav class="md-nav" aria-label="SqlJob">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob-attributes" class="md-nav__link">
+    Attributes
+  </a>
+  
+    <nav class="md-nav" aria-label="Attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.job_kwargs" class="md-nav__link">
+    job_kwargs
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.get_intervals" class="md-nav__link">
+    get_intervals()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.render_from_template" class="md-nav__link">
+    render_from_template()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.render_sql_file" class="md-nav__link">
+    render_sql_file()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.render_sql_string" class="md-nav__link">
+    render_sql_string()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt" class="md-nav__link">
+    SqlStmt
+  </a>
+  
+    <nav class="md-nav" aria-label="SqlStmt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt-attributes" class="md-nav__link">
+    Attributes
+  </a>
+  
+    <nav class="md-nav" aria-label="Attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt.standard_kwargs" class="md-nav__link">
+    standard_kwargs
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt.run_query_task" class="md-nav__link">
+    run_query_task()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#src.shared.utils-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.get_files_for_cleanup" class="md-nav__link">
+    get_files_for_cleanup()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          Flows
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          Flows
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+          sql_etl
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          sql_etl
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../flows/sql_etl/usage/" class="md-nav__link">
+        Usage
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../flows/sql_etl/code/" class="md-nav__link">
+        Code
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#src.shared.utils-classes" class="md-nav__link">
+    Classes
+  </a>
+  
+    <nav class="md-nav" aria-label="Classes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet" class="md-nav__link">
+    IntervalSet
+  </a>
+  
+    <nav class="md-nav" aria-label="IntervalSet">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet-attributes" class="md-nav__link">
+    Attributes
+  </a>
+  
+    <nav class="md-nav" aria-label="Attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_date_folder" class="md-nav__link">
+    partition_date_folder
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_datetime" class="md-nav__link">
+    partition_datetime
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_folders" class="md-nav__link">
+    partition_folders
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_time_folder" class="md-nav__link">
+    partition_time_folder
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.partition_timestamp" class="md-nav__link">
+    partition_timestamp
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.IntervalSet.time_format_string" class="md-nav__link">
+    time_format_string
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SharedUtilsSettings" class="md-nav__link">
+    SharedUtilsSettings
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob" class="md-nav__link">
+    SqlJob
+  </a>
+  
+    <nav class="md-nav" aria-label="SqlJob">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob-attributes" class="md-nav__link">
+    Attributes
+  </a>
+  
+    <nav class="md-nav" aria-label="Attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.job_kwargs" class="md-nav__link">
+    job_kwargs
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.get_intervals" class="md-nav__link">
+    get_intervals()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.render_from_template" class="md-nav__link">
+    render_from_template()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.render_sql_file" class="md-nav__link">
+    render_sql_file()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlJob.render_sql_string" class="md-nav__link">
+    render_sql_string()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt" class="md-nav__link">
+    SqlStmt
+  </a>
+  
+    <nav class="md-nav" aria-label="SqlStmt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt-attributes" class="md-nav__link">
+    Attributes
+  </a>
+  
+    <nav class="md-nav" aria-label="Attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt.standard_kwargs" class="md-nav__link">
+    standard_kwargs
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.SqlStmt.run_query_task" class="md-nav__link">
+    run_query_task()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#src.shared.utils-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.shared.utils.get_files_for_cleanup" class="md-nav__link">
+    get_files_for_cleanup()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h1 id="src.shared.utils" class="doc doc-heading">
+            <code>src.shared.utils</code>
+
+
+</h1>
+
+  <div class="doc doc-contents first">
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+<h2 id="src.shared.utils-classes">Classes</h2>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="src.shared.utils.IntervalSet" class="doc doc-heading">
+          <code>IntervalSet</code>
+
+
+</h3>
+
+
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><span title="pydantic.BaseModel">BaseModel</span></code></p>
+
+  
+      <p>Model to leverage for interacting with batch intervals.
+Optional types are to support passing an interval set for full refresh.</p>
+
+            <details class="quote">
+              <summary>Source code in <code>src/shared/utils.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 28</span>
+<span class="normal"> 29</span>
+<span class="normal"> 30</span>
+<span class="normal"> 31</span>
+<span class="normal"> 32</span>
+<span class="normal"> 33</span>
+<span class="normal"> 34</span>
+<span class="normal"> 35</span>
+<span class="normal"> 36</span>
+<span class="normal"> 37</span>
+<span class="normal"> 38</span>
+<span class="normal"> 39</span>
+<span class="normal"> 40</span>
+<span class="normal"> 41</span>
+<span class="normal"> 42</span>
+<span class="normal"> 43</span>
+<span class="normal"> 44</span>
+<span class="normal"> 45</span>
+<span class="normal"> 46</span>
+<span class="normal"> 47</span>
+<span class="normal"> 48</span>
+<span class="normal"> 49</span>
+<span class="normal"> 50</span>
+<span class="normal"> 51</span>
+<span class="normal"> 52</span>
+<span class="normal"> 53</span>
+<span class="normal"> 54</span>
+<span class="normal"> 55</span>
+<span class="normal"> 56</span>
+<span class="normal"> 57</span>
+<span class="normal"> 58</span>
+<span class="normal"> 59</span>
+<span class="normal"> 60</span>
+<span class="normal"> 61</span>
+<span class="normal"> 62</span>
+<span class="normal"> 63</span>
+<span class="normal"> 64</span>
+<span class="normal"> 65</span>
+<span class="normal"> 66</span>
+<span class="normal"> 67</span>
+<span class="normal"> 68</span>
+<span class="normal"> 69</span>
+<span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
+<span class="normal"> 73</span>
+<span class="normal"> 74</span>
+<span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">IntervalSet</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Model to leverage for interacting with batch intervals.</span>
+<span class="sd">    Optional types are to support passing an interval set for full refresh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">batch_start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;Interval start datetime.&quot;</span><span class="p">)</span>
+    <span class="n">batch_end</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;Interval end datetime.&quot;</span><span class="p">)</span>
+    <span class="n">first_interval_start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;First full day in interval list.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">sets_end</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Batch end used to stop at.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">is_initial</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Flag to use for SQL template because the initial &quot;</span>
+            <span class="s2">&quot;start filter will &#39;&gt;&#39; as opposed to &#39;&gt;=&#39;.&quot;</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">is_final</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Flag to use for SQL template because the final interval &quot;</span>
+            <span class="s2">&quot;may trigger special logic for offset.&quot;</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">time_format_string</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper for getting the time format string used.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: time format string used for folder.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;HH-mm-ss-SSS&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">partition_datetime</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DateTime</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper for getting the DateTime object used for defining partition</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            DateTime: DateTime object used for defining partition.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">parse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_start</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">partition_date_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper for getting the partition date folder used.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Partition date folder used.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">date_str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">partition_datetime</span><span class="o">.</span><span class="n">to_date_string</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;date=</span><span class="si">{</span><span class="n">date_str</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">partition_time_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper for getting the partition time folder used.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Partition time folder used.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">time_str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">partition_datetime</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_format_string</span><span class="p">)</span>  <span class="c1"># type: ignore  # noqa: E501</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;time=</span><span class="si">{</span><span class="n">time_str</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">partition_folders</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper for getting date time partition folders.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Date time partition folders.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">partition_date_folder</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">partition_time_folder</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">partition_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper for getting unix timestamp as an int.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: Partition unix timestamp int.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">partition_datetime</span><span class="o">.</span><span class="n">int_timestamp</span>  <span class="c1"># type: ignore</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+<h4 id="src.shared.utils.IntervalSet-attributes">Attributes</h4>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="src.shared.utils.IntervalSet.partition_date_folder" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">partition_date_folder</span><span class="p">:</span> <span class="nb">str</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper for getting the partition date folder used.</p>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>str</code></td>          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Partition date folder used.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="src.shared.utils.IntervalSet.partition_datetime" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">partition_datetime</span><span class="p">:</span> <span class="n">DateTime</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper for getting the DateTime object used for defining partition</p>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>DateTime</code></td>          <td>
+                <code><span title="pendulum.datetime.DateTime">DateTime</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>DateTime object used for defining partition.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="src.shared.utils.IntervalSet.partition_folders" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">partition_folders</span><span class="p">:</span> <span class="nb">str</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper for getting date time partition folders.</p>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>str</code></td>          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Date time partition folders.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="src.shared.utils.IntervalSet.partition_time_folder" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">partition_time_folder</span><span class="p">:</span> <span class="nb">str</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper for getting the partition time folder used.</p>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>str</code></td>          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Partition time folder used.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="src.shared.utils.IntervalSet.partition_timestamp" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">partition_timestamp</span><span class="p">:</span> <span class="nb">int</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper for getting unix timestamp as an int.</p>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>int</code></td>          <td>
+                <code>int</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Partition unix timestamp int.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="src.shared.utils.IntervalSet.time_format_string" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">time_format_string</span><span class="p">:</span> <span class="nb">str</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper for getting the time format string used.</p>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>str</code></td>          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>time format string used for folder.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="src.shared.utils.SharedUtilsSettings" class="doc doc-heading">
+          <code>SharedUtilsSettings</code>
+
+
+</h3>
+
+
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><span title="common.settings.Settings">Settings</span></code></p>
+
+  
+      <p>Setting model to define reusable settings.</p>
+
+            <details class="quote">
+              <summary>Source code in <code>src/shared/utils.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">SharedUtilsSettings</span><span class="p">(</span><span class="n">Settings</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Setting model to define reusable settings.&quot;&quot;&quot;</span>
+
+    <span class="n">sql_template_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="src.shared.utils.SqlJob" class="doc doc-heading">
+          <code>SqlJob</code>
+
+
+</h3>
+
+
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><span title="pydantic.BaseModel">BaseModel</span></code></p>
+
+  
+      <p>Model for parameters to passed to an sql job request.</p>
+
+            <details class="quote">
+              <summary>Source code in <code>src/shared/utils.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span>
+<span class="normal">375</span>
+<span class="normal">376</span>
+<span class="normal">377</span>
+<span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span>
+<span class="normal">403</span>
+<span class="normal">404</span>
+<span class="normal">405</span>
+<span class="normal">406</span>
+<span class="normal">407</span>
+<span class="normal">408</span>
+<span class="normal">409</span>
+<span class="normal">410</span>
+<span class="normal">411</span>
+<span class="normal">412</span>
+<span class="normal">413</span>
+<span class="normal">414</span>
+<span class="normal">415</span>
+<span class="normal">416</span>
+<span class="normal">417</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span>
+<span class="normal">426</span>
+<span class="normal">427</span>
+<span class="normal">428</span>
+<span class="normal">429</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span>
+<span class="normal">437</span>
+<span class="normal">438</span>
+<span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">SqlJob</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Model for parameters to passed to an sql job request.&quot;&quot;&quot;</span>
+
+    <span class="n">sql_folder_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Relative folder name containing sql.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># setting sql_templat_path as private attribute to allow for...</span>
+    <span class="c1"># easier override in child classes via _init_private_attributes</span>
+    <span class="n">_sql_template_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+    <span class="n">initial_last_offset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Optional initial batch start offset.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">override_last_offset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Optional batch start override to backfill as needed.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">override_batch_end</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Optional batch end override to hard stop at.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">include_now</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">False</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Whether to include up to current utc datetime in extraction&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">connection_overrides</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="p">{},</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Any additional keyword arguments as a dictionary</span>
+<span class="sd">            to pass into the connector. Must in the form of:</span>
+
+<span class="sd">                {&quot;connector_param_name&quot;: {</span>
+<span class="sd">                        &quot;arg_name&quot;: &quot;arg_value&quot;</span>
+<span class="sd">                    } </span>
+<span class="sd">                }</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="p">{},</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Any additional keyword arguments as a dictionary&quot;</span>
+            <span class="s2">&quot;to pass into your templates.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_init_private_attributes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Great way to update private attributes without</span>
+<span class="sd">        losing autocomplete on the model.</span>
+
+<span class="sd">        https://github.com/pydantic/pydantic/discussions/3512#discussioncomment-3226167</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_init_private_attributes</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sql_template_path</span> <span class="o">=</span> <span class="n">SharedUtilsSettings</span><span class="p">()</span><span class="o">.</span><span class="n">sql_template_path</span>  <span class="c1"># type: ignore  # noqa: E501</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">job_file_path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sql_template_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sql_folder_name</span><span class="p">)</span>  <span class="c1"># type: ignore  # noqa: E501</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">extras_file_path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sql_template_path</span><span class="p">,</span> <span class="s2">&quot;extras&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore  # noqa: E501</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">job_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a flat dictionary of the kwargs parameter</span>
+<span class="sd">        plus the other top level parameters.  This gets passed to</span>
+<span class="sd">        the tempate rendering methods.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Model parameters as a single dict with kwargs items inline.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">top_level_kwargs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">())</span>
+        <span class="n">top_level_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;kwargs&quot;</span><span class="p">)</span>
+        <span class="n">job_kwargs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">job_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">top_level_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">job_kwargs</span>
+
+    <span class="k">def</span> <span class="nf">render_from_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">template</span><span class="p">:</span> <span class="n">Template</span><span class="p">,</span> <span class="n">render_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SqlStmt</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper function</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            template (Template): jinja2 Template object to render.</span>
+<span class="sd">            render_kwargs (dict): kwargs to pass to render function.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            Exception: Exception that enforces existence of sql engine variable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            SqlStmt: SqlStmt object with sql text and db engine.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">sql_engine</span> <span class="o">=</span> <span class="s2">&quot;snowflake&quot;</span>
+        <span class="n">is_multi_statement</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">sql_engine</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">sql_engine</span>  <span class="c1"># type: ignore</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s1">&#39;SQL file must have jinja2 block {</span><span class="si">% s</span><span class="s1">et sql_engine = &quot;&lt;engine_type&gt;&quot; %}&#39;</span>
+                <span class="sa">f</span><span class="s2">&quot;, and must be one of </span><span class="si">{</span><span class="n">QUERY_ENGINE_TYPES_SET</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">is_multi_statement</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">is_multi_statement</span>  <span class="c1"># type: ignore</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="n">sql_text</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="o">**</span><span class="n">render_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">SqlStmt</span><span class="p">(</span>
+            <span class="n">sql_engine</span><span class="o">=</span><span class="n">sql_engine</span><span class="p">,</span>
+            <span class="n">sql_text</span><span class="o">=</span><span class="n">sql_text</span><span class="p">,</span>
+            <span class="n">is_multi_statement</span><span class="o">=</span><span class="n">is_multi_statement</span><span class="p">,</span>
+            <span class="n">connection_overrides</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_overrides</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">render_sql_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sql_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">extra_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{})</span> <span class="o">-&gt;</span> <span class="n">SqlStmt</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method for rendering a jinj2 sql string</span>
+<span class="sd">        using job kwargs plus optional additional kwargs.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sql_string (str): SQL text with jijna2 template logic.</span>
+<span class="sd">            extra_kwargs (dict): Optional kwargs to pass into template on top of</span>
+<span class="sd">            the job_kwargs.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            SqlStmt: SqlStmt object with sql text and db engine.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">render_kwargs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">job_kwargs</span><span class="p">)</span>
+        <span class="n">render_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_kwargs</span><span class="p">)</span>
+        <span class="n">environment</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">()</span>
+        <span class="n">j2_env</span> <span class="o">=</span> <span class="n">environment</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="n">j2_env</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">sql_string</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_from_template</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">render_kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">render_sql_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sql_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">extra_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{})</span> <span class="o">-&gt;</span> <span class="n">SqlStmt</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method for rendering a jinja2 sql file using</span>
+<span class="sd">        job kwargs plus optional additional kwargs.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sql_file (str): File name containing SQL text with jijna2 template logic.</span>
+<span class="sd">            extra_kwargs (dict): Optional kwargs to pass into template on top of</span>
+<span class="sd">            the job_kwargs.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            SqlStmt: SqlStmt object with sql text and db engine.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">render_kwargs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">job_kwargs</span><span class="p">)</span>
+        <span class="n">render_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_kwargs</span><span class="p">)</span>
+        <span class="n">environment</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span>
+            <span class="n">loader</span><span class="o">=</span><span class="n">FileSystemLoader</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">job_file_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extras_file_path</span><span class="p">]),</span>
+        <span class="p">)</span>
+        <span class="n">j2_env</span> <span class="o">=</span> <span class="n">environment</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="n">j2_env</span><span class="o">.</span><span class="n">get_template</span><span class="p">(</span><span class="n">sql_file</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_from_template</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">render_kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_intervals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">last_offset</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">IntervalSet</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method that returns the intervals to be used for sql job.</span>
+
+<span class="sd">        This means that the range of time to process will be split into</span>
+<span class="sd">        many intervals (currently only support days) given that the range spans</span>
+<span class="sd">        multiple intervals.</span>
+
+<span class="sd">        If the range does not span multiple intervals, then the result is one</span>
+<span class="sd">        interval, depending on the value of the include_now parameter.</span>
+
+<span class="sd">        Unless include_now is True, the last interval in the list</span>
+<span class="sd">        will be the last full interval in the range.  For example, since we only</span>
+<span class="sd">        support days, if the last offset is today, there should be no intervals</span>
+<span class="sd">        to process, becuase the default is up through yesterday (UTC). If include_now</span>
+<span class="sd">        is True, then that final interval in the list will end before now (UTC) or the</span>
+<span class="sd">        end_date_override.</span>
+<span class="sd">        The existence of end_date_override ignores include_now = False.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            last_offset (str): Last offset to use for getting proper intervals.</span>
+<span class="sd">            If None, then defaults to value of override or initial offsets.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list[IntervalSet]: List of intervals to use for job processing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># use override end date if provided</span>
+        <span class="c1"># default to now UTC</span>
+        <span class="n">batch_end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">override_batch_end</span> <span class="ow">or</span> <span class="n">pdm</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">tz</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">()</span>
+        <span class="c1"># if last_offset is None, we use the initial offset</span>
+        <span class="k">if</span> <span class="n">last_offset</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">last_offset</span> <span class="o">==</span> <span class="s2">&quot;None&quot;</span><span class="p">:</span>
+            <span class="n">last_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_last_offset</span>
+        <span class="c1"># override last offset if provided</span>
+        <span class="n">last_offset_str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">override_last_offset</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">last_offset</span><span class="p">)</span>
+        <span class="c1"># the resulting last_offset_str cannot be None</span>
+        <span class="k">if</span> <span class="n">last_offset_str</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">last_offset_str</span> <span class="o">==</span> <span class="s2">&quot;None&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The resulting last offset cannot be None. &quot;</span>
+                <span class="s2">&quot;If last_offset is None, then initial_last_offset or &quot;</span>
+                <span class="s2">&quot;override_last_offset must be set&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># offset will be incremented by 1 microseconds</span>
+        <span class="c1"># to support using &#39;&gt;=&#39; and &#39;&lt;&#39; for all intervals</span>
+        <span class="c1"># this is less aggressive than using 1000 (1 millisecond)</span>
+        <span class="n">last_offset_final</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">last_offset_str</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">microseconds</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="c1"># the calculated intervals should start from</span>
+        <span class="c1"># the first full interval after the last offset</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">last_offset_final</span><span class="o">.</span><span class="n">end_of</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">microseconds</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">batch_end</span><span class="p">)</span>
+        <span class="c1"># create a pendulum period</span>
+        <span class="n">period_range</span> <span class="o">=</span> <span class="n">pdm</span><span class="o">.</span><span class="n">period</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">absolute</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="c1"># create base list of datetime object from period</span>
+        <span class="c1"># only include if less then of equal to start of period</span>
+        <span class="c1"># end datetime</span>
+        <span class="n">intervals</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">period_range</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="s2">&quot;days&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="o">.</span><span class="n">start_of</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">intervals</span><span class="p">:</span>
+            <span class="c1"># if we have intervals, insert offset as the first</span>
+            <span class="n">intervals</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">last_offset_final</span><span class="p">)</span>
+        <span class="c1"># setting base end to the last item in list</span>
+        <span class="c1"># this is for include_now and override logic</span>
+        <span class="n">base_end</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># only append base_end if needed and &gt; then base_end</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">include_now</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">override_batch_end</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">end</span> <span class="o">&gt;</span> <span class="n">base_end</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+                <span class="n">intervals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+                <span class="n">base_end</span> <span class="o">=</span> <span class="n">end</span>
+        <span class="c1"># create base parameters for the for loop</span>
+        <span class="n">interval_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">intervals</span><span class="p">)</span>
+        <span class="n">last_idx</span> <span class="o">=</span> <span class="n">interval_len</span> <span class="o">-</span> <span class="mi">2</span>
+        <span class="c1"># create the staging list of intervat sets</span>
+        <span class="n">interval_sets</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># set proper first_interval_start</span>
+        <span class="n">first_interval_start</span> <span class="o">=</span> <span class="n">start</span>
+        <span class="n">first_item_time</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_time_string</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+        <span class="c1"># this evaluation is needed because if the offset value...</span>
+        <span class="c1"># turns out to be the start of the day, then that is really...</span>
+        <span class="c1"># the first interval start and helper with more efficient file clean up</span>
+        <span class="k">if</span> <span class="n">first_item_time</span> <span class="o">==</span> <span class="s2">&quot;00:00:00&quot;</span><span class="p">:</span>
+            <span class="n">first_interval_start</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">intervals</span><span class="p">):</span>
+            <span class="n">is_initial</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">is_final</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">is_initial</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="n">last_idx</span><span class="p">:</span>
+                <span class="n">is_final</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">end_idx</span> <span class="o">=</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="c1"># last item in list should not be used as start</span>
+            <span class="k">if</span> <span class="n">end_idx</span> <span class="o">==</span> <span class="n">interval_len</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">interval_sets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">IntervalSet</span><span class="p">(</span>
+                    <span class="n">batch_start</span><span class="o">=</span><span class="n">i</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">batch_end</span><span class="o">=</span><span class="n">intervals</span><span class="p">[</span><span class="n">end_idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">first_interval_start</span><span class="o">=</span><span class="n">first_interval_start</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">(),</span>  <span class="c1"># type: ignore  # noqa: E501</span>
+                    <span class="n">sets_end</span><span class="o">=</span><span class="n">base_end</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">is_initial</span><span class="o">=</span><span class="n">is_initial</span><span class="p">,</span>
+                    <span class="n">is_final</span><span class="o">=</span><span class="n">is_final</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">interval_sets</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+<h4 id="src.shared.utils.SqlJob-attributes">Attributes</h4>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="src.shared.utils.SqlJob.job_kwargs" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">job_kwargs</span><span class="p">:</span> <span class="nb">dict</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Returns a flat dictionary of the kwargs parameter
+plus the other top level parameters.  This gets passed to
+the tempate rendering methods.</p>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>dict</code></td>          <td>
+                <code>dict</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Model parameters as a single dict with kwargs items inline.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+<h4 id="src.shared.utils.SqlJob-functions">Functions</h4>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="src.shared.utils.SqlJob.get_intervals" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">get_intervals</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Method that returns the intervals to be used for sql job.</p>
+<p>This means that the range of time to process will be split into
+many intervals (currently only support days) given that the range spans
+multiple intervals.</p>
+<p>If the range does not span multiple intervals, then the result is one
+interval, depending on the value of the include_now parameter.</p>
+<p>Unless include_now is True, the last interval in the list
+will be the last full interval in the range.  For example, since we only
+support days, if the last offset is today, there should be no intervals
+to process, becuase the default is up through yesterday (UTC). If include_now
+is True, then that final interval in the list will end before now (UTC) or the
+end_date_override.
+The existence of end_date_override ignores include_now = False.</p>
+
+
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>last_offset</code></td>
+          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Last offset to use for getting proper intervals.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code>list[<a class="autorefs autorefs-internal" title="src.shared.utils.IntervalSet" href="#src.shared.utils.IntervalSet">IntervalSet</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>list[IntervalSet]: List of intervals to use for job processing.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>src/shared/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span>
+<span class="normal">375</span>
+<span class="normal">376</span>
+<span class="normal">377</span>
+<span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span>
+<span class="normal">403</span>
+<span class="normal">404</span>
+<span class="normal">405</span>
+<span class="normal">406</span>
+<span class="normal">407</span>
+<span class="normal">408</span>
+<span class="normal">409</span>
+<span class="normal">410</span>
+<span class="normal">411</span>
+<span class="normal">412</span>
+<span class="normal">413</span>
+<span class="normal">414</span>
+<span class="normal">415</span>
+<span class="normal">416</span>
+<span class="normal">417</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span>
+<span class="normal">426</span>
+<span class="normal">427</span>
+<span class="normal">428</span>
+<span class="normal">429</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span>
+<span class="normal">437</span>
+<span class="normal">438</span>
+<span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">get_intervals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">last_offset</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">IntervalSet</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Method that returns the intervals to be used for sql job.</span>
+
+<span class="sd">    This means that the range of time to process will be split into</span>
+<span class="sd">    many intervals (currently only support days) given that the range spans</span>
+<span class="sd">    multiple intervals.</span>
+
+<span class="sd">    If the range does not span multiple intervals, then the result is one</span>
+<span class="sd">    interval, depending on the value of the include_now parameter.</span>
+
+<span class="sd">    Unless include_now is True, the last interval in the list</span>
+<span class="sd">    will be the last full interval in the range.  For example, since we only</span>
+<span class="sd">    support days, if the last offset is today, there should be no intervals</span>
+<span class="sd">    to process, becuase the default is up through yesterday (UTC). If include_now</span>
+<span class="sd">    is True, then that final interval in the list will end before now (UTC) or the</span>
+<span class="sd">    end_date_override.</span>
+<span class="sd">    The existence of end_date_override ignores include_now = False.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        last_offset (str): Last offset to use for getting proper intervals.</span>
+<span class="sd">        If None, then defaults to value of override or initial offsets.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list[IntervalSet]: List of intervals to use for job processing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># use override end date if provided</span>
+    <span class="c1"># default to now UTC</span>
+    <span class="n">batch_end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">override_batch_end</span> <span class="ow">or</span> <span class="n">pdm</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">tz</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">()</span>
+    <span class="c1"># if last_offset is None, we use the initial offset</span>
+    <span class="k">if</span> <span class="n">last_offset</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">last_offset</span> <span class="o">==</span> <span class="s2">&quot;None&quot;</span><span class="p">:</span>
+        <span class="n">last_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_last_offset</span>
+    <span class="c1"># override last offset if provided</span>
+    <span class="n">last_offset_str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">override_last_offset</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">last_offset</span><span class="p">)</span>
+    <span class="c1"># the resulting last_offset_str cannot be None</span>
+    <span class="k">if</span> <span class="n">last_offset_str</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">last_offset_str</span> <span class="o">==</span> <span class="s2">&quot;None&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;The resulting last offset cannot be None. &quot;</span>
+            <span class="s2">&quot;If last_offset is None, then initial_last_offset or &quot;</span>
+            <span class="s2">&quot;override_last_offset must be set&quot;</span>
+        <span class="p">)</span>
+    <span class="c1"># offset will be incremented by 1 microseconds</span>
+    <span class="c1"># to support using &#39;&gt;=&#39; and &#39;&lt;&#39; for all intervals</span>
+    <span class="c1"># this is less aggressive than using 1000 (1 millisecond)</span>
+    <span class="n">last_offset_final</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">last_offset_str</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">microseconds</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="c1"># the calculated intervals should start from</span>
+    <span class="c1"># the first full interval after the last offset</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">last_offset_final</span><span class="o">.</span><span class="n">end_of</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">microseconds</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">batch_end</span><span class="p">)</span>
+    <span class="c1"># create a pendulum period</span>
+    <span class="n">period_range</span> <span class="o">=</span> <span class="n">pdm</span><span class="o">.</span><span class="n">period</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">absolute</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="c1"># create base list of datetime object from period</span>
+    <span class="c1"># only include if less then of equal to start of period</span>
+    <span class="c1"># end datetime</span>
+    <span class="n">intervals</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">period_range</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="s2">&quot;days&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="o">.</span><span class="n">start_of</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">intervals</span><span class="p">:</span>
+        <span class="c1"># if we have intervals, insert offset as the first</span>
+        <span class="n">intervals</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">last_offset_final</span><span class="p">)</span>
+    <span class="c1"># setting base end to the last item in list</span>
+    <span class="c1"># this is for include_now and override logic</span>
+    <span class="n">base_end</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># only append base_end if needed and &gt; then base_end</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">include_now</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">override_batch_end</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">end</span> <span class="o">&gt;</span> <span class="n">base_end</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+            <span class="n">intervals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+            <span class="n">base_end</span> <span class="o">=</span> <span class="n">end</span>
+    <span class="c1"># create base parameters for the for loop</span>
+    <span class="n">interval_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">intervals</span><span class="p">)</span>
+    <span class="n">last_idx</span> <span class="o">=</span> <span class="n">interval_len</span> <span class="o">-</span> <span class="mi">2</span>
+    <span class="c1"># create the staging list of intervat sets</span>
+    <span class="n">interval_sets</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># set proper first_interval_start</span>
+    <span class="n">first_interval_start</span> <span class="o">=</span> <span class="n">start</span>
+    <span class="n">first_item_time</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_time_string</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+    <span class="c1"># this evaluation is needed because if the offset value...</span>
+    <span class="c1"># turns out to be the start of the day, then that is really...</span>
+    <span class="c1"># the first interval start and helper with more efficient file clean up</span>
+    <span class="k">if</span> <span class="n">first_item_time</span> <span class="o">==</span> <span class="s2">&quot;00:00:00&quot;</span><span class="p">:</span>
+        <span class="n">first_interval_start</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">intervals</span><span class="p">):</span>
+        <span class="n">is_initial</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">is_final</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">is_initial</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="n">last_idx</span><span class="p">:</span>
+            <span class="n">is_final</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">end_idx</span> <span class="o">=</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="c1"># last item in list should not be used as start</span>
+        <span class="k">if</span> <span class="n">end_idx</span> <span class="o">==</span> <span class="n">interval_len</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">interval_sets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">IntervalSet</span><span class="p">(</span>
+                <span class="n">batch_start</span><span class="o">=</span><span class="n">i</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+                <span class="n">batch_end</span><span class="o">=</span><span class="n">intervals</span><span class="p">[</span><span class="n">end_idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+                <span class="n">first_interval_start</span><span class="o">=</span><span class="n">first_interval_start</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">(),</span>  <span class="c1"># type: ignore  # noqa: E501</span>
+                <span class="n">sets_end</span><span class="o">=</span><span class="n">base_end</span><span class="o">.</span><span class="n">to_iso8601_string</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+                <span class="n">is_initial</span><span class="o">=</span><span class="n">is_initial</span><span class="p">,</span>
+                <span class="n">is_final</span><span class="o">=</span><span class="n">is_final</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">interval_sets</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="src.shared.utils.SqlJob.render_from_template" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">render_from_template</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper function</p>
+
+
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>template</code></td>
+          <td>
+                <code><span title="jinja2.Template">Template</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>jinja2 Template object to render.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>render_kwargs</code></td>
+          <td>
+                <code>dict</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>kwargs to pass to render function.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+
+  <p><strong>Raises:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code>Exception</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Exception that enforces existence of sql engine variable.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>SqlStmt</code></td>          <td>
+                <code><a class="autorefs autorefs-internal" title="src.shared.utils.SqlStmt" href="#src.shared.utils.SqlStmt">SqlStmt</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>SqlStmt object with sql text and db engine.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>src/shared/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">render_from_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">template</span><span class="p">:</span> <span class="n">Template</span><span class="p">,</span> <span class="n">render_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SqlStmt</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper function</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        template (Template): jinja2 Template object to render.</span>
+<span class="sd">        render_kwargs (dict): kwargs to pass to render function.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        Exception: Exception that enforces existence of sql engine variable.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        SqlStmt: SqlStmt object with sql text and db engine.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sql_engine</span> <span class="o">=</span> <span class="s2">&quot;snowflake&quot;</span>
+    <span class="n">is_multi_statement</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">sql_engine</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">sql_engine</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+            <span class="s1">&#39;SQL file must have jinja2 block {</span><span class="si">% s</span><span class="s1">et sql_engine = &quot;&lt;engine_type&gt;&quot; %}&#39;</span>
+            <span class="sa">f</span><span class="s2">&quot;, and must be one of </span><span class="si">{</span><span class="n">QUERY_ENGINE_TYPES_SET</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">is_multi_statement</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">is_multi_statement</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="n">sql_text</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="o">**</span><span class="n">render_kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">SqlStmt</span><span class="p">(</span>
+        <span class="n">sql_engine</span><span class="o">=</span><span class="n">sql_engine</span><span class="p">,</span>
+        <span class="n">sql_text</span><span class="o">=</span><span class="n">sql_text</span><span class="p">,</span>
+        <span class="n">is_multi_statement</span><span class="o">=</span><span class="n">is_multi_statement</span><span class="p">,</span>
+        <span class="n">connection_overrides</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_overrides</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="src.shared.utils.SqlJob.render_sql_file" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">render_sql_file</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper method for rendering a jinja2 sql file using
+job kwargs plus optional additional kwargs.</p>
+
+
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>sql_file</code></td>
+          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>File name containing SQL text with jijna2 template logic.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>extra_kwargs</code></td>
+          <td>
+                <code>dict</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Optional kwargs to pass into template on top of</p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>SqlStmt</code></td>          <td>
+                <code><a class="autorefs autorefs-internal" title="src.shared.utils.SqlStmt" href="#src.shared.utils.SqlStmt">SqlStmt</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>SqlStmt object with sql text and db engine.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>src/shared/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">render_sql_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sql_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">extra_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{})</span> <span class="o">-&gt;</span> <span class="n">SqlStmt</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper method for rendering a jinja2 sql file using</span>
+<span class="sd">    job kwargs plus optional additional kwargs.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        sql_file (str): File name containing SQL text with jijna2 template logic.</span>
+<span class="sd">        extra_kwargs (dict): Optional kwargs to pass into template on top of</span>
+<span class="sd">        the job_kwargs.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        SqlStmt: SqlStmt object with sql text and db engine.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">render_kwargs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">job_kwargs</span><span class="p">)</span>
+    <span class="n">render_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_kwargs</span><span class="p">)</span>
+    <span class="n">environment</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span>
+        <span class="n">loader</span><span class="o">=</span><span class="n">FileSystemLoader</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">job_file_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extras_file_path</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="n">j2_env</span> <span class="o">=</span> <span class="n">environment</span>
+    <span class="n">template</span> <span class="o">=</span> <span class="n">j2_env</span><span class="o">.</span><span class="n">get_template</span><span class="p">(</span><span class="n">sql_file</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_from_template</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">render_kwargs</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="src.shared.utils.SqlJob.render_sql_string" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">render_sql_string</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper method for rendering a jinj2 sql string
+using job kwargs plus optional additional kwargs.</p>
+
+
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>sql_string</code></td>
+          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>SQL text with jijna2 template logic.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>extra_kwargs</code></td>
+          <td>
+                <code>dict</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Optional kwargs to pass into template on top of</p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>SqlStmt</code></td>          <td>
+                <code><a class="autorefs autorefs-internal" title="src.shared.utils.SqlStmt" href="#src.shared.utils.SqlStmt">SqlStmt</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>SqlStmt object with sql text and db engine.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>src/shared/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">render_sql_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sql_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">extra_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{})</span> <span class="o">-&gt;</span> <span class="n">SqlStmt</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper method for rendering a jinj2 sql string</span>
+<span class="sd">    using job kwargs plus optional additional kwargs.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        sql_string (str): SQL text with jijna2 template logic.</span>
+<span class="sd">        extra_kwargs (dict): Optional kwargs to pass into template on top of</span>
+<span class="sd">        the job_kwargs.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        SqlStmt: SqlStmt object with sql text and db engine.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">render_kwargs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">job_kwargs</span><span class="p">)</span>
+    <span class="n">render_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_kwargs</span><span class="p">)</span>
+    <span class="n">environment</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">()</span>
+    <span class="n">j2_env</span> <span class="o">=</span> <span class="n">environment</span>
+    <span class="n">template</span> <span class="o">=</span> <span class="n">j2_env</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">sql_string</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_from_template</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">render_kwargs</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="src.shared.utils.SqlStmt" class="doc doc-heading">
+          <code>SqlStmt</code>
+
+
+</h3>
+
+
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><span title="pydantic.BaseModel">BaseModel</span></code></p>
+
+  
+      <p>Pydantic model representing a sql statement with
+db engine to run on.</p>
+
+            <details class="quote">
+              <summary>Source code in <code>src/shared/utils.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">SqlStmt</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pydantic model representing a sql statement with</span>
+<span class="sd">    db engine to run on.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sql_text</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">sql_engine</span><span class="p">:</span> <span class="n">QUERY_ENGINE_TYPES_LITERAL</span>
+    <span class="n">is_multi_statement</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">connection_overrides</span><span class="p">:</span> <span class="nb">dict</span>
+    <span class="n">_creds_param_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+    <span class="n">_creds_param_value</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_init_private_attributes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Great way to update private attributes without</span>
+<span class="sd">        losing autocomplete on the model.</span>
+
+<span class="sd">        https://github.com/pydantic/pydantic/discussions/3512#discussioncomment-3226167</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_init_private_attributes</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">QUERY_ENGINE_MAPPING</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sql_engine</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_creds_param_name</span> <span class="o">=</span> <span class="n">k</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_creds_param_value</span> <span class="o">=</span> <span class="n">v</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">standard_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a standard set of kwargs for query task</span>
+<span class="sd">        based on engine that gets passed to run_query_task.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: standard kwargs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sql_text</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_creds_param_name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_creds_param_value</span><span class="p">(</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">connection_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_creds_param_name</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">run_query_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method to dynamically execute the proper</span>
+<span class="sd">        query task based on sql statement attributes.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task_name (str): Name to pass to query task</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list[tuple]: Query results.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">task_mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;snowflake&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;single&quot;</span><span class="p">:</span> <span class="n">snowflake_query</span><span class="p">,</span> <span class="s2">&quot;multi&quot;</span><span class="p">:</span> <span class="n">snowflake_multiquery</span><span class="p">},</span>
+            <span class="s2">&quot;bigquery&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;single&quot;</span><span class="p">:</span> <span class="n">bigquery_query</span><span class="p">},</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;single&quot;</span><span class="p">:</span> <span class="n">sqlalchemy_execute</span><span class="p">},</span>
+        <span class="p">}</span>
+        <span class="n">standard_kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standard_kwargs</span>
+        <span class="n">query_task</span> <span class="o">=</span> <span class="n">task_mapping</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span>
+        <span class="n">sql_engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sql_engine</span>
+        <span class="n">is_multi_statement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_multi_statement</span>
+        <span class="k">if</span> <span class="n">sql_engine</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;snowflake&quot;</span><span class="p">,</span> <span class="s2">&quot;bigquery&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">sql_engine</span> <span class="o">==</span> <span class="s2">&quot;snowflake&quot;</span> <span class="ow">and</span> <span class="n">is_multi_statement</span><span class="p">:</span>
+                <span class="n">query_task</span> <span class="o">=</span> <span class="n">task_mapping</span><span class="p">[</span><span class="n">sql_engine</span><span class="p">][</span><span class="s2">&quot;multi&quot;</span><span class="p">]</span>
+                <span class="n">standard_kwargs</span><span class="p">[</span><span class="s2">&quot;queries&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">standard_kwargs</span><span class="p">[</span><span class="s2">&quot;query&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">standard_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;query&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">query_task</span> <span class="o">=</span> <span class="n">task_mapping</span><span class="p">[</span><span class="n">sql_engine</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">standard_kwargs</span><span class="p">[</span><span class="s2">&quot;statement&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">standard_kwargs</span><span class="p">[</span><span class="s2">&quot;query&quot;</span><span class="p">]</span>
+            <span class="n">standard_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;query&quot;</span><span class="p">)</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">standard_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">query_task</span><span class="o">.</span><span class="n">with_options</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">task_name</span><span class="p">)(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+<h4 id="src.shared.utils.SqlStmt-attributes">Attributes</h4>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="src.shared.utils.SqlStmt.standard_kwargs" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">standard_kwargs</span><span class="p">:</span> <span class="nb">dict</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Returns a standard set of kwargs for query task
+based on engine that gets passed to run_query_task.</p>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>dict</code></td>          <td>
+                <code>dict</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>standard kwargs.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+<h4 id="src.shared.utils.SqlStmt-functions">Functions</h4>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="src.shared.utils.SqlStmt.run_query_task" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">run_query_task</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Helper method to dynamically execute the proper
+query task based on sql statement attributes.</p>
+
+
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>task_name</code></td>
+          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Name to pass to query task</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code>list[tuple]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>list[tuple]: Query results.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>src/shared/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span> <span class="nf">run_query_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper method to dynamically execute the proper</span>
+<span class="sd">    query task based on sql statement attributes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        task_name (str): Name to pass to query task</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list[tuple]: Query results.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">task_mapping</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;snowflake&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;single&quot;</span><span class="p">:</span> <span class="n">snowflake_query</span><span class="p">,</span> <span class="s2">&quot;multi&quot;</span><span class="p">:</span> <span class="n">snowflake_multiquery</span><span class="p">},</span>
+        <span class="s2">&quot;bigquery&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;single&quot;</span><span class="p">:</span> <span class="n">bigquery_query</span><span class="p">},</span>
+        <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;single&quot;</span><span class="p">:</span> <span class="n">sqlalchemy_execute</span><span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">standard_kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standard_kwargs</span>
+    <span class="n">query_task</span> <span class="o">=</span> <span class="n">task_mapping</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span>
+    <span class="n">sql_engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sql_engine</span>
+    <span class="n">is_multi_statement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_multi_statement</span>
+    <span class="k">if</span> <span class="n">sql_engine</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;snowflake&quot;</span><span class="p">,</span> <span class="s2">&quot;bigquery&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">sql_engine</span> <span class="o">==</span> <span class="s2">&quot;snowflake&quot;</span> <span class="ow">and</span> <span class="n">is_multi_statement</span><span class="p">:</span>
+            <span class="n">query_task</span> <span class="o">=</span> <span class="n">task_mapping</span><span class="p">[</span><span class="n">sql_engine</span><span class="p">][</span><span class="s2">&quot;multi&quot;</span><span class="p">]</span>
+            <span class="n">standard_kwargs</span><span class="p">[</span><span class="s2">&quot;queries&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">standard_kwargs</span><span class="p">[</span><span class="s2">&quot;query&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">standard_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;query&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">query_task</span> <span class="o">=</span> <span class="n">task_mapping</span><span class="p">[</span><span class="n">sql_engine</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">standard_kwargs</span><span class="p">[</span><span class="s2">&quot;statement&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">standard_kwargs</span><span class="p">[</span><span class="s2">&quot;query&quot;</span><span class="p">]</span>
+        <span class="n">standard_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;query&quot;</span><span class="p">)</span>
+    <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">standard_kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="k">await</span> <span class="n">query_task</span><span class="o">.</span><span class="n">with_options</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">task_name</span><span class="p">)(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div>
+<h2 id="src.shared.utils-functions">Functions</h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h3 id="src.shared.utils.get_files_for_cleanup" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">get_files_for_cleanup</span></code>
+
+</h3>
+
+
+  <div class="doc doc-contents ">
+  
+      <p><em>summary</em></p>
+
+
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>file_list</code></td>
+          <td>
+                <code>list[tuple]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>File list pulled from warehouse stage.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>interval_input</code></td>
+          <td>
+                <code><a class="autorefs autorefs-internal" title="src.shared.utils.IntervalSet" href="#src.shared.utils.IntervalSet">IntervalSet</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Interval metadata.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>block_storage_prefix</code></td>
+          <td>
+                <code>str</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Block storage prefex used for files.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;gcs&#39;</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code>list[str]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>list[str]: List of staged file paths for deletion.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>src/shared/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
+<span class="normal">469</span>
+<span class="normal">470</span>
+<span class="normal">471</span>
+<span class="normal">472</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span>
+<span class="normal">484</span>
+<span class="normal">485</span>
+<span class="normal">486</span>
+<span class="normal">487</span>
+<span class="normal">488</span>
+<span class="normal">489</span>
+<span class="normal">490</span>
+<span class="normal">491</span>
+<span class="normal">492</span>
+<span class="normal">493</span>
+<span class="normal">494</span>
+<span class="normal">495</span>
+<span class="normal">496</span>
+<span class="normal">497</span>
+<span class="normal">498</span>
+<span class="normal">499</span>
+<span class="normal">500</span>
+<span class="normal">501</span>
+<span class="normal">502</span>
+<span class="normal">503</span>
+<span class="normal">504</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@task</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">get_files_for_cleanup</span><span class="p">(</span>
+    <span class="n">file_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">],</span>
+    <span class="n">interval_input</span><span class="p">:</span> <span class="n">IntervalSet</span><span class="p">,</span>
+    <span class="n">block_storage_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gcs&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;_summary_</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        file_list (list[tuple]): File list pulled from warehouse stage.</span>
+<span class="sd">        interval_input (IntervalSet): Interval metadata.</span>
+<span class="sd">        block_storage_prefix (str, optional): Block storage prefex used for files.</span>
+<span class="sd">        This helps for deconstructing the path. Defaults to &quot;gcs&quot;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list[str]: List of staged file paths for deletion.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get the timestamp used for the partition folders</span>
+    <span class="n">batch_folder_datetime</span> <span class="o">=</span> <span class="n">interval_input</span><span class="o">.</span><span class="n">partition_datetime</span>
+    <span class="c1"># get datetime object for first full day interval start</span>
+    <span class="c1"># we will delete all file paths after the base start</span>
+    <span class="n">date_folder_base_start</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">interval_input</span><span class="o">.</span><span class="n">first_interval_start</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="n">date_folder_base_end</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">interval_input</span><span class="o">.</span><span class="n">sets_end</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="c1"># initial list for collecting file paths</span>
+    <span class="n">clean_up_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># loop through the input file and append file paths to final results...</span>
+    <span class="c1"># as needed.</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">file_list</span><span class="p">:</span>
+        <span class="n">file_str</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">block_storage_prefix</span><span class="si">}</span><span class="s2">://&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">file_parts</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_str</span><span class="p">)</span><span class="o">.</span><span class="n">parts</span>
+        <span class="n">date_folder_str</span> <span class="o">=</span> <span class="n">file_parts</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span>
+        <span class="n">datetime_folder_str</span> <span class="o">=</span> <span class="n">file_parts</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">file_parts</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">datetime_str</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">datetime_folder_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;date=&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;time=&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># the goal of above is to infer datetime from the existing file paths</span>
+        <span class="n">parsed_datetime</span> <span class="o">=</span> <span class="n">from_format</span><span class="p">(</span>
+            <span class="n">datetime_str</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;YYYY-MM-DD </span><span class="si">{</span><span class="n">interval_input</span><span class="o">.</span><span class="n">time_format_string</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>  <span class="c1"># noqa: E501</span>
+        <span class="c1"># only delete files after interval start and before last interval end</span>
+        <span class="k">if</span> <span class="n">parsed_datetime</span> <span class="o">&gt;=</span> <span class="n">batch_folder_datetime</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+            <span class="k">if</span> <span class="n">parsed_datetime</span> <span class="o">&lt;</span> <span class="n">date_folder_base_end</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+                <span class="c1"># if the datetime from folder is greater than the first full day start...  # noqa: E501</span>
+                <span class="c1"># add the date folder and break loop as there is no need to check any more  # noqa: E501</span>
+                <span class="k">if</span> <span class="n">parsed_datetime</span> <span class="o">&gt;=</span> <span class="n">date_folder_base_start</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">clean_up_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">date_folder_str</span><span class="p">)</span>
+                    <span class="k">break</span>
+                <span class="n">clean_up_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">datetime_folder_str</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">clean_up_list</span><span class="p">))</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": [], "search": "../../../assets/javascripts/workers/search.74e28a9f.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.220ee61c.min.js"></script>
+      
+    
+  </body>
+</html>
