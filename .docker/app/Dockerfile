@@ -5,7 +5,7 @@ FROM prefecthq/prefect:1.1.0-python3.9
 ARG GIT_SHA=local
 
 # Install pipenv
-RUN pip install pipenv
+RUN pip install 'pipenv==2023.7.23'
 
 # Install python dependencies.
 # - dependencies are managed by pipenv because it allows us to define direct dependencies, and lock in indirect ones.
