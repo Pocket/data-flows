@@ -165,7 +165,7 @@ TYPE = parquet;
 
 create_stage_sql = f"""
 CREATE OR REPLACE STAGE freestar.{snowflake_table}_stage
-FILE_FORMAT = {snowflake_table}_format;
+FILE_FORMAT = freestar.{snowflake_table}_format;
 """
 
 put_parquet_sql = f"""
