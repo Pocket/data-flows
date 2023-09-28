@@ -169,7 +169,7 @@ FILE_FORMAT = freestar.{snowflake_table}_format;
 """
 
 put_parquet_sql = f"""
-PUT file://{output_parquet_filename.format('*')} @{snowflake_table}_stage
+PUT file://{output_parquet_filename.format('*')} @freestar.{snowflake_table}_stage
 """
 
 create_temp_table = f"""
