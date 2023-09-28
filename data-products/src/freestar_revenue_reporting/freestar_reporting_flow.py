@@ -159,13 +159,13 @@ CREATE TABLE IF NOT EXISTS freestar.{snowflake_table} (
 """
 
 format_file_sql = f"""
-CREATE OR REPLACE FILE FORMAT {snowflake_table}_format
+CREATE OR REPLACE FILE FORMAT freestar.{snowflake_table}_format
 TYPE = parquet;
 """
 
 create_stage_sql = f"""
-CREATE OR REPLACE STAGE {snowflake_table}_stage
-FILE_FORMAT = {snowflake_table}_format;
+CREATE OR REPLACE STAGE freestar.{snowflake_table}_stage
+FILE_FORMAT = freestar.{snowflake_table}_format;
 """
 
 put_parquet_sql = f"""
@@ -199,7 +199,7 @@ COPY INTO freestar.{snowflake_table}_tmp
                  $1:impressions::INTEGER,
                  $1:net_revenue::INTEGER,
                  $1:net_cpm::FLOAT
-        FROM @{snowflake_table}_stage
+        FROM @freestar.{snowflake_table}_stage
         );
 """
 
