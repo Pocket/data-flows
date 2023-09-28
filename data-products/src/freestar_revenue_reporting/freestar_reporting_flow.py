@@ -1,27 +1,22 @@
-import requests
 import json
 import os
 import time
+from pathlib import Path
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
-
-from prefect import flow, task, get_run_logger
-from prefect.server.schemas.schedules import CronSchedule
-from prefect_snowflake.database import snowflake_query_sync, snowflake_multiquery
-
+import requests
 from common.databases.snowflake_utils import PktSnowflakeConnector
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
+from prefect import flow, get_run_logger, task
+from prefect.server.schemas.schedules import CronSchedule
+from prefect_snowflake.database import snowflake_multiquery, snowflake_query_sync
 
 CS = CommonSettings()  # type: ignore
 
-# Initialize an empty list to store the data from each JSON file
-combined_data = []
-
-# Define the output Parquet file
-output_parquet_filename = "data_combined.parquet"
+# Define the output Parquet file template
+output_parquet_path = "/tmp/freestar"
+output_parquet_filename = os.path.join(output_parquet_path, "data_{0}.parquet")
 
 
 @task(retries=3, retry_delay_seconds=5)
@@ -31,6 +26,9 @@ def extract_freestar_data():
     API_BASE_URL = "https://analytics.pub.network"
     API_ENDPOINT = "/cubejs-api/v1/load"
     FREESTAR_API_KEY = json.loads(os.environ["FREESTAR_CREDENTIALS"])["api_key"]
+
+    # Retrieve 2,000 records at a time to accomodate 5 second timeout
+    record_limit = 2000
 
     # Define the request payload with initial pagination parameters
     request_payload = {
@@ -65,7 +63,7 @@ def extract_freestar_data():
                     "dateRange": "Yesterday",  # for backfill use "dateRange": ["2023-09-01", "2023-09-08"]
                 }
             ],
-            "limit": 2000,  # Retrieve 2,000 records at a time to accomodate 5 second timeout
+            "limit": record_limit,  # Retrieve 2,000 records at a time to accomodate 5 second timeout
             "offset": 0,  # Start with an offset of 0
         }
     }
@@ -76,12 +74,11 @@ def extract_freestar_data():
         "Content-Type": "application/json",
     }
 
-    # Define a function to save combined data to a Parquet file
-    def save_data_to_parquet(data, filename):
-        df = pd.DataFrame(data)
-        df.to_parquet(filename)
+    page_number = 1  # Initialize the page number tracker
+    total_count = 0  # Initialize the total count tracker
 
-    page_number = 1  # Initialize the page number
+    # create directory
+    Path(output_parquet_path).mkdir(parents=True, exist_ok=True)
 
     while True:
         # Send the POST request to the API with the current pagination parameters
@@ -103,26 +100,26 @@ def extract_freestar_data():
                     new_key = key[len("NdrPrebid.") :]
                     item[new_key] = item.pop(key)
 
-        # Append the processed data to the combined_data list
-        combined_data.extend(response_json["data"])
+        # Write to file
+        data = response_json["data"]
+        record_count = len(data)
+        df = pd.DataFrame(data)
+        df.to_parquet(output_parquet_filename.format(page_number))
+        total_count += record_count
 
         # Check if there are more records to retrieve
-        if len(response_json["data"]) < 2000:
+        if record_count < record_limit:
             break  # Stop if there are no more records
 
         # Increment the offset for the next page
-        request_payload["query"]["offset"] += 2000
+        request_payload["query"]["offset"] += record_limit
         page_number += 1
 
-        # Add a 5-second delay before fetching the next page
+        # Add a 5-second delay before fetching the next page to accomodate
+        # Freestar's API limits
         time.sleep(5)
 
-    logger.info(f"Total records retrieved: {len(combined_data)}")
-
-    # Convert the combined data to Parquet format and save it
-    output_parquet_filename = "data_combined.parquet"
-    save_data_to_parquet(combined_data, output_parquet_filename)
-    logger.info("Combined data saved to", output_parquet_filename)
+    logger.info(f"Total records retrieved: {total_count}")
 
 
 table_schema = """
@@ -151,7 +148,7 @@ table_schema = """
 snowflake_table = "freestar_daily_extracts"
 
 # Define SQL statements
-create_schema_sql = f"""
+create_schema_sql = """
 CREATE SCHEMA IF NOT EXISTS freestar;
 """
 
@@ -172,7 +169,7 @@ FILE_FORMAT = {snowflake_table}_format;
 """
 
 put_parquet_sql = f"""
-PUT file://{output_parquet_filename} @{snowflake_table}_stage
+PUT file://{output_parquet_filename.format('*')} @{snowflake_table}_stage
 """
 
 create_temp_table = f"""
@@ -202,11 +199,11 @@ COPY INTO freestar.{snowflake_table}_tmp
                  $1:impressions::INTEGER,
                  $1:net_revenue::INTEGER,
                  $1:net_cpm::FLOAT
-        FROM @{snowflake_table}_stage/{output_parquet_filename}
+        FROM @{snowflake_table}_stage
         );
 """
 
-begin_transaction = f"""
+begin_transaction = """
 BEGIN TRANSACTION;
 """
 
@@ -229,27 +226,27 @@ async def freestar_report_flow():
         query=create_schema_sql,
         snowflake_connector=PktSnowflakeConnector(),
         wait_for=[eft],
-    )
+    )  # type: ignore
     create = await snowflake_query_sync(
         query=create_table_sql,
         snowflake_connector=PktSnowflakeConnector(),
         wait_for=[create_schema],
-    )
+    )  # type: ignore
     format_file = await snowflake_query_sync(
         query=format_file_sql,
         snowflake_connector=PktSnowflakeConnector(),
         wait_for=[create],
-    )
+    )  # type: ignore
     create_stage = await snowflake_query_sync(
         query=create_stage_sql,
         snowflake_connector=PktSnowflakeConnector(),
         wait_for=[format_file],
-    )
+    )  # type: ignore
     put_parquet = await snowflake_query_sync(
         query=put_parquet_sql,
         snowflake_connector=PktSnowflakeConnector(),
         wait_for=[create_stage],
-    )
+    )  # type: ignore
     await snowflake_multiquery(
         queries=[
             create_temp_table,
@@ -261,7 +258,7 @@ async def freestar_report_flow():
         snowflake_connector=PktSnowflakeConnector(),
         wait_for=[put_parquet],
         as_transaction=True,
-    )
+    )  # type: ignore
 
 
 FLOW_SPEC = FlowSpec(
@@ -290,4 +287,4 @@ FLOW_SPEC = FlowSpec(
 if __name__ == "__main__":
     from asyncio import run
 
-    run(freestar_report_flow())
+    run(freestar_report_flow())  # type: ignore
