@@ -190,31 +190,31 @@ def ordered_dataset_insert_transform() -> None:
     )
     logger.info(f"Inserted {result[1][0][0]} rows...")
 
-
-@task()
-def weekly_reordering_transform() -> None:
-    """This task will perform a reordering of the article_content_ordered_live table weekly.
-    This involves a new table being swaped with the old.
-    Grants are cleaned up.
-    Logic makes it that this will only run on Saturday if the last_ordered date is older than a week.
-    A single run of this task updates the last _ordered date and prevents multiple runs.
-    """
-    logger = prefect.context.get("logger")
-    logger.info("Checking to see if reordering is needed...")
-    full_name = f"article_content_ordered_live"
-    result = SnowflakeQuery(**FLOW_SNOWFLAKE_DICT).run(
-        data={"full_name": full_name}, query=WEEKLY_DEDUP_CHECK_SQL
-    )
-    ready_for_reordering = result[0]
-    current_dt = pendulum.now("UTC")
-    # this should be Saturday
-    if current_dt.day_of_week == 6 and ready_for_reordering:
-        logger.info("Executing reordering of article_content_ordered_live dataset...")
-        SnowflakeQueriesFromFile(**FLOW_SNOWFLAKE_DICT).run(
-            file_path=WEEKLY_DEDUP_SQL_FILE
-        )
-    else:
-        logger.info("Reordering not needed at this time...")
+# DISABLING THIS TASK WHILE FLOW IS BRING MIGRATED TO V2 - Braun Reyes
+# @task()
+# def weekly_reordering_transform() -> None:
+#     """This task will perform a reordering of the article_content_ordered_live table weekly.
+#     This involves a new table being swaped with the old.
+#     Grants are cleaned up.
+#     Logic makes it that this will only run on Saturday if the last_ordered date is older than a week.
+#     A single run of this task updates the last _ordered date and prevents multiple runs.
+#     """
+#     logger = prefect.context.get("logger")
+#     logger.info("Checking to see if reordering is needed...")
+#     full_name = f"article_content_ordered_live"
+#     result = SnowflakeQuery(**FLOW_SNOWFLAKE_DICT).run(
+#         data={"full_name": full_name}, query=WEEKLY_DEDUP_CHECK_SQL
+#     )
+#     ready_for_reordering = result[0]
+#     current_dt = pendulum.now("UTC")
+#     # this should be Saturday
+#     if current_dt.day_of_week == 6 and ready_for_reordering:
+#         logger.info("Executing reordering of article_content_ordered_live dataset...")
+#         SnowflakeQueriesFromFile(**FLOW_SNOWFLAKE_DICT).run(
+#             file_path=WEEKLY_DEDUP_SQL_FILE
+#         )
+#     else:
+#         logger.info("Reordering not needed at this time...")
 
 
 with Flow(
@@ -233,7 +233,8 @@ with Flow(
     ordered_dataset_insert = ordered_dataset_insert_transform().set_upstream(
         cleanup_task
     )
-    weekly_reordering_transform().set_upstream(ordered_dataset_insert)
+    # DISABLING THIS TASK WHILE FLOW IS BRING MIGRATED TO V2 - Braun Reyes
+    # weekly_reordering_transform().set_upstream(ordered_dataset_insert)
 
 
 if __name__ == "__main__":
