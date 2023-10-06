@@ -61,4 +61,5 @@ env = [
     'R:DF_CONFIG_GCP_CREDENTIALS={"service_account_file": "tests/test.json"}',
     'R:DF_CONFIG_SNOWFLAKE_GCP_STAGES={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED","gcs_pocket_shared_location": "gs://test"}',
     'D:DF_CONFIG_SQL_TEMPLATE_PATH=tests/sql_etl/unit/sql', # only sets if not already set https://github.com/pytest-dev/pytest-env#only-set-if-not-already-set
+    'PREFECT_API_ENABLE_HTTP2=false'
 ]
