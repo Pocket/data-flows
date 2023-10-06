@@ -4,5 +4,5 @@ omit =
   .venv/*
 
 [report]
-exclude_lines =
+exclude_also =
   if __name__ == "__main__":

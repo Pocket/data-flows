@@ -1,3 +1,25 @@
+"""
+Flow to ingest Pocket parser article text into Snowflake.
+
+This flow will:
+
+- Grab s3 object payloads from "s3://pocket-data-items/article/streaming-html/".
+- Produce a list of keys to download, with a max of 1000 per flow run.
+- Download the objects into BytesIO objects.
+- Transform each object into a Dataframe of resolved_ids.
+- Combine the Dataframes into a single Dataframe of resolved_ids.
+- Create chunks rows with a max of 5000 as a list of chunks.
+- Upload each chuck as a single object to s3 as key of 
+  f"{CS.deployment_type}/article/streaming-html-stage/{flow_run.id}/{list_index}.csv.gz".
+- Ingest the s3 data into the raw.item.ARTICLE_CONTENT_V2 table.
+- Insert ordered rows into the raw.item.ARTICLE_CONTENT_ORDERED_LIVE table.
+- Clean up the source and staging objects used in the flow run.
+- Perform a weekly reorder of the raw.item.ARTICLE_CONTENT_ORDERED_LIVE table.
+
+DISCLAIMER:  This version was written as a direct migration to Prefect v2.
+             Not much was changed, other than making it v2 compatible.
+
+"""
 import gzip
 import hashlib
 import json
@@ -11,6 +33,7 @@ from common.databases.snowflake_utils import PktSnowflakeConnector, SnowflakeSet
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
 from prefect import flow, get_run_logger, task
+from prefect.runtime import flow_run
 from prefect.server.schemas.schedules import CronSchedule
 from prefect_aws import AwsCredentials
 from prefect_aws.s3 import s3_download, s3_list_objects, s3_upload
@@ -32,13 +55,17 @@ SCHEMA = os.getenv("ARTICLE_SCHEMA", SFS.snowflake_schema)
 S3_BUCKET = "pocket-data-items"
 SOURCE_PREFIX = "article/streaming-html/"
 STAGE_PREFIX = f"{CS.deployment_type}/article/streaming-html-stage/"
-# Maximum number rows to include in a staging file. This is optimized for prefect import performance.
+# Maximum number rows to include in a staging file.
+# This is optimized for prefect import performance.
 CHUNK_ROWS = 50000  # 3486 rows = 10MB
 NUM_FILES_PER_RUN = 1000
 
 # Import from S3 to Snowflake
 # 3.5k rows = 2 seconds on xsmall warehouse
 
+# table should already exist, but this helps for testing in nonprod
+# everything else is copied from the v1 flow sql files, except added the DB and SCHEMA
+# variables to help with testing in nonprod
 CREATE_TABLE_SQL = f"""
 create TABLE if not exists {DB}.{SCHEMA}.ARTICLE_CONTENT_V2 (
 	RESOLVED_ID NUMBER(38,0),
@@ -117,12 +144,10 @@ grant select on table {DB}.{SCHEMA}.article_content_ordered_new to role SELECT_A
 -- swap and drop old table
 
 alter table {DB}.{SCHEMA}.article_content_ordered_live swap with {DB}.{SCHEMA}.article_content_ordered_new;
-drop table {DB}.{SCHEMA}.article_content_ordered_new;"""
-
-DB = os.getenv("ARTICLE_DB", SFS.database)
-SCHEMA = os.getenv("ARTICLE_SCHEMA", SFS.snowflake_schema)
+drop table {DB}.{SCHEMA}.article_content_ordered_new;"""  # noqa: E501
 
 
+# all s3 operations in tasks pulled out in favor of out of the box tasks
 @task()
 def get_keys_to_process(file_list: list[dict[str, Any]]) -> list[str]:
     """Return list of s3 keys to process.
@@ -140,18 +165,19 @@ def get_keys_to_process(file_list: list[dict[str, Any]]) -> list[str]:
     available_list = [x["Key"] for x in file_list]
     if len(file_list) == 0:
         raise Exception(
-            f"No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}. Ensure the firehose delivery stream delivering S3 files is writing objects."
+            f"No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}. Ensure the firehose delivery stream delivering S3 files is writing objects."  # noqa: E501
         )
 
     if len(file_list) > NUM_FILES_PER_RUN:
         logger.warn(
-            f"Number of files is greater than the number a worker can process in a single run. Found {len(file_list)} files, processing {NUM_FILES_PER_RUN}."
+            f"Number of files is greater than the number a worker can process in a single run. Found {len(file_list)} files, processing {NUM_FILES_PER_RUN}."  # noqa: E501
         )
         return available_list[0:NUM_FILES_PER_RUN]
     else:
         return available_list
 
 
+# moved the gzip and some extract logic into the transform task
 @task()
 def transform(contents: bytes) -> pd.DataFrame:
     """
@@ -164,7 +190,6 @@ def transform(contents: bytes) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Transformed Dataframe
     """
-
     fileobj = BytesIO(contents)
     with gzip.GzipFile(fileobj=fileobj) as gzipfile:
         contents_str = gzipfile.read()
@@ -176,6 +201,8 @@ def transform(contents: bytes) -> pd.DataFrame:
     return df
 
 
+# combined the stage and stage chunk tasks into new one
+# also removed the get_stage_prefix function in favor of setting in the flow
 @task()
 def create_chunks(dfs: list[pd.DataFrame]) -> list[tuple]:
     """
@@ -205,24 +232,36 @@ def create_chunks(dfs: list[pd.DataFrame]) -> list[tuple]:
     return chunks
 
 
+# using prefect_aws primitive for v2
 @task()
 def cleanup(key: str, aws_creds: AwsCredentials):
     logger = get_run_logger()
-    logger.info(f"deleting file: {str(key)}")
+    logger.info(f"deleting file: {key}")
     s3_client = aws_creds.get_s3_client()
     s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
 
 
-@flow(task_runner=DaskTaskRunner, log_prints=True)  # type: ignore
+# running with dask runner with explicit settings for mutliprocessing
+@flow(
+    task_runner=DaskTaskRunner(
+        cluster_kwargs={"n_workers": 4, "threads_per_worker": 1},
+    )
+)  # type: ignore
 async def main():
     logger = get_run_logger()
+    # sinlge object to pass to aws functions
     aws_creds = AwsCredentials()
+    # using this for weekly reorder flag
     now = pdm.now("America/Los_Angeles")
+    # get the objects available to process from s3
     source_keys = await s3_list_objects(
         bucket=S3_BUCKET, aws_credentials=aws_creds, prefix=SOURCE_PREFIX
     )
+    # extract properly sized list of keys
     keys_to_process = get_keys_to_process(source_keys)
+    # init list for collecting task results
     extract_jobs = []
+    # submit s3 download tasks to dask
     for k in keys_to_process:
         extract_jobs.append(
             await s3_download.submit(
@@ -231,23 +270,32 @@ async def main():
                 aws_credentials=aws_creds,  # type: ignore
             )
         )
+    # collect downloaded fileobjs
     extract_results = [await e.result() for e in extract_jobs]
+    # init list for collecting task results
     transform_jobs = []
+    # submit transform for each fileobj
     for e in extract_results:
         transform_jobs.append(transform.submit(e))
+    # collect dataframes produced by transform
     transform_results = [t.result() for t in transform_jobs]
+    # create list of properly sized fileobjs
     chunks_created = create_chunks(transform_results)
+    # init list for collecting task results
     upload_jobs = []
+    # sumbit upload for each fileobj
     for i, c in chunks_created:
         upload_jobs.append(
             await s3_upload.submit(
                 data=c.getvalue(),
                 bucket=S3_BUCKET,
-                key=os.path.join(STAGE_PREFIX, f"{i}.csv.gz"),
+                key=os.path.join(STAGE_PREFIX, flow_run.id, f"{i}.csv.gz"),
                 aws_credentials=aws_creds,
             )
         )
+    # wailt for uploads to complete
     uploads_completed = [await u.result() for u in upload_jobs]
+    # perform the snowflake statements needed for ingestion
     create_table = await snowflake_query(
         query=CREATE_TABLE_SQL,
         snowflake_connector=PktSnowflakeConnector(),
@@ -259,8 +307,11 @@ async def main():
         params={"uri": f"s3://{S3_BUCKET}/{STAGE_PREFIX}"},
         wait_for=[create_table],
     )  # type: ignore
+    # init list for collecting task results
     cleanup_jobs = []
-    if CS.is_production:
+    # since we are using the same bucket for nonprod
+    # only clear source files if is_production
+    if CS.is_production:  # pragma: no cover
         logger.info("Deleting source files...")
         for ktp in keys_to_process:
             cleanup_jobs.append(
@@ -268,12 +319,15 @@ async def main():
                     key=ktp, aws_creds=aws_creds, wait_for=[load]
                 )  # type: ignore
             )
+    # clear the staged files
     for uc in uploads_completed:
         logger.info("Deleting loaded staging files...")
         cleanup_jobs.append(
             cleanup.submit(key=uc, aws_creds=aws_creds, wait_for=[load])  # type: ignore
         )
+    # wait for cleanup jobs to complete
     cleanup_results = [cr.result() for cr in cleanup_jobs]
+    # insert new records into the ordered table and metaflow uses
     ordered_dataset_insert = await snowflake_multiquery(
         queries=[CREATE_ORDERED_TABLE_SQL, MAX_DATE, INSERT_ORDERED_SQL],
         snowflake_connector=PktSnowflakeConnector(),
@@ -282,7 +336,11 @@ async def main():
     logger.info(
         f"Inserted {ordered_dataset_insert[2][0][0]} rows into ordererd table..."
     )
-    if now.day_of_week == 0 and now.hour == 9:
+    # perform the weekly reorder of the ordered table
+    # this if statement should ensure it only runs once since this
+    # flow is scheduled hourly
+    # TODO: will work with ML to see amount of data reordered can be scaled back
+    if now.day_of_week == 0 and now.hour == 9:  # pragma: no cover
         logger.info("Running weekly reorder...")
         for q in list(filter(bool, REORDERING_SQL.split(";"))):
             await snowflake_query_sync(
