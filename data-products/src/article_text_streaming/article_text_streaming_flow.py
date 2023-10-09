@@ -242,7 +242,9 @@ def cleanup(key: str, aws_creds: AwsCredentials):
 
 
 # running with dask runner with explicit settings for mutliprocessing
-@flow(task_runner=DaskTaskRunner())  # type: ignore
+@flow(
+    task_runner=DaskTaskRunner(cluster_kwargs={"resources": {"process": 1}})
+)  # type: ignore
 async def main():
     logger = get_run_logger()
     # sinlge object to pass to aws functions
