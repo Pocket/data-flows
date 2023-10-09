@@ -169,7 +169,7 @@ def test_main(monkeypatch, range_end):
 
         none_type_count = 1
         if CS.is_production:
-            none_type_count = 2
+            none_type_count = 1 + NUM_FILES_PER_RUN
 
         # run flow tests
         # leveraging the result states from the flow to assert
