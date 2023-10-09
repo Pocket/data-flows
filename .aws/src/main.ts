@@ -19,6 +19,7 @@ import { S3BucketPublicAccessBlock } from '@cdktf/provider-aws/lib/s3-bucket-pub
 import { SecurityGroup } from '@cdktf/provider-aws/lib/security-group';
 import { SecurityGroupRule } from '@cdktf/provider-aws/lib/security-group-rule';
 import { DataAwsVpc } from '@cdktf/provider-aws/lib/data-aws-vpc';
+import { DataAwsS3Bucket } from '@cdktf/provider-aws/lib/data-aws-s3-bucket';
 
 // main Terraform Stack object for Prefect V2 infrastructure
 class PrefectV2 extends TerraformStack {
@@ -49,6 +50,15 @@ class PrefectV2 extends TerraformStack {
       }
     );
 
+    // need this to support article text flow
+    const pocketDataItemBucket = new DataAwsS3Bucket(
+      this,
+      `pocketDataItemBucket`,
+      {
+        bucket: `${config.pocketDataItemsBucket}`
+      }
+    );
+
     // we need an agent per queue
     // AWS dev will have the dev agent
     // AWS production will have the staging and main agent
@@ -61,6 +71,7 @@ class PrefectV2 extends TerraformStack {
         this,
         'dataFlowDevRoles',
         devS3Bucket,
+        pocketDataItemBucket,
         this.caller,
         this.region,
         'dev'
@@ -72,6 +83,7 @@ class PrefectV2 extends TerraformStack {
         this,
         'dataFlowStagingRoles',
         stagingS3Bucket,
+        pocketDataItemBucket,
         this.caller,
         this.region,
         'staging'
@@ -82,6 +94,7 @@ class PrefectV2 extends TerraformStack {
         this,
         'dataFlowMainRoles',
         mainS3Bucket,
+        pocketDataItemBucket,
         this.caller,
         this.region,
         'main'
