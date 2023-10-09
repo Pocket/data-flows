@@ -58,7 +58,7 @@ STAGE_PREFIX = f"{CS.deployment_type}/article/streaming-html-stage/"
 # Maximum number rows to include in a staging file.
 # This is optimized for prefect import performance.
 CHUNK_ROWS = 50000  # 3486 rows = 10MB
-NUM_FILES_PER_RUN = 1000
+NUM_FILES_PER_RUN = int(os.getenv("ARTICLES_MAX_PER_RUN", 1000))
 
 # Import from S3 to Snowflake
 # 3.5k rows = 2 seconds on xsmall warehouse
@@ -242,9 +242,7 @@ def cleanup(key: str, aws_creds: AwsCredentials):
 
 
 # running with dask runner with explicit settings for mutliprocessing
-@flow(
-    task_runner=DaskTaskRunner()
-)  # type: ignore
+@flow(task_runner=DaskTaskRunner())  # type: ignore
 async def main():
     logger = get_run_logger()
     # sinlge object to pass to aws functions

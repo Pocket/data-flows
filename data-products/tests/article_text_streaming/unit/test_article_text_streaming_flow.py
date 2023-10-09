@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import boto3
 import pytest
 from article_text_streaming.article_text_streaming_flow import (
+    NUM_FILES_PER_RUN,
     S3_BUCKET,
     SOURCE_PREFIX,
     STAGE_PREFIX,
@@ -75,15 +76,16 @@ def range_limit_handler(range_end: int) -> int:
     Returns:
         int: int to use as multiplier for assertions.
     """
-    if range_end >= 1001:
-        return 1000
+    if range_end >= NUM_FILES_PER_RUN + 1:
+        return NUM_FILES_PER_RUN
     else:
         return range_end - 1
 
 
+# setting max number of files to 25 via envar
 @pytest.mark.parametrize(
     "range_end",
-    [1, 2, 1100],
+    [1, 2, 50],
 )
 def test_main(monkeypatch, range_end):
     # generate test data
