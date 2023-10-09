@@ -167,9 +167,11 @@ def test_main(monkeypatch, range_end):
             MagicMock(id="1"),
         )
 
+        multiplier_for_assert = range_limit_handler(range_end)
+
         none_type_count = 1
         if CS.is_production:
-            none_type_count = 1 + NUM_FILES_PER_RUN
+            none_type_count = multiplier_for_assert + 1
 
         # run flow tests
         # leveraging the result states from the flow to assert
@@ -185,12 +187,14 @@ def test_main(monkeypatch, range_end):
                 results_counter["Unpersisted result of type `NoneType`"]
                 == none_type_count
             )
-            assert results_counter[
-                "Unpersisted result of type `bytes`"
-            ] == 1 * range_limit_handler(range_end)
-            assert results_counter[
-                "Unpersisted result of type `DataFrame`"
-            ] == 1 * range_limit_handler(range_end)
+            assert (
+                results_counter["Unpersisted result of type `bytes`"]
+                == 1 * multiplier_for_assert
+            )
+            assert (
+                results_counter["Unpersisted result of type `DataFrame`"]
+                == 1 * multiplier_for_assert
+            )
 
 
 def test_create_chunks_exception():

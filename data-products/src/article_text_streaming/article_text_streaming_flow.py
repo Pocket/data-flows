@@ -52,7 +52,7 @@ DB = os.getenv("ARTICLE_DB", SFS.database)
 SCHEMA = os.getenv("ARTICLE_SCHEMA", SFS.snowflake_schema)
 
 # This bucket was created by another process. We may have to revisit using this bucket.
-S3_BUCKET = "pocket-data-items"
+S3_BUCKET = os.getenv("ARTICLE_S3_BUCKET", "pocket-data-items-dev")
 SOURCE_PREFIX = "article/streaming-html/"
 STAGE_PREFIX = f"{CS.deployment_type}/article/streaming-html-stage/"
 # Maximum number rows to include in a staging file.
