@@ -48,8 +48,8 @@ from shared.transform_utils import get_text_from_html
 SFS = SnowflakeSettings()
 CS = CommonSettings()  # type: ignore
 
-DB = os.getenv("ARTICLE_DB", SFS.database)
-SCHEMA = os.getenv("ARTICLE_SCHEMA", SFS.snowflake_schema)
+DB = os.getenv("ARTICLE_DB", "development")
+SCHEMA = os.getenv("DF_CONFIG_SNOWFLAKE_SCHEMA")
 
 # This bucket was created by another process. We may have to revisit using this bucket.
 S3_BUCKET = os.getenv("ARTICLE_S3_BUCKET", "pocket-data-items-dev")
@@ -365,7 +365,7 @@ FLOW_SPEC = FlowSpec(
                     ),  # type: ignore
                 ),
                 FlowEnvar(
-                    envar_name="ARTICLE_SCHEMA",
+                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
                     envar_value=CS.deployment_type_value(
                         dev="braun", staging="staging", main="item"
                     ),  # type: ignore
