@@ -45,7 +45,6 @@ from prefect_snowflake.database import (
 )
 from shared.transform_utils import get_text_from_html
 
-SFS = SnowflakeSettings()
 CS = CommonSettings()  # type: ignore
 
 DB = os.getenv("ARTICLE_DB", "development")
