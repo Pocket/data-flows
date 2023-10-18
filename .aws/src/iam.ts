@@ -313,7 +313,7 @@ export class DataFlowsIamRoles extends Construct {
     return {
       actions: ['s3:*Object'],
       effect: 'Allow',
-      resources: [`${this.fileSystem.arn}/*`, this.pocketDataItemBucket.arn]
+      resources: [`${this.fileSystem.arn}/*`, `${this.pocketDataItemBucket.arn}/*`]
     };
   }
   // Give access to put records into a feature group

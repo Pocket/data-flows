@@ -355,6 +355,8 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             deployment_name="deployment",
+            cpu = '2048',
+            memory = '4096',
             schedule=CronSchedule(cron="0 * * * *", timezone="America/Los_Angeles"),
             envars=[
                 FlowEnvar(
