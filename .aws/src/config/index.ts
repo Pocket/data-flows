@@ -14,7 +14,7 @@ const gitSha = process.env['CIRCLE_SHA1'] || 'dev';
 const imageTag = gitSha.slice(0, 7);
 const vpcName = isDev ? 'SharedVpc' : 'Pocket VPC';
 const pocketDataItemsBucket = isDev
-  ? 'pocket-data-items-dev'
+  ? 'pocket-snowflake-dev'
   : 'pocket-data-items';
 
 export const config = {

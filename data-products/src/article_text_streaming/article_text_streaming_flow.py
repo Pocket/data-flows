@@ -25,11 +25,12 @@ import hashlib
 import json
 import os
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import pendulum as pdm
-from common.databases.snowflake_utils import PktSnowflakeConnector, SnowflakeSettings
+from common.databases.snowflake_utils import PktSnowflakeConnector
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
 from prefect import flow, get_run_logger, task
@@ -51,16 +52,19 @@ DB = os.getenv("ARTICLE_DB", "development")
 SCHEMA = os.getenv("DF_CONFIG_SNOWFLAKE_SCHEMA")
 
 # This bucket was created by another process. We may have to revisit using this bucket.
-S3_BUCKET = os.getenv("ARTICLE_S3_BUCKET", "pocket-data-items-dev")
+S3_BUCKET = os.getenv("ARTICLE_S3_BUCKET", "pocket-snowflake-dev")
 SOURCE_PREFIX = "article/streaming-html/"
 STAGE_PREFIX = f"{CS.deployment_type}/article/streaming-html-stage/"
 # Maximum number rows to include in a staging file.
 # This is optimized for prefect import performance.
 CHUNK_ROWS = 50000  # 3486 rows = 10MB
-NUM_FILES_PER_RUN = int(os.getenv("ARTICLES_MAX_PER_RUN", 1000))
+NUM_FILES_PER_RUN = int(os.getenv("ARTICLES_MAX_PER_RUN", 50))
+STORAGE_INTEGRATION = os.getenv(
+    "ARTICLE_STORAGE_INTEGRATION", "AWSDEV_ACCOUNT_INTEGRATION"
+)
 
-# Import from S3 to Snowflake
-# 3.5k rows = 2 seconds on xsmall warehouse
+# path for storing html2text errors
+FAILURES_FILE_PATH = Path("/tmp/html2text_failures.json")
 
 # table should already exist, but this helps for testing in nonprod
 # everything else is copied from the v1 flow sql files, except added the DB and SCHEMA
@@ -75,11 +79,40 @@ create TABLE if not exists {DB}.{SCHEMA}.ARTICLE_CONTENT_V2 (
 );
 """
 
+CREATE_FAILURES_TABLE_SQL = f"""
+create TABLE if not exists {DB}.{SCHEMA}.ARTICLE_HTML2TEXT_FAILURES (
+	FLOW_RUN_ID STRING,
+    FLOW_RUN_NAME STRING,
+    BATCH_ID NUMBER,
+    RESOLVED_ID NUMBER,
+    S3_KEY STRING,
+    HTML VARIANT,
+	SNOWFLAKE_LOADED_AT TIMESTAMP_NTZ(9) DEFAULT CURRENT_TIMESTAMP()
+);
+"""
+
+PUT_FAILURES = f"""PUT file://{FAILURES_FILE_PATH} @{DB}.{SCHEMA}.%ARTICLE_HTML2TEXT_FAILURES
+OVERWRITE = TRUE"""  # noqa: E501
+
+INSERT_FAILURES = f"""copy into {DB}.{SCHEMA}.ARTICLE_HTML2TEXT_FAILURES
+(FLOW_RUN_ID, FLOW_RUN_NAME, BATCH_ID, RESOLVED_ID, S3_KEY, HTML)
+FROM (
+select %(flow_run_id)s, 
+%(flow_run_name)s, 
+$1:batch_id, 
+$1:resolved_id,
+$1:s3_key, 
+$1:html
+from @{DB}.{SCHEMA}.%%ARTICLE_HTML2TEXT_FAILURES)
+file_format = (type = 'JSON', STRIP_OUTER_ARRAY = TRUE) 
+;
+"""
+
 IMPORT_SQL = f"""
 copy into {DB}.{SCHEMA}.ARTICLE_CONTENT_V2
 (resolved_id, html, text, text_md5)
 from %(uri)s
-storage_integration = aws_integration_readonly_prod
+storage_integration = {STORAGE_INTEGRATION}
 file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
 on_error=ABORT_STATEMENT;
 """
@@ -160,43 +193,72 @@ def get_keys_to_process(file_list: list[dict[str, Any]]) -> list[str]:
     Returns:
         List[str]: s3 keys to process.
     """
-    logger = get_run_logger()
     available_list = [x["Key"] for x in file_list]
     if len(file_list) == 0:
         raise Exception(
             f"No files to process for s3://{S3_BUCKET}/{SOURCE_PREFIX}. Ensure the firehose delivery stream delivering S3 files is writing objects."  # noqa: E501
         )
-
-    if len(file_list) > NUM_FILES_PER_RUN:
-        logger.warn(
-            f"Number of files is greater than the number a worker can process in a single run. Found {len(file_list)} files, processing {NUM_FILES_PER_RUN}."  # noqa: E501
-        )
-        return available_list[0:NUM_FILES_PER_RUN]
-    else:
-        return available_list
+    return available_list
 
 
 # moved the gzip and some extract logic into the transform task
 @task()
-def transform(contents: bytes) -> pd.DataFrame:
+def transform(
+    contents: bytes, key: str, batch_id: int, failure_store: Path
+) -> pd.DataFrame:
     """
     - Transforms the html content for each row to text
     - Adds the transformed text data as a new field to the Dataframe
 
     Args:
         contents_future (str): s3 object to process
+        failure_store (list): shared list to track text conversion failures
+        key (str): s3 key for contents being processed
+        batch_id (int): batch_id for etl run
 
     Returns:
         pd.DataFrame: Transformed Dataframe
     """
+    logger = get_run_logger()
+
+    def handle_html2text(html: str, key: str, resolved_id: int):
+        """Special helper function to skip failed conversions.
+
+        Args:
+            html (str): html to be converted to text
+            resolved_id (list): resolved_id for content
+            key (str): s3 key for contents being processed
+
+        Returns:
+            _type_: _description_
+        """
+        try:
+            return get_text_from_html(html)
+        except Exception:
+            logger.error(f"{resolved_id} failed...")
+            failure = {
+                "resolved_id": resolved_id,
+                "batch_id": batch_id,
+                "s3_key": key,
+                "html": html,
+            }
+            with open(failure_store, "a", newline="\n") as f:
+                json.dump(failure, f)
+                f.write("\n")
+
     fileobj = BytesIO(contents)
     with gzip.GzipFile(fileobj=fileobj) as gzipfile:
         contents_str = gzipfile.read()
     dicts = [json.loads(c) for c in contents_str.splitlines()]
     df = pd.DataFrame.from_records(dicts)
     df.rename(columns={"article": "html"}, inplace=True)
-    df["text"] = [get_text_from_html(html) for html in df["html"]]
-    df["text_md5"] = [hashlib.md5(t.encode("utf-8")).hexdigest() for t in df["text"]]
+    df["text"] = [
+        handle_html2text(html, key, resolved_id)
+        for resolved_id, html in zip(df["resolved_id"], df["html"])
+    ]
+    df["text_md5"] = [
+        hashlib.md5(t.encode("utf-8")).hexdigest() if t else None for t in df["text"]
+    ]
     return df
 
 
@@ -240,38 +302,33 @@ def cleanup(key: str, aws_creds: AwsCredentials):
     s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
 
 
-# running with dask runner with explicit settings for mutliprocessing
-@flow(task_runner=DaskTaskRunner())  # type: ignore
-async def main():
+@flow(task_runner=DaskTaskRunner())
+async def etl(
+    keys: list, batch_id: int, aws_creds: AwsCredentials, failure_store: Path
+):
     logger = get_run_logger()
-    # sinlge object to pass to aws functions
-    aws_creds = AwsCredentials()
-    # using this for weekly reorder flag
-    now = pdm.now("America/Los_Angeles")
-    # get the objects available to process from s3
-    source_keys = await s3_list_objects(
-        bucket=S3_BUCKET, aws_credentials=aws_creds, prefix=SOURCE_PREFIX
-    )
-    # extract properly sized list of keys
-    keys_to_process = get_keys_to_process(source_keys)
     # init list for collecting task results
     extract_jobs = []
     # submit s3 download tasks to dask
-    for k in keys_to_process:
+    for k in keys:
         extract_jobs.append(
-            await s3_download.submit(
-                key=k,  # type: ignore
-                bucket=S3_BUCKET,  # type: ignore
-                aws_credentials=aws_creds,  # type: ignore
+            (
+                await s3_download.submit(
+                    key=k,  # type: ignore
+                    bucket=S3_BUCKET,  # type: ignore
+                    aws_credentials=aws_creds,  # type: ignore
+                ),
+                k,
             )
         )
     # collect downloaded fileobjs
-    extract_results = [await e.result() for e in extract_jobs]
+    extract_results = [(await job.result(), key) for job, key in extract_jobs]
     # init list for collecting task results
     transform_jobs = []
     # submit transform for each fileobj
     for e in extract_results:
-        transform_jobs.append(transform.submit(e))
+        contents, key = e
+        transform_jobs.append(transform.submit(contents, key, batch_id, failure_store))
     # collect dataframes produced by transform
     transform_results = [t.result() for t in transform_jobs]
     # create list of properly sized fileobjs
@@ -284,9 +341,11 @@ async def main():
             await s3_upload.submit(
                 data=c.getvalue(),
                 bucket=S3_BUCKET,
-                key=os.path.join(STAGE_PREFIX, flow_run.id, f"{i}.csv.gz"),
+                key=os.path.join(
+                    STAGE_PREFIX, flow_run.id, str(batch_id), f"{i}.csv.gz"
+                ),
                 aws_credentials=aws_creds,
-            )
+            )  # type: ignore
         )
     # wailt for uploads to complete
     uploads_completed = [await u.result() for u in upload_jobs]
@@ -305,15 +364,14 @@ async def main():
     # init list for collecting task results
     cleanup_jobs = []
     # since we are using the same bucket for nonprod
-    # only clear source files if is_production
-    if CS.is_production:  # pragma: no cover
-        logger.info("Deleting source files...")
-        for ktp in keys_to_process:
-            cleanup_jobs.append(
-                cleanup.submit(
-                    key=ktp, aws_creds=aws_creds, wait_for=[load]
-                )  # type: ignore
-            )
+    # only clear source files
+    logger.info("Deleting source files...")
+    for ktp in keys:
+        cleanup_jobs.append(
+            cleanup.submit(
+                key=ktp, aws_creds=aws_creds, wait_for=[load]
+            )  # type: ignore
+        )
     # clear the staged files
     for uc in uploads_completed:
         logger.info("Deleting loaded staging files...")
@@ -331,16 +389,80 @@ async def main():
     logger.info(
         f"Inserted {ordered_dataset_insert[2][0][0]} rows into ordererd table..."
     )
-    # perform the weekly reorder of the ordered table
+
+
+# running with dask runner with explicit settings for mutliprocessing
+@flow()  # type: ignore
+async def main():
+    logger = get_run_logger()
+    # sinlge object to pass to aws functions
+    aws_creds = AwsCredentials()
+    # using this for weekly reorder flag
+    now = pdm.now("America/Los_Angeles")
+    # create failure store
+    failure_store = FAILURES_FILE_PATH
+    failure_store.unlink(missing_ok=True)
+    failure_store.touch()
+    # get the objects available to process from s3
+    source_keys = await s3_list_objects(
+        bucket=S3_BUCKET, aws_credentials=aws_creds, prefix=SOURCE_PREFIX
+    )
+
+    # extract list of keys
+    keys_to_process = get_keys_to_process(source_keys)
+
+    # run etl in batches
+    def batch(keys: list, n: int = NUM_FILES_PER_RUN):
+        """Helper for batching keys for iterating.
+
+        Args:
+            keys (list): _description_
+            n (_type_, optional): _description_. Defaults to NUM_FILES_PER_RUN.
+
+        Yields:
+            list: keys to process
+        """
+        for i in range(0, len(keys), n):
+            yield keys[i : i + n]
+
+    for idx, x in enumerate(batch(keys=keys_to_process)):
+        logger.info(f"Processing batch of max {NUM_FILES_PER_RUN} files...")
+        await etl(
+            keys=x, batch_id=idx, aws_creds=aws_creds, failure_store=failure_store
+        )
+    # perform the bi-monthly reorder of the ordered table
     # this if statement should ensure it only runs once since this
     # flow is scheduled hourly
-    # TODO: will work with ML to see amount of data reordered can be scaled back
-    if now.day_of_week == 0 and now.hour == 9:  # pragma: no cover
+    if (
+        now.week_of_month in [1, 3] and now.day_of_week == 0 and now.hour == 9
+    ):  # pragma: no cover
         logger.info("Running weekly reorder...")
         for q in list(filter(bool, REORDERING_SQL.split(";"))):
             await snowflake_query_sync(
                 query=q, snowflake_connector=PktSnowflakeConnector()
             )
+    # create failures table if needed
+    create_failures_table = await snowflake_query(
+        query=CREATE_FAILURES_TABLE_SQL,
+        snowflake_connector=PktSnowflakeConnector(),
+    )
+    # put file
+    put_file = await snowflake_query_sync(
+        query=PUT_FAILURES,
+        snowflake_connector=PktSnowflakeConnector(),
+        wait_for=[create_failures_table],
+    )  # type: ignore
+    # load failures to snowflake
+    await snowflake_query(
+        query=INSERT_FAILURES,
+        snowflake_connector=PktSnowflakeConnector(),
+        params={
+            "flow_run_id": flow_run.id,
+            "flow_run_name": flow_run.name,
+        },
+        wait_for=[put_file],
+    )  # type: ignore
+    # TODO: create a daily morning report showing number of failures
 
 
 FLOW_SPEC = FlowSpec(
@@ -355,8 +477,8 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             deployment_name="deployment",
-            cpu="2048",
-            memory="4096",
+            cpu="4096",
+            memory="8192",
             schedule=CronSchedule(cron="0 * * * *", timezone="America/Los_Angeles"),
             envars=[
                 FlowEnvar(
@@ -369,6 +491,22 @@ FLOW_SPEC = FlowSpec(
                     envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
                     envar_value=CS.deployment_type_value(
                         dev="braun", staging="staging", main="item"
+                    ),  # type: ignore
+                ),
+                FlowEnvar(
+                    envar_name="ARTICLE_S3_BUCKET",
+                    envar_value=CS.deployment_type_value(
+                        dev="pocket-snowflake-dev",
+                        staging="pocket-snowflake-dev",
+                        main="pocket-data-items",
+                    ),  # type: ignore
+                ),
+                FlowEnvar(
+                    envar_name="ARTICLE_STORAGE_INTEGRATION",
+                    envar_value=CS.deployment_type_value(
+                        dev="AWSDEV_ACCOUNT_INTEGRATION",
+                        staging="AWSDEV_ACCOUNT_INTEGRATION",
+                        main="aws_integration_readonly_prod",
                     ),  # type: ignore
                 ),
             ],

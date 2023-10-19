@@ -5,17 +5,18 @@ from asyncio import run
 from collections import Counter
 from copy import deepcopy
 from io import BytesIO
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import boto3
 import pytest
 from article_text_streaming.article_text_streaming_flow import (
-    NUM_FILES_PER_RUN,
+    FAILURES_FILE_PATH,
     S3_BUCKET,
     SOURCE_PREFIX,
     STAGE_PREFIX,
     cleanup,
     create_chunks,
+    etl,
     main,
 )
 from common import get_script_path
@@ -65,21 +66,6 @@ def create_test_data(end_range: int = 100) -> dict[str, BytesIO]:
         dict_key = os.path.join(SOURCE_PREFIX, f"{new_id}.gz")
         results[dict_key] = write_gzip_data(json.dumps(new_dict))
     return results
-
-
-def range_limit_handler(range_end: int) -> int:
-    """Helper to create proper multiplier for assertions.
-
-    Args:
-        range_end (int): range_end value passed to test.
-
-    Returns:
-        int: int to use as multiplier for assertions.
-    """
-    if range_end >= NUM_FILES_PER_RUN + 1:
-        return NUM_FILES_PER_RUN
-    else:
-        return range_end - 1
 
 
 # setting max number of files to 25 via envar
@@ -167,34 +153,55 @@ def test_main(monkeypatch, range_end):
             MagicMock(id="1"),
         )
 
-        multiplier_for_assert = range_limit_handler(range_end)
-
         none_type_count = 1
         if CS.is_production:
-            none_type_count = multiplier_for_assert + 1
+            none_type_count = range_end - 1
 
         # run flow tests
         # leveraging the result states from the flow to assert
-        if range_end == 1:
-            with pytest.raises(Exception):
-                run(main())  # type: ignore
-        else:
-            result_states = run(main())  # type: ignore
-            results_list = [rs.data.artifact_description for rs in result_states]
+
+        # test subflow
+        if range_end == 50:
+            keys = list(test_data.keys())
+            result_states = run(etl(keys, 0, AwsCredentials(), FAILURES_FILE_PATH))
+            results_list = [
+                rs.data.artifact_description for rs in result_states  # type: ignore
+            ]
             results_counter = Counter(results_list)
-            assert results_counter["Unpersisted result of type `list`"] == 6
+            assert results_counter["Unpersisted result of type `list`"] == 4
             assert (
                 results_counter["Unpersisted result of type `NoneType`"]
                 == none_type_count
             )
             assert (
-                results_counter["Unpersisted result of type `bytes`"]
-                == 1 * multiplier_for_assert
+                results_counter["Unpersisted result of type `bytes`"] == range_end - 1
             )
             assert (
                 results_counter["Unpersisted result of type `DataFrame`"]
-                == 1 * multiplier_for_assert
+                == range_end - 1
             )
+
+        # test main flow
+        if range_end == 1:
+            with pytest.raises(Exception):
+                run(main())  # type: ignore
+        else:
+            list_count = 6
+            if range_end == 50:
+                list_count += 1
+            result_states = run(main())  # type: ignore
+            results_list = [rs.data.artifact_description for rs in result_states]  # type: ignore
+            results_counter = Counter(results_list)
+            assert results_counter["Unpersisted result of type `list`"] == list_count
+
+            # test failures
+            monkeypatch.setattr(
+                "article_text_streaming.article_text_streaming_flow.get_text_from_html",
+                Mock(side_effect=Exception()),
+            )
+            run(main())
+            test_text = FAILURES_FILE_PATH.read_text()
+            assert len(test_text.splitlines()) == range_end - 1
 
 
 def test_create_chunks_exception():
@@ -228,5 +235,4 @@ def test_cleanup():
         test_flow()
 
         files = s3m.list_objects_v2(Bucket=S3_BUCKET)
-        print(files)
         assert files["KeyCount"] == 0
