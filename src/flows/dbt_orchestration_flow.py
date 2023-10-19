@@ -26,7 +26,7 @@ DBT_DOWNSTREAM_FLOW_NAMES = [
 
 # Set max_retries to 1 because this flow has a long timeout.
 # TODO: Set a concurrency-limit to prevent using more than one Dbt job resource.
-@task(timeout=20 * 60, max_retries=1, retry_delay=datetime.timedelta(seconds=60))
+@task(timeout=45 * 60, max_retries=0, retry_delay=datetime.timedelta(seconds=60))
 def transform():
     run = dbt.DbtCloudRunJob().run(cause=FLOW_NAME, job_id=DBT_CLOUD_JOB_ID)
     # Prefect's wait_for_dbt_cloud_job_run immediately fires a request to Dbt to get the run status. If Dbt has not yet
@@ -40,7 +40,7 @@ def transform():
     )
 
 
-with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=30), executor=LocalDaskExecutor()) as flow:
+with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=60), executor=LocalDaskExecutor()) as flow:
     dbt_run_result = transform()
 
     # Create and wait for all flows that should be run downstream of the above Dbt job run.
