@@ -130,7 +130,7 @@ create TABLE if not exists {DB}.{SCHEMA}.ARTICLE_CONTENT_ORDERED_LIVE (
 
 MAX_DATE = f"""
 set max_date = (
-    select max(snowflake_loaded_at) 
+    select coalesce(max(snowflake_loaded_at), current_timestamp - interval '1 day')
     from {DB}.{SCHEMA}.article_content_ordered_live
     );
 """
