@@ -19,7 +19,7 @@ output_parquet_path = "/tmp/freestar"
 output_parquet_filename = os.path.join(output_parquet_path, "data_{0}.parquet")
 
 
-@task(retries=3, retry_delay_seconds=5)
+@task(retries=5, retry_delay_seconds=5)
 def extract_freestar_data():
     logger = get_run_logger()
     # Define the API base URL and endpoint
