@@ -153,10 +153,6 @@ def test_main(monkeypatch, range_end):
             MagicMock(id="1"),
         )
 
-        none_type_count = 1
-        if CS.is_production:
-            none_type_count = range_end - 1
-
         # run flow tests
         # leveraging the result states from the flow to assert
 
@@ -171,7 +167,7 @@ def test_main(monkeypatch, range_end):
             assert results_counter["Unpersisted result of type `list`"] == 4
             assert (
                 results_counter["Unpersisted result of type `NoneType`"]
-                == none_type_count
+                == range_end - 1
             )
             assert (
                 results_counter["Unpersisted result of type `bytes`"] == range_end - 1
