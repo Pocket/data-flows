@@ -13,6 +13,9 @@ const OIDCProjectId = process.env['OIDC_PROJECT_ID'] || '';
 const gitSha = process.env['CIRCLE_SHA1'] || 'dev';
 const imageTag = gitSha.slice(0, 7);
 const vpcName = isDev ? 'SharedVpc' : 'Pocket VPC';
+const pocketDataItemsBucket = isDev
+  ? 'pocket-snowflake-dev'
+  : 'pocket-data-items';
 
 export const config = {
   isDev,
@@ -29,5 +32,6 @@ export const config = {
   OIDCOrgId,
   OIDCProjectId,
   imageTag,
-  vpcName
+  vpcName,
+  pocketDataItemsBucket
 };

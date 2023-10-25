@@ -12,6 +12,7 @@ __pycache__/
 .pytest_cache
 dist
 .coverage
+.coverage*
 
 # Type checking artifacts
 .mypy_cache/

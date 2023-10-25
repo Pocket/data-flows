@@ -11,6 +11,7 @@ import { S3Bucket } from '@cdktf/provider-aws/lib/s3-bucket';
 import { IamRole } from '@cdktf/provider-aws/lib/iam-role';
 import { DataAwsIamOpenidConnectProvider } from '@cdktf/provider-aws/lib/data-aws-iam-openid-connect-provider';
 import { config } from './config';
+import { DataAwsS3Bucket } from '@cdktf/provider-aws/lib/data-aws-s3-bucket';
 
 export class CircleCiOIDC extends Construct {
   constructor(
@@ -225,12 +226,14 @@ export class AgentIamPolicies extends Construct {
 
 export class DataFlowsIamRoles extends Construct {
   private readonly fileSystem: S3Bucket;
+  private readonly pocketDataItemBucket: DataAwsS3Bucket;
   private readonly caller: DataAwsCallerIdentity;
   private readonly region: DataAwsRegion;
   constructor(
     scope: Construct,
     name: string,
     fileSystem: S3Bucket,
+    pocketDataItemBucket: DataAwsS3Bucket,
     caller: DataAwsCallerIdentity,
     region: DataAwsRegion,
     deploymentType: string
@@ -239,6 +242,7 @@ export class DataFlowsIamRoles extends Construct {
     this.caller = caller;
     this.region = region;
     this.fileSystem = fileSystem;
+    this.pocketDataItemBucket = pocketDataItemBucket;
     // create an inline policy doc for the execution role that can be combined with AWS managed policy
     const flowExecutionPolicyStatements = [
       {
@@ -301,7 +305,7 @@ export class DataFlowsIamRoles extends Construct {
     return {
       actions: ['s3:ListBucket'],
       effect: 'Allow',
-      resources: [this.fileSystem.arn]
+      resources: [this.fileSystem.arn, this.pocketDataItemBucket.arn]
     };
   }
   // build policy statment for S3 object access
@@ -309,7 +313,10 @@ export class DataFlowsIamRoles extends Construct {
     return {
       actions: ['s3:*Object'],
       effect: 'Allow',
-      resources: [`${this.fileSystem.arn}/*`]
+      resources: [
+        `${this.fileSystem.arn}/*`,
+        `${this.pocketDataItemBucket.arn}/*`
+      ]
     };
   }
   // Give access to put records into a feature group
