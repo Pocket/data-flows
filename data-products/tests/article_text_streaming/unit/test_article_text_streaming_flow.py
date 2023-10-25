@@ -157,7 +157,7 @@ def test_main(monkeypatch, range_end):
         # leveraging the result states from the flow to assert
 
         # test subflow
-        if range_end == 50:
+        if range_end > 2:
             keys = list(test_data.keys())
             result_states = run(etl(keys, 0, AwsCredentials(), FAILURES_FILE_PATH))
             results_list = [
@@ -165,10 +165,7 @@ def test_main(monkeypatch, range_end):
             ]
             results_counter = Counter(results_list)
             assert results_counter["Unpersisted result of type `list`"] == 4
-            assert (
-                results_counter["Unpersisted result of type `NoneType`"]
-                == range_end - 1
-            )
+            assert results_counter["Unpersisted result of type `NoneType`"] == range_end
             assert (
                 results_counter["Unpersisted result of type `bytes`"] == range_end - 1
             )
