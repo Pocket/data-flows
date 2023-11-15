@@ -1,0 +1,36 @@
+# Welcome to your prefect.yaml file! You can use this file for storing and managing
+# configuration for deploying your flows. We recommend committing this file to source
+# control along with your flow code.
+
+# Generic metadata about this project
+name: data-flows
+prefect-version: "{{ $MOZILLA_PREFECT_VERSION }}"
+
+# pull section allows you to provide instructions for cloning this project in remote locations
+pull:
+  - prefect.deployments.steps.git_clone:
+      repository: https://github.com/Pocket/data-flows.git
+      branch: '{{ MOZILLA_PREFECT_DEPLOYMENT_TYPE }}-v2'
+  - prefect.deployments.steps.set_working_directory:
+      directory: /opt/prefect/data-flows
+
+definitions:
+  work_pools:
+      cloud_run_work_pool: &cloud_run_work_pool
+          name: mozilla-cloud-run-${{ $MOZILLA_PREFECT_DEPLOYMENT_TYPE }}
+          work_queue_name: default
+          job_variables:
+              image: "{{ $MOZILLA_PREFECT_IMAGE }}"
+              env: 
+                MOZILLA_PREFECT_DEPLOYMENT_TYPE: '{{ $MOZILLA_PREFECT_DEPLOYMENT_TYPE }}'
+
+# the deployments section allows you to provide configuration for deploying flows
+deployments:
+  - name: base_{{ $MOZILLA_PREFECT_DEPLOYMENT_TYPE }}
+    version: 0.0.1
+    tags: []
+    description: demo flow
+    schedule:
+    entrypoint: src/example.py:main
+    parameters: {}
+    work_pool: *cloud_run_work_pool
