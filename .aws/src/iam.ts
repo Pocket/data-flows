@@ -160,7 +160,7 @@ export class AgentIamPolicies extends Construct {
       this.getAgentTaskTagKeyBasedAccess()
     ];
   }
-  // build policy statment for resources "*"
+  // build policy statement for resources "*"
   private getAgentTaskAllAccess(): DataAwsIamPolicyDocumentStatement {
     return {
       actions: [
@@ -179,7 +179,7 @@ export class AgentIamPolicies extends Construct {
       resources: ['*']
     };
   }
-  // build policy statment for TagKeys conditions
+  // build policy statement for TagKeys conditions
   private getAgentTaskTagKeyBasedAccess(): DataAwsIamPolicyDocumentStatement {
     return {
       actions: ['ec2:DeleteNetworkInterface', 'ec2:UnassignPrivateIpAddresses'],
@@ -194,7 +194,7 @@ export class AgentIamPolicies extends Construct {
       ]
     };
   }
-  // build policy statment for ECS task actions
+  // build policy statement for ECS task actions
   private getAgentTaskEcsAccess(): DataAwsIamPolicyDocumentStatement {
     return {
       actions: ['ecs:StopTask', 'ecs:RunTask'],
@@ -288,7 +288,8 @@ export class DataFlowsIamRoles extends Construct {
     const flowTaskPolicyStatements = [
       this.getFlowS3BucketAccess(),
       this.getFlowS3ObjectAccess(),
-      this.putFeatureGroupRecordsAccess()
+      this.putFeatureGroupRecordsAccess(),
+      this.getDataProductsSqsWriteAccess()
     ];
 
     this.createFlowIamRole(
@@ -300,7 +301,7 @@ export class DataFlowsIamRoles extends Construct {
       flowTaskPolicyStatements
     );
   }
-  // build policy statment for S3 bucket access
+  // build policy statement for S3 bucket access
   private getFlowS3BucketAccess(): DataAwsIamPolicyDocumentStatement {
     return {
       actions: ['s3:ListBucket'],
@@ -308,7 +309,7 @@ export class DataFlowsIamRoles extends Construct {
       resources: [this.fileSystem.arn, this.pocketDataItemBucket.arn]
     };
   }
-  // build policy statment for S3 object access
+  // build policy statement for S3 object access
   private getFlowS3ObjectAccess(): DataAwsIamPolicyDocumentStatement {
     return {
       actions: ['s3:*Object'],
@@ -327,7 +328,18 @@ export class DataFlowsIamRoles extends Construct {
       effect: 'Allow'
     };
   }
-  // build policy statment for S3 object access
+  // Give SQS access to send messages.
+  private getDataProductsSqsWriteAccess(): DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: ['sqs:SendMessage', 'sqs:GetQueueUrl'],
+      resources: [
+        'arn:aws:sqs:*:*:RecommendationAPI-*',
+        'arn:aws:sqs:*:*:ProspectAPI-*',
+      ],
+      effect: 'Allow',
+    };
+  }
+  // build policy statement for S3 object access
   private getFlowAssumeRoleAccess(role_name: string): DataAwsIamPolicyDocument {
     return new DataAwsIamPolicyDocument(this, `${role_name}TrustPolicy`, {
       version: '2012-10-17',
