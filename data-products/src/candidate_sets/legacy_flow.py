@@ -10,6 +10,11 @@ from shared.api_clients.sqs import (
     RecommendationCandidate,
     put_results,
 )
+from common.deployment import FlowSpec, FlowEnvar, FlowDeployment
+from prefect.server.schemas.schedules import CronSchedule
+from common.settings import CommonSettings
+
+CS = CommonSettings() # type: ignore
 
 CURATED_EN_US_CANDIDATE_SET_ID = "35018233-48cd-4ec4-bcfd-7b1b1ccf30de"
 CURATED_DE_DE_CANDIDATE_SET_ID = "c66a1485-6c87-4c68-b29e-e7e838465ff7"
@@ -110,6 +115,25 @@ async def main():
         curated=unmapped(True),
     )
 
+FLOW_SPEC = FlowSpec(
+    flow=main,
+    docker_env="base",
+    secrets=[
+        FlowEnvar(
+            envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
+            envar_value=f"data-flows/{CS.deployment_type}/snowflake-credentials",
+        ),
+        FlowEnvar(
+            envar_name="FREESTAR_CREDENTIALS",
+            envar_value=f"data-flows/{CS.deployment_type}/freestar-credentials",
+        ),
+    ],
+    deployments=[
+        FlowDeployment(
+            deployment_name="base"
+        ), # type: ignore
+    ],
+)
 
 if __name__ == "__main__":
     import asyncio
