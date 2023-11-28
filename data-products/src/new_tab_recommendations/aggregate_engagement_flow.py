@@ -1,4 +1,5 @@
-from asyncio import run
+from asyncio import run, gather
+from typing import NamedTuple
 
 import pandas as pd
 from common.cloud.gcp_utils import PktGcpCredentials
@@ -15,7 +16,7 @@ from shared.feature_store import dataframe_to_feature_group, FeatureGroupSetting
 
 CS = CommonSettings()  # type: ignore
 
-EXPORT_FIREFOX_TELEMETRY_SQL = """
+EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
         WITH impressions_data AS (
             SELECT s.*
             FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1` AS s
@@ -29,16 +30,7 @@ EXPORT_FIREFOX_TELEMETRY_SQL = """
             CAST(flattened_tiles.id AS INT64) AS TILE_ID,
             FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
             COUNT(*) AS TRAILING_1_DAY_IMPRESSIONS,
-            SUM(CASE WHEN click IS NOT NULL THEN 1 ELSE 0 END) AS TRAILING_1_DAY_OPENS,
-            -- For now, we only need 1 day trailing data, so leave the other ones at 0.  
-            0 AS TRAILING_7_DAY_IMPRESSIONS,
-            0 AS TRAILING_7_DAY_OPENS,
-            0 AS TRAILING_14_DAY_IMPRESSIONS,
-            0 AS TRAILING_14_DAY_OPENS,
-            0 AS TRAILING_21_DAY_IMPRESSIONS,
-            0 AS TRAILING_21_DAY_OPENS,
-            0 AS TRAILING_28_DAY_IMPRESSIONS,
-            0 AS TRAILING_28_DAY_OPENS
+            SUM(CASE WHEN click IS NOT NULL THEN 1 ELSE 0 END) AS TRAILING_1_DAY_OPENS
         FROM impressions_data
         CROSS JOIN UNNEST(impressions_data.tiles) AS flattened_tiles
         GROUP BY TILE_ID
@@ -46,10 +38,39 @@ EXPORT_FIREFOX_TELEMETRY_SQL = """
         LIMIT 16384 -- Limit to Snowflake's max list size. There are a lot of old items that still get some impressions.
     """
 
+EXPORT_GLEAN_TELEMETRY_SQL = """
+    WITH events AS (
+      SELECT
+        submission_timestamp,
+        event.name AS event_name,
+        extra.value AS recommendation_id
+      FROM
+        firefox_desktop.newtab AS e
+      CROSS JOIN UNNEST(e.events) AS event
+      CROSS JOIN UNNEST(event.extra) AS extra
+      WHERE
+        submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+        AND normalized_app_name = 'Firefox'
+        AND client_info.app_build >= '20231116134553' -- Fx 120 was the first build to emit recommendation_id
+        AND event.category = 'pocket'
+        AND event.name in ('click', 'impression')
+        AND extra.key = 'recommendation_id'
+    )
+    SELECT
+        recommendation_id as CORPUS_RECOMMENDATION_ID,
+        FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
+        COUNTIF(event_name = 'impression') AS TRAILING_1_DAY_IMPRESSIONS,
+        COUNTIF(event_name = 'click') AS TRAILING_1_DAY_OPENS
+    FROM events
+    GROUP BY recommendation_id
+    ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
+    LIMIT 16384 -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore.
+"""
+
 
 EXPORT_CORPUS_ITEM_KEYS_SQL = """
     SELECT DISTINCT 
-        TILE_ID,
+        {JOIN_COLUMN_NAME},
         concat_ws(
             -- corpus-engagement-v1 is keyed on the following three fields, separated by slashes.
             '/', recommendation_surface_id, corpus_slate_configuration_id, corpus_item_id
@@ -58,36 +79,83 @@ EXPORT_CORPUS_ITEM_KEYS_SQL = """
         CORPUS_SLATE_CONFIGURATION_ID,
         CORPUS_ITEM_ID
     FROM ANALYTICS.DBT_STAGING.STG_CORPUS_SLATE_RECOMMENDATIONS
-    WHERE TILE_ID in (%(tile_ids)s)
+    WHERE {JOIN_COLUMN_NAME} in (%(ID_LIST)s)
+    -- Speed up query using clustered column. 28 day recommendation window was chosen arbitrarily to cover 1 day 
+    -- trailing telemetry. It executes in 35 seconds on XS.
+    AND recommended_at > DATEADD(DAY, -28, CURRENT_TIMESTAMP())
 """
+
+
+class TelemetrySource(NamedTuple):
+    export_telemetry_sql: str
+    join_column_name: str
+
+
+telemetry_sources: list[TelemetrySource] = [
+    TelemetrySource(EXPORT_GLEAN_TELEMETRY_SQL, "CORPUS_RECOMMENDATION_ID"),  # Glean is joined on recommendation UUID.
+    TelemetrySource(EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL, "TILE_ID"),  # Activity stream is joined on integer tile id.
+]
+
+
+async def export_telemetry_by_corpus_item_id(export_telemetry_sql: str, join_column_name: str):
+    """
+    Exports `export_telemetry_sql` from BigQuery, joined with corpus metadata from Snowflake on `join_column_name`.
+    :param export_telemetry_sql: BigQuery SQL to export open and impression counts. Must export `join_column_name`.
+    :param join_column_name: Column in STG_CORPUS_SLATE_RECOMMENDATIONS to join on.
+    :return: Telemetry aggregated by CORPUS_ITEM_ID
+    """
+    # join_column_name is a string literal, so there's no risk of SQL injection by inserting it in the query below.
+    export_corpus_item_keys_sql = EXPORT_CORPUS_ITEM_KEYS_SQL.format(
+        JOIN_COLUMN_NAME=join_column_name
+    )
+    df_telemetry = await bigquery_query(
+        gcp_credentials=PktGcpCredentials(),
+        query=export_telemetry_sql,
+        to_dataframe=True,
+    )
+    corpus_item_keys_records = await snowflake_query(
+        snowflake_connector=PktSnowflakeConnector(),
+        query=export_corpus_item_keys_sql,
+        cursor_type=DictCursor,
+        params={"ID_LIST": df_telemetry[join_column_name].tolist()},
+    )
+
+    df_corpus_item_keys = pd.DataFrame(corpus_item_keys_records)
+    # Combine the BigQuery and Snowflake results on TILE_ID.
+    df_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
+    # Drop TILE_ID or CORPUS_RECOMMENDATION_ID after merging, to match the dataframe columns with the feature group.
+    return df_telemetry.drop(columns=[join_column_name])
 
 
 @flow()
 async def aggregate_engagement():
-    df_telemetry = await bigquery_query(
-        gcp_credentials=PktGcpCredentials(),
-        query=EXPORT_FIREFOX_TELEMETRY_SQL,
-        to_dataframe=True,
+    """
+    Ingests NewTab telemetry joined with Corpus metadata into a Sagemaker Feature Group.
+    """
+    # Export telemetry from Glean and Activity Stream aggregated by CORPUS_ITEM_ID.
+    all_dataframes = await gather(*[
+        export_telemetry_by_corpus_item_id(export_sql, join_column) for export_sql, join_column in telemetry_sources
+    ])
+
+    # Sum the opens and impressions from Glean and Acitivy Stream.
+    df_combined = pd.concat(all_dataframes).groupby(
+        ["UPDATED_AT", "KEY", "RECOMMENDATION_SURFACE_ID", "CORPUS_SLATE_CONFIGURATION_ID", "CORPUS_ITEM_ID"]
+    ).sum().reset_index()
+
+    # Feature Store requires all columns to be present. We only need 1 day trailing data, so add the others as 0.
+    df_combined["TRAILING_7_DAY_IMPRESSIONS"] = 0
+    df_combined["TRAILING_7_DAY_OPENS"] = 0
+    df_combined["TRAILING_14_DAY_IMPRESSIONS"] = 0
+    df_combined["TRAILING_14_DAY_OPENS"] = 0
+    df_combined["TRAILING_21_DAY_IMPRESSIONS"] = 0
+    df_combined["TRAILING_21_DAY_OPENS"] = 0
+    df_combined["TRAILING_28_DAY_IMPRESSIONS"] = 0
+    df_combined["TRAILING_28_DAY_OPENS"] = 0
+
+    await dataframe_to_feature_group(
+        dataframe=df_combined,
+        feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name,
     )
-
-    corpus_item_keys_records = await snowflake_query(
-        snowflake_connector=PktSnowflakeConnector(),
-        query=EXPORT_CORPUS_ITEM_KEYS_SQL,
-        cursor_type=DictCursor,
-        params={"tile_ids": df_telemetry["TILE_ID"].tolist()},
-    )
-
-    if corpus_item_keys_records:
-        df_corpus_item_keys = pd.DataFrame(corpus_item_keys_records)
-        # Combine the BigQuery and Snowflake results on TILE_ID.
-        df_keyed_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
-        # Drop TILE_ID now we no longer need it, to match the dataframe columns with the feature group.
-        df_keyed_telemetry = df_keyed_telemetry.drop(columns=["TILE_ID"])
-
-        await dataframe_to_feature_group(
-            dataframe=df_keyed_telemetry,
-            feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name,
-        )
 
 
 FLOW_SPEC = FlowSpec(
