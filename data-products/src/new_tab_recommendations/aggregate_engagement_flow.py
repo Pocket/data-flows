@@ -91,13 +91,26 @@ class TelemetrySource(NamedTuple):
     join_column_name: str
 
 
+"""
+Glean events have a 'recommendation id' (a.k.a. 'corpus recommendation id'), which is distinct for each server-side
+event when content is recommended. Activity Stream uses the older 'tile id', which is distinct for each time content is
+scheduled, and cannot be traced back to a single server-side recommendation event.
+
+The ability to trace back to server-side events improves observability and enables experiments with rankers.
+"""
 telemetry_sources: list[TelemetrySource] = [
-    TelemetrySource(EXPORT_GLEAN_TELEMETRY_SQL, "CORPUS_RECOMMENDATION_ID"),  # Glean is joined on recommendation UUID.
-    TelemetrySource(EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL, "TILE_ID"),  # Activity stream is joined on integer tile id.
+    TelemetrySource(
+        EXPORT_GLEAN_TELEMETRY_SQL, "CORPUS_RECOMMENDATION_ID"
+    ),  # Glean is joined on recommendation UUID.
+    TelemetrySource(
+        EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL, "TILE_ID"
+    ),  # Activity stream is joined on integer tile id.
 ]
 
 
-async def export_telemetry_by_corpus_item_id(export_telemetry_sql: str, join_column_name: str):
+async def export_telemetry_by_corpus_item_id(
+    export_telemetry_sql: str, join_column_name: str
+):
     """
     Exports `export_telemetry_sql` from BigQuery, joined with corpus metadata from Snowflake on `join_column_name`.
     :param export_telemetry_sql: BigQuery SQL to export open and impression counts. Must export `join_column_name`.
@@ -133,14 +146,28 @@ async def aggregate_engagement():
     Ingests NewTab telemetry joined with Corpus metadata into a Sagemaker Feature Group.
     """
     # Export telemetry from Glean and Activity Stream aggregated by CORPUS_ITEM_ID.
-    all_dataframes = await gather(*[
-        export_telemetry_by_corpus_item_id(export_sql, join_column) for export_sql, join_column in telemetry_sources
-    ])
+    all_dataframes = await gather(
+        *[
+            export_telemetry_by_corpus_item_id(export_sql, join_column)
+            for export_sql, join_column in telemetry_sources
+        ]
+    )
 
     # Sum the opens and impressions from Glean and Acitivy Stream.
-    df_combined = pd.concat(all_dataframes).groupby(
-        ["UPDATED_AT", "KEY", "RECOMMENDATION_SURFACE_ID", "CORPUS_SLATE_CONFIGURATION_ID", "CORPUS_ITEM_ID"]
-    ).sum().reset_index()
+    df_combined = (
+        pd.concat(all_dataframes)
+        .groupby(
+            [
+                "UPDATED_AT",
+                "KEY",
+                "RECOMMENDATION_SURFACE_ID",
+                "CORPUS_SLATE_CONFIGURATION_ID",
+                "CORPUS_ITEM_ID",
+            ]
+        )
+        .sum()
+        .reset_index()
+    )
 
     # Feature Store requires all columns to be present. We only need 1 day trailing data, so add the others as 0.
     df_combined["TRAILING_7_DAY_IMPRESSIONS"] = 0
