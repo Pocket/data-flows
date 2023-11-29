@@ -2,15 +2,14 @@ import uuid
 from unittest.mock import patch, MagicMock
 
 import pandas as pd
-from prefect.testing.utilities import prefect_test_harness
 import pytest
-
+from prefect.testing.utilities import prefect_test_harness
 
 from src.new_tab_recommendations.aggregate_engagement_flow import (
     export_telemetry_by_corpus_item_id,
     aggregate_engagement,
 )
-from tests.utils import async_patch, SameDf
+from tests.utils import async_patch
 
 
 @pytest.fixture

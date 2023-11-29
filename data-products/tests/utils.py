@@ -18,6 +18,7 @@ class SameDf:
 
     Source: https://stackoverflow.com/a/69010217
     """
+
     def __init__(self, df: pd.DataFrame):
         self.df = df
 
