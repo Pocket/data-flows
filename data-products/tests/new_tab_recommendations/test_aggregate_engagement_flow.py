@@ -1,13 +1,16 @@
-import functools
 import uuid
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 
 import pandas as pd
+from prefect.testing.utilities import prefect_test_harness
 import pytest
+
 
 from src.new_tab_recommendations.aggregate_engagement_flow import (
     export_telemetry_by_corpus_item_id,
+    aggregate_engagement,
 )
+from tests.utils import async_patch, SameDf
 
 
 @pytest.fixture
@@ -55,7 +58,7 @@ def mock_bigquery_snowflake_data(request):
     return join_column_name, df_bq, snowflake_data
 
 
-async_patch = functools.partial(patch, new_callable=AsyncMock)
+MODULE = "src.new_tab_recommendations.aggregate_engagement_flow"
 
 
 @pytest.mark.asyncio
@@ -65,12 +68,10 @@ async_patch = functools.partial(patch, new_callable=AsyncMock)
 async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
     join_column_name, bigquery_data, snowflake_data = mock_bigquery_snowflake_data
 
-    module = "src.new_tab_recommendations.aggregate_engagement_flow"
-
     with (
-        async_patch(f"{module}.bigquery_query", return_value=bigquery_data),
-        async_patch(f"{module}.snowflake_query", return_value=snowflake_data),
-        patch(f"{module}.PktGcpCredentials", return_value=MagicMock()),
+        async_patch(f"{MODULE}.bigquery_query", return_value=bigquery_data),
+        async_patch(f"{MODULE}.snowflake_query", return_value=snowflake_data),
+        patch(f"{MODULE}.PktGcpCredentials", return_value=MagicMock()),
     ):
         result = await export_telemetry_by_corpus_item_id(
             "select foo from bar", join_column_name
@@ -88,3 +89,70 @@ async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
             "CORPUS_SLATE_CONFIGURATION_ID",
             "CORPUS_ITEM_ID",
         }
+
+
+@pytest.mark.asyncio
+async def test_aggregate_engagement():
+    # Mock data returned by export_telemetry_by_corpus_item_id
+    return_values = [
+        pd.DataFrame(
+            {
+                "UPDATED_AT": ["1", "2"],
+                "TRAILING_1_DAY_IMPRESSIONS": [100, 200],
+                "TRAILING_1_DAY_OPENS": [1, 2],
+                "KEY": ["1", "2"],
+                "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
+                "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
+                "CORPUS_ITEM_ID": ["foo1", "foo2"],
+            }
+        ),
+        pd.DataFrame(
+            {
+                "UPDATED_AT": ["2", "3"],
+                "TRAILING_1_DAY_IMPRESSIONS": [300, 400],
+                "TRAILING_1_DAY_OPENS": [3, 4],
+                "KEY": ["2", "3"],
+                "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
+                "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
+                "CORPUS_ITEM_ID": ["foo2", "foo3"],
+            }
+        ),
+    ]
+
+    with (
+        prefect_test_harness(),
+        async_patch(
+            f"{MODULE}.export_telemetry_by_corpus_item_id", side_effect=return_values
+        ) as mock_export,
+        async_patch(
+            f"{MODULE}.dataframe_to_feature_group"
+        ) as mock_dataframe_to_feature_group,
+    ):
+        # Call the aggregate_engagement function
+        await aggregate_engagement()
+
+        # Assert that dataframe_to_feature_group is called with the expected DataFrame
+        assert mock_dataframe_to_feature_group.call_count == 1
+
+        pd.testing.assert_frame_equal(
+            mock_dataframe_to_feature_group.call_args.kwargs["dataframe"],
+            pd.DataFrame(
+                {
+                    "UPDATED_AT": ["1", "2", "3"],
+                    "KEY": ["1", "2", "3"],
+                    "RECOMMENDATION_SURFACE_ID": ["r1", "r1", "r1"],
+                    "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1", "s1"],
+                    "CORPUS_ITEM_ID": ["foo1", "foo2", "foo3"],
+                    "TRAILING_1_DAY_IMPRESSIONS": [100, 500, 400],
+                    "TRAILING_1_DAY_OPENS": [1, 5, 4],
+                    "TRAILING_7_DAY_IMPRESSIONS": [0, 0, 0],
+                    "TRAILING_7_DAY_OPENS": [0, 0, 0],
+                    "TRAILING_14_DAY_IMPRESSIONS": [0, 0, 0],
+                    "TRAILING_14_DAY_OPENS": [0, 0, 0],
+                    "TRAILING_21_DAY_IMPRESSIONS": [0, 0, 0],
+                    "TRAILING_21_DAY_OPENS": [0, 0, 0],
+                    "TRAILING_28_DAY_IMPRESSIONS": [0, 0, 0],
+                    "TRAILING_28_DAY_OPENS": [0, 0, 0],
+                }
+            ),
+        )
