@@ -21,6 +21,8 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
             SELECT s.*
             FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1` AS s
             WHERE submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+            -- addon_version (Fx build id) must be less than the Glean build below to avoid double-counting impressions
+            AND addon_version < '20231116134553'
             AND (source = 'TOP_STORIES' OR source = 'CARDGRID')
             AND loaded IS NULL
             AND normalized_country_code IS NOT NULL
