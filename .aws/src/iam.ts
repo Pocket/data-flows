@@ -230,6 +230,7 @@ export class DataFlowsIamRoles extends Construct {
   private readonly pocketDataItemBucket: DataAwsS3Bucket;
   private readonly caller: DataAwsCallerIdentity;
   private readonly region: DataAwsRegion;
+  private readonly deploymentType: string;
   constructor(
     scope: Construct,
     name: string,
@@ -242,6 +243,7 @@ export class DataFlowsIamRoles extends Construct {
     super(scope, name);
     this.caller = caller;
     this.region = region;
+    this.deploymentType = deploymentType;
     this.fileSystem = fileSystem;
     this.pocketDataItemBucket = pocketDataItemBucket;
     // create an inline policy doc for the execution role that can be combined with AWS managed policy
