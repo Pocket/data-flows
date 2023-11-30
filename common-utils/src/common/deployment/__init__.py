@@ -404,6 +404,7 @@ class FlowSpec(BaseModel):
     key name in '[tool.prefect.envs.<>]'"""
     ephemeral_storage_gb: conint(gt=20, lt=201) = 21  # type: ignore
     deployments: list[FlowDeployment] = []
+    is_agent: bool = True
 
     class Config:
         arbitrary_types_allowed = True

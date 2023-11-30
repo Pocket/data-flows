@@ -1,0 +1,19 @@
+deployments:
+- enforce_parameter_schema: false
+  entrypoint: src/example_flow.py:main_flow
+  name: base-dev
+  parameters: {}
+  tags: []
+  work_pool:
+    job_variables:
+      family: data-products-base-v2-dev
+    name: mozilla-aws-ecs-fargate-dev
+    work_queue_name: default
+name: data-products
+pull:
+- prefect.deployments.steps.git_clone:
+    branch: feature/msdo-4-worker-based
+    id: git_clone
+    repository: https://github.com/Pocket/data-flows.git
+- prefect.deployments.steps.set_working_directory:
+    directory: /opt/prefect/{{ git_clone.directory }}/data-products
