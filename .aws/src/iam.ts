@@ -131,6 +131,7 @@ export class AgentIamPolicies extends Construct {
     scope: Construct,
     name: string,
     prefectV2Secret: DataAwsSecretsmanagerSecret,
+    dockerSharedSecret: DataAwsSecretsmanagerSecret,
     ecsAppPrefix: string,
     caller: DataAwsCallerIdentity,
     region: DataAwsRegion
@@ -148,7 +149,7 @@ export class AgentIamPolicies extends Construct {
           'ssm:GetParameters'
         ],
         effect: 'Allow',
-        resources: [prefectV2Secret.arn]
+        resources: [prefectV2Secret.arn, dockerSharedSecret.arn]
       }
     ];
 
