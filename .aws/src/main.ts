@@ -179,6 +179,7 @@ class PrefectV2 extends TerraformStack {
       this,
       `agentPolicies${DeploymentTypeProper}`,
       this.prefectV2Secret,
+      this.dockerSharedSecret,
       prefix,
       this.caller,
       this.region
