@@ -1,6 +1,7 @@
 # prefect artifacts
 *-deployment.yaml
 *-deployment.yml
+prefect.yaml
 
 # python artifacts
 __pycache__/
