@@ -82,6 +82,10 @@ def get_ecs_image_name(project_name: str, env_name: str) -> str:
     return f"{AWS_ACCOUNT_ID}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:{get_image_name(project_name, env_name)}-{GIT_SHA}"  # noqa: E501
 
 
+def get_ecs_task_arn(project_name: str, env_name: str) -> str:
+    return f"arn:aws:ecs:{AWS_REGION}:{AWS_ACCOUNT_ID}:task-definition/{get_ecs_task_name(project_name, env_name)}"  # noqa: E501
+
+
 def standard_slugify(string: str) -> str:
     """Helper function to create dash slugified strings.
 
@@ -198,7 +202,7 @@ class PrefectProject(BaseModel):
                             fd["work_pool"]["job_variables"] = {}
                         fd["work_pool"]["job_variables"][
                             "task_definition_arn"
-                        ] = get_ecs_image_name(self.project_name, fs.docker_env)
+                        ] = get_ecs_task_arn(self.project_name, fs.docker_env)
                     deployments.append(fd)
                 # start building the deployment yaml
 

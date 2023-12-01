@@ -754,6 +754,8 @@ class PrefectProject(BaseModel):
             try:
                 # load FLOW_SPEC global from file
                 x = SourceFileLoader(mod, name).load_module().FLOW_SPEC
+                if not x.is_agent:
+                    continue
                 # validate docker env is registered in pyproject.toml
                 if x.docker_env not in self._pyproject_metadata.docker_envs.keys():
                     raise ValueError(
