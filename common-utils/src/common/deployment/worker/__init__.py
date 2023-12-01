@@ -26,24 +26,13 @@ SCRIPT_PATH = get_script_path()
 
 # config for deploying task definitions and flows
 DEPLOYMENT_TYPE = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_TYPE", "dev").lower()
-GIT_SHA = os.getenv("CIRCLE_SHA1", "dev")[0:7]
 AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1").lower()
-AWS_SUBNETS = os.getenv("MOZILLA_AWS_SUBNETS", "[]")
-AWS_SECURITY_GROUPS = os.getenv("MOZILLA_AWS_SECURITY_GROUPS", "[]")
-AWS_VPC_ID = os.getenv("MOZILLA_AWS_VPC_ID")
+AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID")
 PROJECT_ROOT = Path(os.getcwd()).parts[-1]
 PYPROJECT_FILE_PATH = os.path.expanduser(os.path.join(os.getcwd(), "pyproject.toml"))
 FLOWS_PATH = Path(os.getenv("MOZILLA_FLOWS_PATH_OVERRIDE", "src"))
 DEFAULT_WORK_POOL = os.getenv("MOZILLA_DEFAULT_WORK_POOL", "mozilla-aws-ecs-fargate")
 DEPLOYMENT_BRANCH = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_BRANCH", "dev-v2").lower()
-
-
-def get_image_name(project_name: str, env_name: str) -> str:
-    return f"{project_name}-{standard_slugify(env_name)}"
-
-
-def get_ecs_task_name(project_name: str, env_name: str) -> str:
-    return f"{get_image_name(project_name, env_name)}-{DEPLOYMENT_TYPE}"
 
 
 def run_command(command: str) -> str:
@@ -78,6 +67,21 @@ def run_command(command: str) -> str:
     return line
 
 
+GIT_SHA = run_command(shlex.join(["git", "rev-parse", "--short", "HEAD"]))
+
+
+def get_image_name(project_name: str, env_name: str) -> str:
+    return f"{project_name}-{standard_slugify(env_name)}"
+
+
+def get_ecs_task_name(project_name: str, env_name: str) -> str:
+    return f"{get_image_name(project_name, env_name)}-{DEPLOYMENT_TYPE}"
+
+
+def get_ecs_image_name(project_name: str, env_name: str) -> str:
+    return f"{AWS_ACCOUNT_ID}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:{get_image_name(project_name, env_name)}-{GIT_SHA}"  # noqa: E501
+
+
 def standard_slugify(string: str) -> str:
     """Helper function to create dash slugified strings.
 
@@ -107,7 +111,6 @@ class PrefectProject(BaseModel):
             build_only (bool, optional): Whether to run docker build only.
             Defaults to False.
         """
-        account_id = ""
         ecs_client = object()
         if not build_only:
             if push_type == "aws":
@@ -115,8 +118,6 @@ class PrefectProject(BaseModel):
                 from boto3 import session
 
                 init_session = session.Session()
-                sts_client = init_session.client("sts")
-                account_id = sts_client.get_caller_identity()["Account"]
                 ecs_client = init_session.client("ecs")
 
         for k, v in self.docker_envs.items():
@@ -125,7 +126,7 @@ class PrefectProject(BaseModel):
             if not build_only:
                 env.push_image(push_type)
                 if push_type == "aws":
-                    env._handle_ecs_task_definition(account_id, ecs_client)
+                    env._handle_ecs_task_definition(ecs_client)
 
     async def process_flow_specs(self) -> None:
         # start building the yaml elements
@@ -195,9 +196,9 @@ class PrefectProject(BaseModel):
                     if "aws" in d.work_pool_name:
                         if not d.job_variables:
                             fd["work_pool"]["job_variables"] = {}
-                        fd["work_pool"]["job_variables"]["family"] = get_ecs_task_name(
-                            self.project_name, fs.docker_env
-                        )
+                        fd["work_pool"]["job_variables"][
+                            "task_definition_arn"
+                        ] = get_ecs_image_name(self.project_name, fs.docker_env)
                     deployments.append(fd)
                 # start building the deployment yaml
 
@@ -271,6 +272,10 @@ class FlowDockerEnv(BaseModel):
     def ecs_task_name(self):
         return get_ecs_task_name(self.project_name, self.env_name)
 
+    @property
+    def ecs_image_name(self):
+        return get_ecs_image_name(self.project_name, self.env_name)
+
     def __init__(self, **data) -> None:
         """Set prefect version on init."""
         super().__init__(**data)
@@ -293,38 +298,34 @@ class FlowDockerEnv(BaseModel):
             )
         )
 
-    def push_image(self, account_id: str, push_type: str = "aws"):
+    def push_image(self, push_type: str = "aws"):
         config = {"aws": self.push_image_aws}
-        config[push_type](account_id)
+        config[push_type]()
 
-    def push_image_aws(self, account_id: str) -> str:
+    def push_image_aws(self):
         """Push built image to ECR
 
         Returns:
             str: Pushed ECR image name.
         """
 
-        # push image to ECR using stored image name and AWS account id
-        pushed_image = run_command(
+        # push image to ECR using stored image name
+        run_command(
             shlex.join(
                 [
                     f"{SCRIPT_PATH}/push_aws_image.sh",
                     self.image_name,
-                    account_id,
+                    AWS_ACCOUNT_ID,  # type: ignore
                     AWS_REGION,
                     GIT_SHA,
                 ]
             )
         )
-        return pushed_image
 
-    def _handle_ecs_task_definition(
-        self, account_id: str, ecs_client: object
-    ) -> str | None:
+    def _handle_ecs_task_definition(self, ecs_client: object) -> str | None:
         """Register Task Defintition with AWS ECS as needed based on changes.
 
         Args:
-            account_id (str): AWS account id
             ecs_client (object): valid ecs client
 
         Returns:
@@ -337,9 +338,9 @@ class FlowDockerEnv(BaseModel):
         # start building the task definition elements from FlowSpec and globals
         # these values plus other defaults will be the basis for task def diff analysis
         task_name = self.ecs_task_name
-        image_name = f"{account_id}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:{self.image_name}-{GIT_SHA}"  # noqa: E501
-        task_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role"  # noqa: E501
-        execution_role_arn = f"arn:aws:iam::{account_id}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role"  # noqa: E501
+        image_name = self.ecs_image_name
+        task_role_arn = f"arn:aws:iam::{AWS_ACCOUNT_ID}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role"  # noqa: E501
+        execution_role_arn = f"arn:aws:iam::{AWS_ACCOUNT_ID}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role"  # noqa: E501
         default_cpu = "256"
         default_memory = "512"
         default_container_name = "prefect"
