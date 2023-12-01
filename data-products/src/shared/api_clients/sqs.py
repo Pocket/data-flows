@@ -95,6 +95,7 @@ class SQSConfig:
 
 
 @task()
+# Move this out of SQS class to a more appropriate place -- it's a data validator - probably legacy_flow.py
 def validate_candidate_items(corpus_items: List[Dict]):
     min_item_count = 1
     expected_keys = ["ID", "PUBLISHER"]

@@ -94,7 +94,7 @@ async def main():
         query=unmapped(EXPORT_SCHEDULED_ITEMS_SQL),  # type: ignore
         snowflake_connector=unmapped(sfc),  # type: ignore
         params=set_params,  # type: ignore
-        cursor_type=DictCursor,  # type: ignore
+        cursor_type=DictCursor,  # type: ignore # why isn't this unmapped?
     )
 
     valid_scheduled_candidate_items = validate_candidate_items.map(
