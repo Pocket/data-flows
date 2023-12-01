@@ -55,6 +55,11 @@ def process_flows():
 def check_version():
     cv()
 
+@app.command()
+def clone_project(gh_repo: str, branch: str):
+    p = get_pyproject_metadata()
+    p.clone_project(gh_repo)
+
 
 if __name__ == "__main__":
     app()

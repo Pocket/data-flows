@@ -11,11 +11,10 @@ from typing import Any, Optional
 
 import toml
 import yaml
+from common import find_pyproject_file, get_script_path
 from prefect import Flow
 from pydantic import BaseModel, FilePath, PrivateAttr, StrictStr, ValidationError
 from slugify import slugify
-
-from common import find_pyproject_file, get_script_path
 
 # Create logger for module
 LOGGER_NAME = __name__
@@ -67,7 +66,7 @@ def run_command(command: str) -> str:
     return line
 
 
-GIT_SHA = run_command(shlex.join(["git", "rev-parse", "--short", "HEAD"]))
+GIT_SHA = os.getenv("GIT_SHA", "dev")
 
 
 def get_image_name(project_name: str, env_name: str) -> str:
@@ -105,6 +104,18 @@ class PrefectProject(BaseModel):
     project_name: str
     docker_envs: dict
 
+    def clone_project(self, gh_repo: str):
+        run_command(
+            shlex.join(
+                [
+                    f"{SCRIPT_PATH}/clone_project.sh",
+                    self.project_name,
+                    gh_repo,
+                    DEPLOYMENT_BRANCH,
+                ]
+            )
+        )
+
     def process_docker_envs(
         self, build_only: bool = False, push_type: str = "aws"
     ) -> None:
@@ -135,22 +146,19 @@ class PrefectProject(BaseModel):
     async def process_flow_specs(self) -> None:
         # start building the yaml elements
 
-        # git repo information for pull step
-        git_repo = run_command(shlex.join(["git", "ls-remote", "--get-url", "origin"]))
+        gh_repo = run_command(shlex.join(["git", "ls-remote", "--get-url", "origin"]))
 
         base_pull = [
             {
-                "prefect.deployments.steps.git_clone": {
-                    "id": "git_clone",
-                    "repository": f"{git_repo}",
-                    "branch": f"{DEPLOYMENT_BRANCH}",
+                "prefect.deployments.steps.run_shell_script": {
+                    "id": "clone_project",
+                    "script": f"df-cli clone-project {gh_repo} {DEPLOYMENT_BRANCH}",
+                    "stream_output": False,
                 }
             },
             {
                 "prefect.deployments.steps.set_working_directory": {
-                    "directory": os.path.join(
-                        "/opt/prefect/{{ git_clone.directory }}", self.project_name
-                    )
+                    "directory": f"/opt/prefect/{self.project_name}"
                 }
             },
         ]
