@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from common.deployment import LOGGER, run_command
+from common.deployment.worker import LOGGER, run_command
 
 
 def get_poetry_version():

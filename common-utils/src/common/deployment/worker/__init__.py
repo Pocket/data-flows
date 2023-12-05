@@ -23,15 +23,17 @@ LOGGER = logging.getLogger(LOGGER_NAME)
 # script path for referencing bash scripts
 SCRIPT_PATH = get_script_path()
 
-# config for deploying task definitions and flows
-DEPLOYMENT_TYPE = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_TYPE", "dev").lower()
-AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1").lower()
+# config for deploying flows and environments
+DEPLOYMENT_TYPE = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_TYPE", "dev")
+AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1")
 AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID")
-PROJECT_ROOT = Path(os.getcwd()).parts[-1]
 PYPROJECT_FILE_PATH = os.path.expanduser(os.path.join(os.getcwd(), "pyproject.toml"))
 FLOWS_PATH = Path(os.getenv("MOZILLA_FLOWS_PATH_OVERRIDE", "src"))
 DEFAULT_WORK_POOL = os.getenv("MOZILLA_DEFAULT_WORK_POOL", "mozilla-aws-ecs-fargate")
-DEPLOYMENT_BRANCH = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_BRANCH", "dev-v2").lower()
+DEPLOYMENT_BRANCH = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_BRANCH", "dev-v2")
+GIT_SHA = os.getenv("GIT_SHA", "dev")
+DEFAULT_CPU = "512"
+DEFAULT_MEMORY = "1024"
 
 
 def run_command(command: str) -> str:
@@ -66,9 +68,6 @@ def run_command(command: str) -> str:
     return line
 
 
-GIT_SHA = os.getenv("GIT_SHA", "dev")
-
-
 def get_image_name(project_name: str, env_name: str) -> str:
     return f"{project_name}-{standard_slugify(env_name)}"
 
@@ -95,175 +94,6 @@ def standard_slugify(string: str) -> str:
         str: Slugified string.
     """
     return slugify(string, separator="-").lower()
-
-
-# model for pyproject metadata
-class PrefectProject(BaseModel):
-    """Model to hold Prefect project metadata"""
-
-    project_name: str
-    docker_envs: dict
-
-    def clone_project(self, gh_repo: str):
-        run_command(
-            shlex.join(
-                [
-                    f"{SCRIPT_PATH}/clone_project.sh",
-                    self.project_name,
-                    gh_repo,
-                    DEPLOYMENT_BRANCH,
-                ]
-            )
-        )
-
-    def process_docker_envs(
-        self, build_only: bool = False, push_type: str = "aws"
-    ) -> None:
-        """Method to process project docker envs from the project's
-        pyproject.toml
-
-        Args:
-            build_only (bool, optional): Whether to run docker build only.
-            Defaults to False.
-        """
-        ecs_client = object()
-        if not build_only:
-            if push_type == "aws":
-                # only need AWS SDK on deployment
-                from boto3 import session
-
-                init_session = session.Session()
-                ecs_client = init_session.client("ecs")
-
-        for k, v in self.docker_envs.items():
-            env = FlowDockerEnv(env_name=k, project_name=self.project_name, **v)
-            env.build_image()
-            if not build_only:
-                env.push_image(push_type)
-                if push_type == "aws":
-                    env._handle_ecs_task_definition(ecs_client)
-
-    async def process_flow_specs(self) -> None:
-        # start building the yaml elements
-
-        gh_repo = run_command(shlex.join(["git", "ls-remote", "--get-url", "origin"]))
-
-        base_pull = [
-            {
-                "prefect.deployments.steps.run_shell_script": {
-                    "id": "clone_project",
-                    "script": f"df-cli clone-project {gh_repo} {DEPLOYMENT_BRANCH}",
-                    "stream_output": False,
-                }
-            },
-            {
-                "prefect.deployments.steps.set_working_directory": {
-                    "directory": f"/opt/prefect/{self.project_name}"
-                }
-            },
-        ]
-
-        # create base list
-        deployments = []
-
-        missing_flow_specs = []
-        flow_errors = []
-        for name in glob.glob(os.path.join(FLOWS_PATH, "**/*_flow.py"), recursive=True):
-            path_object = Path(name)
-            file_name = path_object.name
-            mod = file_name.split(".")[0]
-            try:
-                # add flows path to pythonpath for interproject shared libs
-                pythonpath_addition = os.path.expanduser(
-                    os.path.join(os.getcwd(), FLOWS_PATH)
-                )
-                sys.path.append(pythonpath_addition)
-                # load FLOW_SPEC global from file
-                fs = SourceFileLoader(mod, name).load_module().FLOW_SPEC
-                if fs.is_agent:
-                    continue
-                for d in fs.deployments:
-                    fd = {
-                        "name": f"{d.name}-{DEPLOYMENT_TYPE}",
-                        "tags": d.tags,
-                        "parameters": d.parameters,
-                        "enforce_parameter_schema": d.enforce_parameter_schema,
-                        "work_pool": {
-                            "name": f"{d.work_pool_name}-{DEPLOYMENT_TYPE}",
-                            "work_queue_name": d.work_queue_name or "default",
-                        },
-                        "entrypoint": f"{name}:{fs.flow.fn.__name__}",
-                    }
-                    if x := d.cron:
-                        fd["schedule"] = {
-                            "cron": x,
-                            "timezone": d.timezone,
-                        }
-                    if x := d.description:
-                        fd["description"] = x
-                    if x := d.version:
-                        fd["version"] = x
-                    if x := d.job_variables:
-                        fd["work_pool"]["job_variables"] = x
-                    if "aws" in d.work_pool_name:
-                        if not d.job_variables:
-                            fd["work_pool"]["job_variables"] = {}
-                        fd["work_pool"]["job_variables"][
-                            "task_definition_arn"
-                        ] = get_ecs_task_arn(self.project_name, fs.docker_env)
-                    deployments.append(fd)
-                # start building the deployment yaml
-
-                prefect_flow_config = {
-                    "name": self.project_name,
-                    "pull": base_pull,
-                    "deployments": deployments,
-                }
-
-                with open("prefect.yaml", "w") as f:
-                    yaml.dump(prefect_flow_config, f)
-
-            # catch errors and aggregate into groups for logging and raising
-            except AttributeError as e:
-                LOGGER.info(e)
-                LOGGER.info(f"Flow {mod} does not have a FLOW_SPEC defined!")
-                missing_flow_specs.append(mod)
-            except (ValidationError, ValueError) as e:
-                LOGGER.error(e)
-                LOGGER.error(f"FLOW_SPEC for {mod} is not properly defined!")
-                flow_errors.append(mod)
-            except Exception as e:
-                LOGGER.error(e)
-                flow_errors.append(mod)
-        if missing_flow_specs:
-            LOGGER.info(
-                f"The following flows are missing FLOW_SPEC "
-                f"defintions: {missing_flow_specs}"
-            )
-            LOGGER.info("This is assumed as expected and will not throw an Exception.")
-        if flow_errors:
-            raise Exception(f"The following flows failed processing: {flow_errors}")
-        LOGGER.info(
-            "All flows with proper FLOW_SPEC definitions "
-            "have completed processing successfully!"
-        )
-
-
-# creating and running a helper function to extract project metadata.
-def get_pyproject_metadata() -> PrefectProject:
-    """Produce a PyProjectMetadata object from the pyproject.toml file.
-
-    Returns:
-        PyProjectMetadata: Model containing the pyproject metadata.
-    """
-    with open(find_pyproject_file()) as t:
-        config = toml.load(t)
-    project_name = standard_slugify(config["tool"]["poetry"]["name"])
-    docker_envs = config["tool"].get("prefect", {"docker": {}})["docker"]
-    return PrefectProject(
-        project_name=project_name,
-        docker_envs=docker_envs,
-    )
 
 
 class FlowDockerEnv(BaseModel):
@@ -353,8 +183,8 @@ class FlowDockerEnv(BaseModel):
         image_name = self.ecs_image_name
         task_role_arn = f"arn:aws:iam::{AWS_ACCOUNT_ID}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-task-role"  # noqa: E501
         execution_role_arn = f"arn:aws:iam::{AWS_ACCOUNT_ID}:role/data-flows-prefect-{DEPLOYMENT_TYPE}-exec-role"  # noqa: E501
-        default_cpu = "256"
-        default_memory = "512"
+        default_cpu = DEFAULT_CPU
+        default_memory = DEFAULT_MEMORY
         default_container_name = "prefect"
 
         # set the compare keys
@@ -472,6 +302,179 @@ class FlowDockerEnv(BaseModel):
         return final_task_def_arn
 
 
+# model for pyproject metadata
+class PrefectProject(BaseModel):
+    """Model to hold Prefect project metadata"""
+
+    project_name: str
+    docker_envs: list[FlowDockerEnv]
+
+    @property
+    def docker_env_keys(self):
+        return [x.env_name for x in self.docker_envs]
+
+    def clone_project(self, gh_repo: str, branch: str, root_dir: str = "opt"):
+        run_command(
+            shlex.join(
+                [
+                    f"{SCRIPT_PATH}/clone_project.sh",
+                    self.project_name,
+                    gh_repo,
+                    branch,
+                    root_dir,
+                ]
+            )
+        )
+
+    def process_docker_envs(
+        self, build_only: bool = False, push_type: str = "aws"
+    ) -> None:
+        """Method to process project docker envs from the project's
+        pyproject.toml
+
+        Args:
+            build_only (bool, optional): Whether to run docker build only.
+            Defaults to False.
+        """
+        ecs_client = object()
+        if not build_only:
+            if push_type == "aws":
+                # only need AWS SDK on deployment
+                from boto3 import session
+
+                init_session = session.Session()
+                ecs_client = init_session.client("ecs")
+        for env in self.docker_envs:
+            env.build_image()
+            if not build_only:
+                env.push_image(push_type)
+                if push_type == "aws":
+                    env._handle_ecs_task_definition(ecs_client)
+
+    async def process_flow_specs(self) -> None:
+        # start building the yaml elements
+
+        gh_repo = run_command(shlex.join(["git", "ls-remote", "--get-url", "origin"]))
+
+        base_pull = [
+            {
+                "prefect.deployments.steps.run_shell_script": {
+                    "id": "clone_project",
+                    "script": f"df-cli clone-project {gh_repo} {DEPLOYMENT_BRANCH}",
+                    "stream_output": False,
+                }
+            },
+            {
+                "prefect.deployments.steps.set_working_directory": {
+                    "directory": f"/opt/prefect/{self.project_name}"
+                }
+            },
+        ]
+
+        # create base list
+        deployments = []
+
+        missing_flow_specs = []
+        flow_errors = []
+        for name in glob.glob(os.path.join(FLOWS_PATH, "**/*_flow.py"), recursive=True):
+            path_object = Path(name)
+            file_name = path_object.name
+            mod = file_name.split(".")[0]
+            try:
+                # add flows path to pythonpath for interproject shared libs
+                pythonpath_addition = os.path.expanduser(
+                    os.path.join(os.getcwd(), FLOWS_PATH)
+                )
+                sys.path.append(pythonpath_addition)
+                # load FLOW_SPEC global from file
+                fs = SourceFileLoader(mod, name).load_module().FLOW_SPEC
+                if fs.is_agent:
+                    continue
+                for d in fs.deployments:
+                    fd = {
+                        "name": f"{d.name}-{DEPLOYMENT_TYPE}",
+                        "tags": d.tags,
+                        "parameters": d.parameters,
+                        "enforce_parameter_schema": d.enforce_parameter_schema,
+                        "work_pool": {
+                            "name": f"{d.work_pool_name}-{DEPLOYMENT_TYPE}",
+                            "work_queue_name": d.work_queue_name or "default",
+                        },
+                        "entrypoint": f"{name}:{fs.flow.fn.__name__}",
+                    }
+                    if x := d.cron:
+                        fd["schedule"] = {
+                            "cron": x,
+                            "timezone": d.timezone,
+                        }
+                    if x := d.description:
+                        fd["description"] = x
+                    if x := d.version:
+                        fd["version"] = x
+                    if x := d.job_variables:
+                        fd["work_pool"]["job_variables"] = x
+                    if "aws" in d.work_pool_name:
+                        fd["work_pool"]["job_variables"][
+                            "task_definition_arn"
+                        ] = get_ecs_task_arn(self.project_name, fs.docker_env)
+                    deployments.append(fd)
+
+            # catch errors and aggregate into groups for logging and raising
+            except AttributeError as e:
+                LOGGER.info(e)
+                LOGGER.info(f"Flow {mod} does not have a FLOW_SPEC defined!")
+                missing_flow_specs.append(mod)
+            except (ValidationError, ValueError) as e:
+                LOGGER.error(e)
+                LOGGER.error(f"FLOW_SPEC for {mod} is not properly defined!")
+                flow_errors.append(mod)
+            except Exception as e:
+                LOGGER.error(e)
+                flow_errors.append(mod)
+        if missing_flow_specs:
+            LOGGER.info(
+                f"The following flows are missing FLOW_SPEC "
+                f"defintions: {missing_flow_specs}"
+            )
+            LOGGER.info("This is assumed as expected and will not throw an Exception.")
+        # start building the deployment yaml
+
+        prefect_flow_config = {
+            "name": self.project_name,
+            "pull": base_pull,
+            "deployments": deployments,
+        }
+
+        with open("prefect.yaml", "w") as f:
+            yaml.dump(prefect_flow_config, f)
+        LOGGER.info(
+            "All flows with proper FLOW_SPEC definitions "
+            "have completed processing successfully!"
+        )
+        if flow_errors:
+            raise Exception(f"The following flows failed processing: {flow_errors}")
+
+
+# creating and running a helper function to extract project metadata.
+def get_pyproject_metadata() -> PrefectProject:
+    """Produce a PyProjectMetadata object from the pyproject.toml file.
+
+    Returns:
+        PyProjectMetadata: Model containing the pyproject metadata.
+    """
+    with open(find_pyproject_file()) as t:
+        config = toml.load(t)
+    project_name = standard_slugify(config["tool"]["poetry"]["name"])
+    docker_config = config["tool"].get("prefect", {"docker": {}})["docker"]
+    return PrefectProject(
+        project_name=project_name,
+        docker_envs=[
+            FlowDockerEnv(env_name=k, project_name=project_name, **v)
+            for k, v in docker_config.items()
+        ],
+    )
+
+
 class FlowDeployment(BaseModel):
     name: str
     cron: str | None = None
@@ -502,7 +505,7 @@ class FlowSpec(BaseModel):
         super().__init__(**data)
         pm = get_pyproject_metadata()
         self.flow.name = f"{pm.project_name}.{self.flow.name}"
-        if self.docker_env not in pm.docker_envs.keys():
+        if self.docker_env not in pm.docker_env_keys:
             raise ValueError(
                 f"Docker env '{self.docker_env}' does not exist in pyproject.toml.  "
                 "It must be the key name in a "

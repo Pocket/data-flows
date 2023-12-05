@@ -7,9 +7,13 @@ from typing import Annotated
 
 import typer
 
-from common.deployment.worker import LOGGER_NAME, get_pyproject_metadata
+from common.deployment.worker import (
+    LOGGER_NAME,
+    SCRIPT_PATH,
+    get_pyproject_metadata,
+    run_command,
+)
 from common.deployment.worker.check_version import main as cv
-from pathlib import Path
 
 # Get deployment logger and setup logging config
 CLI_LOGGER = logging.getLogger(LOGGER_NAME)
@@ -46,7 +50,7 @@ def process_docker_envs(
 
 
 @app.command()
-def process_flows():
+def process_flow_specs():
     p = get_pyproject_metadata()
     run(p.process_flow_specs())
 
@@ -55,10 +59,16 @@ def process_flows():
 def check_version():
     cv()
 
+
 @app.command()
-def clone_project(gh_repo: str, branch: str):
+def clone_project(gh_repo: str, branch: str, root_dir: str = "opt"):
     p = get_pyproject_metadata()
-    p.clone_project(gh_repo)
+    p.clone_project(gh_repo, branch, root_dir)
+
+
+@app.command()
+def build_common_utils():
+    run_command(f"{SCRIPT_PATH}/common_utils_build.sh")
 
 
 if __name__ == "__main__":
