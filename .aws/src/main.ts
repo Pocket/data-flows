@@ -27,6 +27,7 @@ class PrefectV2 extends TerraformStack {
   private readonly region: DataAwsRegion;
   private readonly caller: DataAwsCallerIdentity;
   private readonly prefectV2Secret: DataAwsSecretsmanagerSecret;
+  private readonly dockerSharedSecret: DataAwsSecretsmanagerSecret;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
@@ -49,7 +50,14 @@ class PrefectV2 extends TerraformStack {
         name: `dpt/${config.tags.environment}/prefect_v2`
       }
     );
-
+    // need this for docker hub pull
+    this.dockerSharedSecret = new DataAwsSecretsmanagerSecret(
+      this,
+      'dockerSharedSecret',
+      {
+        name: 'Shared/DockerHub'
+      }
+    );
     // need this to support article text flow
     const pocketDataItemBucket = new DataAwsS3Bucket(
       this,
@@ -59,13 +67,15 @@ class PrefectV2 extends TerraformStack {
       }
     );
 
-    // we need an agent per queue
+    // we need an agent per queue NOTE: this will be deprecated in favor of workers
+    // worker per environment
     // AWS dev will have the dev agent
     // AWS production will have the staging and main agent
     // we also need an s3 bucket per queue and set of iam roles
     // these map to github branch strategy of dev-v2, staging-v2, and main-v2
     if (config.isDev) {
       this.getAgentService('dev');
+      this.getWorkerService('dev');
       const devS3Bucket = this.createDataFlowsBucket('dev');
       new DataFlowsIamRoles(
         this,
@@ -78,6 +88,7 @@ class PrefectV2 extends TerraformStack {
       );
     } else {
       this.getAgentService('staging');
+      this.getWorkerService('staging');
       const stagingS3Bucket = this.createDataFlowsBucket('staging');
       new DataFlowsIamRoles(
         this,
@@ -89,6 +100,7 @@ class PrefectV2 extends TerraformStack {
         'staging'
       );
       this.getAgentService('main');
+      this.getWorkerService('main');
       const mainS3Bucket = this.createDataFlowsBucket('main');
       new DataFlowsIamRoles(
         this,
@@ -167,6 +179,7 @@ class PrefectV2 extends TerraformStack {
       this,
       `agentPolicies${DeploymentTypeProper}`,
       this.prefectV2Secret,
+      this.dockerSharedSecret,
       prefix,
       this.caller,
       this.region
@@ -190,6 +203,62 @@ class PrefectV2 extends TerraformStack {
             'start',
             '-q',
             `prefect-v2-queue-${deploymentType}`
+          ],
+          secretEnvVars: [
+            {
+              name: 'PREFECT_API_KEY',
+              valueFrom: `${this.prefectV2Secret.arn}:service_account_api_key::`
+            },
+            {
+              name: 'PREFECT_API_URL',
+              valueFrom: `${this.prefectV2Secret.arn}:account_workspace_url::`
+            }
+          ]
+        }
+      ],
+      ecsIamConfig: {
+        prefix: prefix,
+        taskExecutionRolePolicyStatements:
+          agentPolicies.agentExecutionPolicyStatements,
+        taskRolePolicyStatements: agentPolicies.agentTaskPolicyStatements,
+        taskExecutionDefaultAttachmentArn:
+          'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+      }
+    });
+  }
+  // create a task definition and service using private methods and params
+  private getWorkerService(deploymentType: string) {
+    const prefix = `prefect-v2-worker-${deploymentType}`;
+    const DeploymentTypeProper =
+      deploymentType.charAt(0).toUpperCase() + deploymentType.slice(1);
+
+    const agentPolicies = new AgentIamPolicies(
+      this,
+      `workerPolicies${DeploymentTypeProper}`,
+      this.prefectV2Secret,
+      this.dockerSharedSecret,
+      prefix,
+      this.caller,
+      this.region
+    );
+
+    // create the ECS Service for the Prefect v2 agent
+    new PocketECSApplication(this, prefix, {
+      prefix: prefix,
+      shortName: `PFCTWKR${deploymentType.toUpperCase()}`,
+      taskSize: {
+        cpu: config.agentCpu,
+        memory: config.agentMemory
+      },
+      containerConfigs: [
+        {
+          name: `prefect-v2-worker`,
+          containerImage: 'prefecthq/prefect:2-latest',
+          repositoryCredentialsParam: this.dockerSharedSecret.arn,
+          command: [
+            '/bin/sh',
+            '-c',
+            `pip install prefect-aws && prefect worker start --pool mozilla-aws-ecs-fargate-${deploymentType} --type ecs`
           ],
           secretEnvVars: [
             {
