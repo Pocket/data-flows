@@ -58,6 +58,9 @@ EXPORT_GLEAN_TELEMETRY_SQL = """
     SELECT
         recommendation_id as CORPUS_RECOMMENDATION_ID,
         FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
+        -- TODO: When this query is made incremental, consider de-duplicating based on document_id.
+        --   De-duplicating 1 day of data is computationally expensive, increasing slot time from 1.5 to 2.5 hours.
+        --   Duplicates represent only 8% of total events, which is unlikely to affect Thompson sampling much.
         COUNTIF(event_name = 'impression') AS TRAILING_1_DAY_IMPRESSIONS,
         COUNTIF(event_name = 'click') AS TRAILING_1_DAY_OPENS
     FROM events
