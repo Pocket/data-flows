@@ -7,7 +7,9 @@ import yaml
 from boto3 import session
 from common.deployment.worker import (
     DEPLOYMENT_TYPE,
+    FlowDeployment,
     FlowDockerEnv,
+    FlowSpec,
     PrefectProject,
     get_ecs_image_name,
     get_ecs_task_arn,
@@ -17,6 +19,7 @@ from common.deployment.worker import (
     run_command,
 )
 from moto import mock_ecs
+from prefect import flow
 
 
 def test_run_command():
@@ -272,3 +275,44 @@ def test_flow_specs_exception(mock_loader, mock_cmd):
     with pytest.raises(Exception) as e:
         asyncio.run(x.process_flow_specs())
         assert "The following flows failed validation: ['example_flow']" in str(e.value)
+
+
+@mock_ecs
+@patch("common.deployment.worker.run_command")
+def test_flow_spec_elements(mock_cmd):
+    # check FlowSpec directly
+    @flow(name="name_directly")
+    def test_flow():
+        return "hello world"
+
+    FLOW_SPEC = FlowSpec(
+        flow=test_flow,
+        docker_env="base_v2",
+        deployments=[
+            FlowDeployment(
+                name="base",
+                parameters={"param_name": "param_value"},
+                cron="0 0 * * *",
+                description="flow",
+                version="1",
+                tags=["test"],
+                job_variables={
+                    "cpu": "1024",
+                    "memory": "4096",
+                },
+            )
+        ],  # type: ignore
+    )
+    assert test_flow.name == "common-utils.name_directly"
+    assert FLOW_SPEC.deployments[0].work_pool_name == "mozilla-aws-ecs-fargate"
+
+    @flow()
+    def test_flow_2():
+        return "hello world"
+
+    FLOW_SPEC = FlowSpec(
+        flow=test_flow_2,
+        docker_env="base_v2",
+        deployments=[FlowDeployment(name="base")],
+    )
+    assert test_flow_2.name == "common-utils.test-flow-2"

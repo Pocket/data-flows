@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Bash script for building docker image from path and context
+# Bash script for building docker image from path
 
 set -euo pipefail
 

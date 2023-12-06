@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Bash script for installing common-utils in Prefect package
+# Bash script for prepping common-utils code for Docker containers
 
 set -e
 

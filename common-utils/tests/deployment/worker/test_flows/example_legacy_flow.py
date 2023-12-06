@@ -1,6 +1,7 @@
 from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, task
 
+
 @task()
 def task_1():
     print("hello world")

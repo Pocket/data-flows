@@ -1,15 +1,29 @@
+"""Helper script check for proper version bump."""
 import os
 from pathlib import Path
 
 from common.deployment.worker import LOGGER, run_command
 
 
-def get_poetry_version():
+def get_poetry_version() -> list:
+    """Get new package version from Poetry cli.
+
+    Returns:
+        list: List of string elements
+    """
     version_data = run_command("poetry version")
     return version_data.strip().split()
 
 
-def get_main_version_tag():
+def get_main_version_tag() -> list:
+    """Get latest package version from main branch
+
+    Raises:
+        Exception: This means we cannot provide an initial version.
+
+    Returns:
+        list: List of string elements
+    """
     dir_name = Path(os.getcwd()).name
     try:
         tag_data = run_command(
@@ -36,7 +50,16 @@ def get_main_version_tag():
             raise Exception(str(e))
 
 
-def version_compare(v1, v2):
+def version_compare(v1: str, v2: str) -> bool:
+    """Compare version and return True or False on proper version bump.
+
+    Args:
+        v1 (str): First version in comparison
+        v2 (str): Second version in comparison
+
+    Returns:
+        bool: True or False is version was bumped properly.
+    """
     # This will split both the versions by '.'
     arr1 = v1.split(".")
     arr2 = v2.split(".")
@@ -67,6 +90,11 @@ def version_compare(v1, v2):
 
 
 def main():
+    """Main function to execute comparison and return results.
+
+    Raises:
+        Exception: v1 is not bigger than v2 meaning no version bump.
+    """
     new_version = tuple(get_poetry_version())[1]
     current_version = tuple(get_main_version_tag())[1]
     v1 = new_version

@@ -69,18 +69,54 @@ def run_command(command: str) -> str:
 
 
 def get_image_name(project_name: str, env_name: str) -> str:
+    """Produce proper slugified image name base.
+
+    Args:
+        project_name (str): Prefect project being processed.
+        env_name (str): Name of the docker environment.
+
+    Returns:
+        str: Slugified image name base.
+    """
     return f"{project_name}-{standard_slugify(env_name)}"
 
 
 def get_ecs_task_name(project_name: str, env_name: str) -> str:
+    """ECS task family name to be used based on base image name.
+
+    Args:
+        project_name (str): Prefect project being processed.
+        env_name (str): Name of the docker environment.
+
+    Returns:
+        str: ECS family name to use.
+    """
     return f"{get_image_name(project_name, env_name)}-{DEPLOYMENT_TYPE}"
 
 
 def get_ecs_image_name(project_name: str, env_name: str) -> str:
+    """ECR docker url to be used based on base image name.
+
+    Args:
+        project_name (str): Prefect project being processed.
+        env_name (str): Name of the docker environment.
+
+    Returns:
+        str: ECR docker url to use.
+    """
     return f"{AWS_ACCOUNT_ID}.dkr.ecr.{AWS_REGION}.amazonaws.com/data-flows-prefect-v2-envs:{get_image_name(project_name, env_name)}-{GIT_SHA}"  # noqa: E501
 
 
 def get_ecs_task_arn(project_name: str, env_name: str) -> str:
+    """ECS task definition arn to use for submitting flows to worker.
+
+    Args:
+        project_name (str): Prefect project being processed.
+        env_name (str): Name of the docker environment.
+
+    Returns:
+        str: ECS task definition arn to use
+    """
     return f"arn:aws:ecs:{AWS_REGION}:{AWS_ACCOUNT_ID}:task-definition/{get_ecs_task_name(project_name, env_name)}"  # noqa: E501
 
 
@@ -97,25 +133,36 @@ def standard_slugify(string: str) -> str:
 
 
 class FlowDockerEnv(BaseModel):
-    """Model that represents a Prefect Docker environment."""
+    """Model that represents a Prefect Docker environment.
+    This is meant to be populated via parsing of pyproject.toml
+    tool.prefect.docker configurations."""
 
     env_name: StrictStr
+    """Environment name"""
     dockerfile_path: FilePath
+    """Relative path to Dockerfile for environment to use"""
     dependency_group: str = "main"
+    """Optional dependency group to pass into Dockerfile build"""
     python_version: str
+    """Python version to pass into Dockerfile build"""
     project_name: StrictStr
+    """Current data-flows project name from pyproject.toml"""
     _prefect_version: str = PrivateAttr()
+    """Prefect version used in dependency group populated on init"""
 
     @property
-    def image_name(self):
+    def image_name(self) -> str:
+        """See docs for get_image_name."""
         return get_image_name(self.project_name, self.env_name)
 
     @property
-    def ecs_task_name(self):
+    def ecs_task_name(self) -> str:
+        """See docs for get_ecs_task_name."""
         return get_ecs_task_name(self.project_name, self.env_name)
 
     @property
-    def ecs_image_name(self):
+    def ecs_image_name(self) -> str:
+        """See docs for get_ecs_image_name."""
         return get_ecs_image_name(self.project_name, self.env_name)
 
     def __init__(self, **data) -> None:
@@ -141,16 +188,16 @@ class FlowDockerEnv(BaseModel):
         )
 
     def push_image(self, push_type: str = "aws"):
+        """Execute Docker push logic based on push type.
+
+        Args:
+            push_type (str, optional): Key to fetch push logic. Defaults to "aws".
+        """
         config = {"aws": self.push_image_aws}
         config[push_type]()
 
     def push_image_aws(self):
-        """Push built image to ECR
-
-        Returns:
-            str: Pushed ECR image name.
-        """
-
+        """Push built image to ECR"""
         # push image to ECR using stored image name
         run_command(
             shlex.join(
@@ -335,6 +382,7 @@ class PrefectProject(BaseModel):
         Args:
             build_only (bool, optional): Whether to run docker build only.
             Defaults to False.
+            push_type (str, optional): Key to fetch push logic. Defaults to "aws".
         """
         ecs_client = object()
         if not build_only:
@@ -352,6 +400,11 @@ class PrefectProject(BaseModel):
                     env._handle_ecs_task_definition(ecs_client)
 
     async def process_flow_specs(self) -> None:
+        """Process the flow specs and create a prefect.yaml file.
+
+        Raises:
+            Exception: Raise exception on processing when fails for unexpected reason.
+        """
         # start building the yaml elements
 
         gh_repo = run_command(shlex.join(["git", "ls-remote", "--get-url", "origin"]))
@@ -476,17 +529,35 @@ def get_pyproject_metadata() -> PrefectProject:
 
 
 class FlowDeployment(BaseModel):
+    """Model representing abstract of a Prefect deployment.
+    Docs here: https://docs.prefect.io/latest/guides/prefect-deploy/#deployment-configurations
+    """
+
     name: str
+    """Name for the deployment.  Deployment type appended to end of name."""
     cron: str | None = None
+    """Cron string to pass to Prefect cloud based on https://en.wikipedia.org/wiki/Cron."""
     timezone: str = "UTC"
+    """Timezone for schedule.  Defaults to UTC.  
+    Non UTC will be daylight sayvings time aware."""
     parameters: Optional[dict] = {}
+    """Parameters to pass to flow when deployment triggers."""
     description: Optional[str] = None
+    """Description for flow that will show in Cloud UI."""
     tags: Optional[list[str]] = []
+    """Tags for deployment, which can be used for filtering in UI."""
     version: Optional[str] = None
+    """Version string to pass to flow."""
     enforce_parameter_schema: bool = False
+    """Boolean flag that determines whether the API should validate 
+    the parameters passed to a flow run against the parameter 
+    schema generated for the deployed flow."""
     work_pool_name: Optional[str] = DEFAULT_WORK_POOL
+    """Work pool to use for execution."""
     work_queue_name: Optional[str] = "default"
+    """Work pool queue to use.  Defaults to 'default'"""
     job_variables: Optional[dict[str, Any]] = {}
+    """Worker specific variable to pass to flow run"""
 
 
 class FlowSpec(BaseModel):
@@ -500,8 +571,11 @@ class FlowSpec(BaseModel):
     deployments: list[FlowDeployment] = []
     """list of deployment objects to register with Prefect"""
     is_agent: bool = False
+    """Special flag to omit agent based FlowSpecs"""
 
     def __init__(self, **data):
+        """Append project name to beginning of flow name.
+        Also make sure the docker environment is in the pyproject.toml."""
         super().__init__(**data)
         pm = get_pyproject_metadata()
         self.flow.name = f"{pm.project_name}.{self.flow.name}"
@@ -513,4 +587,6 @@ class FlowSpec(BaseModel):
             )
 
     class Config:
+        """This is needed for 'Flow' type to work with Pydantic"""
+
         arbitrary_types_allowed = True
