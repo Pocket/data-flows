@@ -571,6 +571,6 @@ if __name__ == "__main__":
     t = SqlEtlJob(
         sql_folder_name="glean_firefox_new_tab_impressions_hourly/glean_firefox_new_tab_daily_engagement_by_tile_id_position_country_locale",
         kwargs={"for_backfill": False},
-        #override_last_offset="2023-12-04 23:59:59.999999",
+        # override_last_offset="2023-12-04 23:59:59.999999",
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore
