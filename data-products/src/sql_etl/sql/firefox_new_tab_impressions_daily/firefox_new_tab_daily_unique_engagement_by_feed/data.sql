@@ -48,6 +48,7 @@ WITH
     deduplicated AS s
   WHERE
     loaded IS NULL --don't include loaded ping
+    AND SAFE_CAST(SPLIT(version, '.')[0] AS int64) <= 120 --include only data from Firefox < 121
     AND ARRAY_LENGTH(tiles) >= 1 --make sure data is valid/non-empty
     AND release_channel = 'release'
     AND ( ( normalized_country_code IN ('US',

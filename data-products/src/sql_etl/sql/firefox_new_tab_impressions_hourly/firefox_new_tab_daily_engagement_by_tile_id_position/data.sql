@@ -19,6 +19,7 @@ impression_data AS (
     deduplicated AS s
   WHERE
     loaded IS NULL --don't include loaded ping
+    AND SAFE_CAST(SPLIT(version, '.')[0] AS int64) <= 120 --include only data from Firefox < 121
     AND ARRAY_LENGTH(tiles) >= 1 --make sure data is valid/non-empty
     AND (page IS NULL
       OR page != 'https://newtab.firefoxchina.cn/newtab/as/activity-stream.html') --exclude custom New Tab page for FX China
