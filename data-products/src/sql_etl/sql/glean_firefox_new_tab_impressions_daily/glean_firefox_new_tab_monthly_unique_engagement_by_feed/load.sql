@@ -4,7 +4,7 @@
 
 {% macro table_def() %}
     happened_at date not null,
-    feed_name string,
+    feed_name string not null,
     users_viewing_recs_count number not null,
     users_clicking_recs_count number not null,
     users_eligible_for_spocs_count number not null,

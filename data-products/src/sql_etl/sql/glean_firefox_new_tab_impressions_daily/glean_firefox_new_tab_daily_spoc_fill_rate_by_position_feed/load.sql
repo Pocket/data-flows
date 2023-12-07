@@ -4,7 +4,7 @@
 
 {% macro table_def() %}
     happened_at date not null,
-    feed_name string,
+    feed_name string not null,
     position number not null,
     new_tab_impression_count number not null,
     position_total_impression_count number not null,
