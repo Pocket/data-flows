@@ -1,4 +1,5 @@
 import asyncio
+import os
 from unittest.mock import call, patch
 
 import pytest
@@ -76,7 +77,9 @@ def test_flow_docker_env(mock_cmd):
     )
     assert mock_cmd.call_args_list == [
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/get_prefect_version.sh main"  # noqa: E501
+            os.path.join(
+                os.getcwd(), "src/common/deployment/worker/get_prefect_version.sh main"
+            )  # noqa: E501
         )
     ]
     mock_cmd.reset_mock()
@@ -89,14 +92,20 @@ def test_flow_docker_env(mock_cmd):
     x.build_image()
     assert mock_cmd.call_args_list == [
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/build_image.sh test-test-v1 tests/deployment/unit/testDockerfile1 main 3.9 2.14.9"  # noqa: E501
+            os.path.join(
+                os.getcwd(),
+                "src/common/deployment/worker/build_image.sh test-test-v1 tests/deployment/unit/testDockerfile1 main 3.9 2.14.9",  # noqa: E501
+            )
         )
     ]
     mock_cmd.reset_mock()
     x.push_image()
     assert mock_cmd.call_args_list == [
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/push_aws_image.sh test-test-v1 123456789 us-east-1 dev"  # noqa: E501
+            os.path.join(
+                os.getcwd(),
+                "src/common/deployment/worker/push_aws_image.sh test-test-v1 123456789 us-east-1 dev",  # noqa: E501
+            )
         )
     ]
     ecs_client = session.Session().client("ecs")
@@ -152,29 +161,49 @@ def test_prefect_project(mock_cmd):
     x.clone_project("test", "test", "tmp")
     assert mock_cmd.call_args_list == [
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/get_prefect_version.sh main"  # noqa: E501
+            os.path.join(
+                os.getcwd(), "src/common/deployment/worker/get_prefect_version.sh main"
+            )
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/get_prefect_version.sh special"  # noqa: E501
+            os.path.join(
+                os.getcwd(),
+                "src/common/deployment/worker/get_prefect_version.sh special",
+            )
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/clone_project.sh test test test tmp"  # noqa: E501
+            os.path.join(
+                os.getcwd(),
+                "src/common/deployment/worker/clone_project.sh test test test tmp",
+            )
         ),
     ]
     mock_cmd.reset_mock()
     x.process_docker_envs()
     assert mock_cmd.call_args_list == [
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/build_image.sh test-test-v1 tests/deployment/unit/testDockerfile1 main 3.9 2.14.9"  # noqa: E501
+            os.path.join(
+                os.getcwd(),
+                "src/common/deployment/worker/build_image.sh test-test-v1 tests/deployment/unit/testDockerfile1 main 3.9 2.14.9",  # noqa: E501
+            )
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/push_aws_image.sh test-test-v1 123456789 us-east-1 dev"  # noqa: E501
+            os.path.join(
+                os.getcwd(),
+                "src/common/deployment/worker/push_aws_image.sh test-test-v1 123456789 us-east-1 dev",  # noqa: E501
+            )
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/build_image.sh test-test-v2 tests/deployment/unit/testDockerfile1 special 3.10 2.14.9"  # noqa: E501
+            os.path.join(
+                os.getcwd(),
+                "src/common/deployment/worker/build_image.sh test-test-v2 tests/deployment/unit/testDockerfile1 special 3.10 2.14.9",  # noqa: E501
+            )
         ),
         call(
-            "/Users/mozilla/projects/data-flows/common-utils/src/common/deployment/worker/push_aws_image.sh test-test-v2 123456789 us-east-1 dev"  # noqa: E501
+            os.path.join(
+                os.getcwd(),
+                "src/common/deployment/worker/push_aws_image.sh test-test-v2 123456789 us-east-1 dev",  # noqa: E501
+            )
         ),
     ]
     mock_cmd.reset_mock()
