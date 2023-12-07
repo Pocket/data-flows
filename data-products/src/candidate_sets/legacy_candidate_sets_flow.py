@@ -20,6 +20,8 @@ COLLECTIONS_EN_US_CANDIDATE_SET_ID = "303174fc-a9ff-4a51-984a-e09ce7120d18"
 CURATED_SHORTREADS_CANDIDATE_SET_ID_EN = "7ef90242-ff7a-44ac-8a32-53193e4a23eb"
 CURATED_SHORTREADS_CANDIDATE_SET_ID_DE = "57e4d3d1-9b4a-4a35-82f4-e577d88f6521"
 
+SYNDICATED_EN_US_CANDIDATE_SET_ID = "a8425a46-187a-4cdb-8157-5d2f308c52cd"
+
 LONGREADS_SQL = """SELECT 
     a.resolved_id as "ID", 
     c.top_domain_name as "PUBLISHER"
@@ -89,7 +91,8 @@ limit 45"""
 GET_TOPICS_SQL = """select 
     LEGACY_CURATED_CORPUS_CANDIDATE_SET_ID as "LEGACY_CURATED_CORPUS_CANDIDATE_SET_ID",
     CORPUS_TOPIC_ID as "CORPUS_TOPIC_ID"
-from "ANALYTICS"."DBT"."STATIC_CORPUS_CANDIDATE_SET_TOPICS"""
+from "ANALYTICS"."DBT"."STATIC_CORPUS_CANDIDATE_SET_TOPICS"
+"""
 
 SET_PARAM_CONFIG = {
     "longreads": {
@@ -168,6 +171,7 @@ SET_PARAM_CONFIG = {
             {
                 "MAX_AGE_DAYS": -9,
                 "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US",
+                "CANDIDATE_SET_ID": SYNDICATED_EN_US_CANDIDATE_SET_ID,
             }
         ],
         "curated": False,
@@ -225,8 +229,7 @@ async def create_set(set_params_id: str):
             set_params["candidate_set_ids"] = [
                 i["LEGACY_CURATED_CORPUS_CANDIDATE_SET_ID"] for i in items  # type: ignore  # noqa: E501
             ]
-        else:
-            return set_params
+        return set_params
 
     set_params = await get_params(set_params_id)
 
@@ -246,7 +249,7 @@ async def create_set(set_params_id: str):
         [p.get("FILTER_SYND", False) for p in set_params["items"]],  # type: ignore  # noqa: E501
     )
     candidate_set_ids = set_params.get(  # type: ignore
-        "candidate_set_ids", [p["CANDIDATE_SET_ID"] for p in set_params["items"]]  # type: ignore  # noqa: E501
+        "candidate_set_ids", [p.get("CANDIDATE_SET_ID") for p in set_params["items"]]  # type: ignore  # noqa: E501
     )
 
     put_results.map(
@@ -259,4 +262,4 @@ async def create_set(set_params_id: str):
 if __name__ == "__main__":
     import asyncio
 
-    asyncio.run(create_set("longreads"))  # type: ignore
+    asyncio.run(create_set("topics"))  # type: ignore
