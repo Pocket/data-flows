@@ -1,4 +1,5 @@
 from typing import List
+
 # from prefect import Flow, task, unmapped
 
 # from common.databases.snowflake_utils import PktSnowflakeConnector
@@ -27,7 +28,7 @@ from common.settings import CommonSettings
 
 # FLOW_NAME = get_flow_name(__file__)
 
-CS = CommonSettings() # type: ignore
+CS = CommonSettings()  # type: ignore
 
 CURATED_LONGREADS_CANDIDATE_SET_ID_EN = "dacc55ea-db8d-4858-a51d-e1c78298337e"
 CURATED_LONGREADS_CANDIDATE_SET_ID_DE = "cff478b9-301e-47cb-accf-ef2fe84ef17a"
@@ -50,36 +51,39 @@ ORDER BY REVIEWED_CORPUS_ITEM_UPDATED_AT desc
 LIMIT 90
 """
 
+
 @task()
-async def transform_to_candidates(records: dict, feed_id: int) -> List[RecommendationCandidate]:
+async def transform_to_candidates(
+    records: dict, feed_id: int
+) -> List[RecommendationCandidate]:
     return [
         RecommendationCandidate(
             item_id=rec["ID"], publisher=rec["PUBLISHER"], feed_id=feed_id
-    ) 
-    for rec in records
-]
+        )
+        for rec in records
+    ]
 
 
 # with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=180)) as flow:
 @flow()
 async def main():
-    sfc = PktSnowflakeConnector() # copied from curared_candidates_flow.py
+    sfc = PktSnowflakeConnector()  # copied from curared_candidates_flow.py
 
     set_params = [
         {
-            "LANG": "EN", 
+            "LANG": "EN",
             "CANDIDATE_SET_ID": CURATED_LONGREADS_CANDIDATE_SET_ID_EN,
-            "SURFACE_ID": "NEW_TAB_EN_US", 
-            "FEED_ID": int(NewTabFeedID.en_US)
+            "SURFACE_ID": "NEW_TAB_EN_US",
+            "FEED_ID": int(NewTabFeedID.en_US),
         },
         {
-            "LANG": "DE", 
-             "CANDIDATE_SET_ID": CURATED_LONGREADS_CANDIDATE_SET_ID_DE,
-            "SURFACE_ID": "NEW_TAB_DE_DE", 
-            "FEED_ID": int(NewTabFeedID.de_DE)
-        }
+            "LANG": "DE",
+            "CANDIDATE_SET_ID": CURATED_LONGREADS_CANDIDATE_SET_ID_DE,
+            "SURFACE_ID": "NEW_TAB_DE_DE",
+            "FEED_ID": int(NewTabFeedID.de_DE),
+        },
     ]
-    
+
     longreads_candidate_items = await snowflake_query.map(
         query=unmapped(EXPORT_LONGREADS_ITEMS_SQL),  # type: ignore
         snowflake_connector=unmapped(sfc),  # type: ignore
@@ -87,29 +91,30 @@ async def main():
         cursor_type=DictCursor,  # type: ignore # why isn't this unmapped?
     )
 
-
     # query = PocketSnowflakeQuery(
     #     database=config.SNOWFLAKE_ANALYTICS_DATABASE,
     #     schema=config.SNOWFLAKE_ANALYTICS_DBT_SCHEMA,
     #     output_type=OutputType.DICT
     # )
 
-    
-
     # Fetch the most recent curated longreads per langauge
     # longreads_candidate_items = query.map(data=set_params, query=unmapped(EXPORT_LONGREADS_ITEMS_SQL))
 
-    valid_longreads_candidate_items = validate_candidate_items.map(longreads_candidate_items)
+    valid_longreads_candidate_items = validate_candidate_items.map(
+        longreads_candidate_items
+    )
 
     # Write longreads candidate sets to SQS
-    candidate_sets = transform_to_candidates.map(valid_longreads_candidate_items,
-                                                 [p["FEED_ID"] for p in set_params])
+    candidate_sets = transform_to_candidates.map(
+        valid_longreads_candidate_items, [p["FEED_ID"] for p in set_params]
+    )
 
     put_results.map(
-        [p["CANDIDATE_SET_ID"] for p in set_params],
-        candidate_sets, 
-        curated=unmapped(True)
+        [p["CANDIDATE_SET_ID"] for p in set_params["items"]],
+        candidate_sets,
+        curated=unmapped(True),
     )
+
 
 FLOW_SPEC = FlowSpec(
     flow=main,
@@ -125,12 +130,11 @@ FLOW_SPEC = FlowSpec(
         ),
     ],
     deployments=[
-        FlowDeployment(
-            deployment_name="base"
-        ), # type: ignore
+        FlowDeployment(deployment_name="base"),  # type: ignore
     ],
 )
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main()) # type: ignore
+
+    asyncio.run(main())  # type: ignore

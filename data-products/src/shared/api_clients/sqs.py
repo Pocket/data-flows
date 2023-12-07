@@ -142,8 +142,8 @@ def put_results(
     # candidate set model, however they should pass through
     candidate_set = CandidateSet(
         id=candidate_set_id,
-        flow=flow_run['name'],
-        run=str(flow_run['id']),
+        flow=flow_run["name"],
+        run=str(flow_run["id"]),
         expires_at=int(time.time() + expires_in_s),
         type=candidate_type,
         version=SQS_MESSAGE_VERSION,
