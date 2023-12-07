@@ -1,6 +1,5 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-from common.deployment.worker import PrefectProject
 from common.deployment.worker.cli import (
     build_common_utils,
     callback,

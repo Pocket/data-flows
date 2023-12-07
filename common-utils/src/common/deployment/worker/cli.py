@@ -44,7 +44,7 @@ class PushTypes(str, Enum):
 @app.command()
 def process_docker_envs(
     build_only: Annotated[bool, typer.Option("--build-only")] = False,
-    push_type: Annotated[PushTypes, typer.Option()] = "aws",  # type: ignore
+    push_type: Annotated[PushTypes, typer.Option("--push-type")] = "aws",  # type: ignore  # noqa: E501
 ):
     """CLI command for processing the docker environments.
 
