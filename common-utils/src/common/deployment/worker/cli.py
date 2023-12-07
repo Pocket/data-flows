@@ -54,6 +54,7 @@ def process_docker_envs(
         push_type (Annotated[PushTypes, typer.Option, optional):
         Where docker environments are to be pushed. Defaults to "aws".
     """
+    run_command(f"{SCRIPT_PATH}/common_utils_build.sh")
     p = get_pyproject_metadata()
     p.process_docker_envs(build_only, push_type)
 

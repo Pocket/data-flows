@@ -790,7 +790,7 @@ def test_flow_project_env_all_pass(mock_spec):
     mock_spec.return_value = FlowSpec(flow=flow_1, docker_env="base")  # type: ignore
     x = PrefectProject()
     x.process_project_flows(True)
-    assert mock_spec.call_count == 3
+    assert mock_spec.call_count == 4
 
 
 @mock_sts

@@ -7,14 +7,15 @@ import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
-from typing import Any, Optional
+from typing import Any
 
 import toml
 import yaml
-from common import find_pyproject_file, get_script_path
 from prefect import Flow
-from pydantic import BaseModel, FilePath, PrivateAttr, StrictStr, ValidationError
+from pydantic import BaseModel, PrivateAttr, StrictStr, ValidationError
 from slugify import slugify
+
+from common import find_pyproject_file, get_script_path
 
 # Create logger for module
 LOGGER_NAME = __name__
@@ -139,7 +140,7 @@ class FlowDockerEnv(BaseModel):
 
     env_name: StrictStr
     """Environment name"""
-    dockerfile_path: FilePath
+    dockerfile_path: str
     """Relative path to Dockerfile for environment to use"""
     dependency_group: str = "main"
     """Optional dependency group to pass into Dockerfile build"""
@@ -414,7 +415,7 @@ class PrefectProject(BaseModel):
                 "prefect.deployments.steps.run_shell_script": {
                     "id": "clone_project",
                     "script": f"df-cli clone-project {gh_repo} {DEPLOYMENT_BRANCH}",
-                    "stream_output": False,
+                    "stream_output": True,  # noqa: E501
                 }
             },
             {
@@ -452,6 +453,7 @@ class PrefectProject(BaseModel):
                         "work_pool": {
                             "name": f"{d.work_pool_name}-{DEPLOYMENT_TYPE}",
                             "work_queue_name": d.work_queue_name or "default",
+                            "job_variables": d.job_variables,
                         },
                         "entrypoint": f"{name}:{fs.flow.fn.__name__}",
                     }
@@ -464,8 +466,6 @@ class PrefectProject(BaseModel):
                         fd["description"] = x
                     if x := d.version:
                         fd["version"] = x
-                    if x := d.job_variables:
-                        fd["work_pool"]["job_variables"] = x
                     if "aws" in d.work_pool_name:
                         fd["work_pool"]["job_variables"][
                             "task_definition_arn"
@@ -540,23 +540,23 @@ class FlowDeployment(BaseModel):
     timezone: str = "UTC"
     """Timezone for schedule.  Defaults to UTC.  
     Non UTC will be daylight sayvings time aware."""
-    parameters: Optional[dict] = {}
+    parameters: dict = {}
     """Parameters to pass to flow when deployment triggers."""
-    description: Optional[str] = None
+    description: str | None = None
     """Description for flow that will show in Cloud UI."""
-    tags: Optional[list[str]] = []
+    tags: list[str] = []
     """Tags for deployment, which can be used for filtering in UI."""
-    version: Optional[str] = None
+    version: str | None = None
     """Version string to pass to flow."""
     enforce_parameter_schema: bool = False
     """Boolean flag that determines whether the API should validate 
     the parameters passed to a flow run against the parameter 
     schema generated for the deployed flow."""
-    work_pool_name: Optional[str] = DEFAULT_WORK_POOL
+    work_pool_name: str = DEFAULT_WORK_POOL
     """Work pool to use for execution."""
-    work_queue_name: Optional[str] = "default"
+    work_queue_name: str = "default"
     """Work pool queue to use.  Defaults to 'default'"""
-    job_variables: Optional[dict[str, Any]] = {}
+    job_variables: dict[str, Any] = {}
     """Worker specific variable to pass to flow run"""
 
 

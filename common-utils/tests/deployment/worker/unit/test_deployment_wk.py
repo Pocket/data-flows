@@ -1,5 +1,4 @@
 import asyncio
-from pathlib import Path
 from unittest.mock import call, patch
 
 import pytest
@@ -135,14 +134,14 @@ def test_prefect_project(mock_cmd):
     mock_cmd.return_value = "2.14.9"
     e1 = FlowDockerEnv(
         env_name="test-v1",
-        dockerfile_path=Path("tests/deployment/unit/testDockerfile1"),
+        dockerfile_path="tests/deployment/unit/testDockerfile1",
         dependency_group="main",
         python_version="3.9",
         project_name="test",
     )
     e2 = FlowDockerEnv(
         env_name="test-v2",
-        dockerfile_path=Path("tests/deployment/unit/testDockerfile1"),
+        dockerfile_path="tests/deployment/unit/testDockerfile1",
         dependency_group="special",
         python_version="3.10",
         project_name="test",
@@ -249,7 +248,7 @@ def test_flow_specs(mock_cmd):
                 "prefect.deployments.steps.run_shell_script": {
                     "id": "clone_project",
                     "script": "df-cli clone-project https://github.com/Pocket/data-flows.git dev-v2",  # noqa: E501
-                    "stream_output": False,
+                    "stream_output": True,
                 }
             },
             {

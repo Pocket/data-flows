@@ -10,7 +10,5 @@ def main_flow():
 FLOW_SPEC = FlowSpec(
     flow=main_flow,
     docker_env="base_v2",
-    deployments=[
-        FlowDeployment(name="base", tags=[])
-    ],
+    deployments=[FlowDeployment(name="base", tags=[])],
 )
