@@ -12,4 +12,4 @@ def test_get_script_path():
 
 def test_find_pyproject_file():
     x = find_pyproject_file(get_script_path())
-    assert x == "/Users/mozilla/projects/data-flows/common-utils/pyproject.toml"
+    assert x == os.path.join(os.getcwd(), "pyproject.toml")
