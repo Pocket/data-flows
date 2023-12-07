@@ -9,17 +9,16 @@
 
 WITH
   deduplicated_pings AS (
-    SELECT
-      *   
-    FROM
-      `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
-    WHERE submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
-    AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }}
-    QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
-    document_id
+  SELECT
+    *
+  FROM
+    `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
+  WHERE
+    submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
+    AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }} QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
+      document_id
     ORDER BY
-    submission_timestamp desc) = 1
-)
+      submission_timestamp DESC) = 1 )
 SELECT
   DATE(submission_timestamp) AS happened_at,
   CASE
@@ -46,17 +45,17 @@ END
   COUNT(DISTINCT client_info.client_id) AS users_opening_new_tab_count,
   COUNT(DISTINCT
     CASE
-      WHEN metrics.boolean.pocket_enabled = False THEN client_info.client_id
+      WHEN metrics.boolean.pocket_enabled = FALSE THEN client_info.client_id
   END
     ) AS users_with_pocket_disabled_count,
   COUNT(DISTINCT
     CASE
-      WHEN metrics.boolean.pocket_sponsored_stories_enabled = False THEN client_info.client_id
+      WHEN metrics.boolean.pocket_sponsored_stories_enabled = FALSE THEN client_info.client_id
   END
     ) AS users_with_spocs_disabled_count,
   COUNT(DISTINCT
     CASE
-      WHEN metrics.boolean.pocket_enabled = True AND metrics.boolean.pocket_sponsored_stories_enabled = True THEN client_info.client_id
+      WHEN metrics.boolean.pocket_enabled = TRUE AND metrics.boolean.pocket_sponsored_stories_enabled = TRUE THEN client_info.client_id
   END
     ) AS users_eligible_for_spocs_count,
 FROM
@@ -66,28 +65,28 @@ WHERE
   normalized_channel = 'release'
   --include only data from Firefox 121+
   AND SAFE_CAST(SPLIT(client_info.app_display_version, '.')[0] AS int64) >= 121
-    --limit to locale & country combinations with Pocket enabled
-    AND ( ( normalized_country_code IN ('US',
-          'CA',
-          'GB',
-          'IE',
-          'IN')
-        AND metrics.string.newtab_locale IN ('en-CA',
-          'en-GB',
-          'en-US') )
-      OR ( normalized_country_code IN ('DE',
-          'CH',
-          'AT',
-          'BE')
-        AND metrics.string.newtab_locale IN ('de',
-          'de-AT',
-          'de-CH') )
-      OR (normalized_country_code IN ('IT')
-        AND metrics.string.newtab_locale IN ('it'))
-      OR (normalized_country_code IN ('FR')
-        AND metrics.string.newtab_locale IN ('fr'))
-      OR (normalized_country_code IN ('ES')
-        AND metrics.string.newtab_locale IN ('es-ES')) )
+  --limit to locale & country combinations with Pocket enabled
+  AND ( ( normalized_country_code IN ('US',
+        'CA',
+        'GB',
+        'IE',
+        'IN')
+      AND metrics.string.newtab_locale IN ('en-CA',
+        'en-GB',
+        'en-US') )
+    OR ( normalized_country_code IN ('DE',
+        'CH',
+        'AT',
+        'BE')
+      AND metrics.string.newtab_locale IN ('de',
+        'de-AT',
+        'de-CH') )
+    OR (normalized_country_code IN ('IT')
+      AND metrics.string.newtab_locale IN ('it'))
+    OR (normalized_country_code IN ('FR')
+      AND metrics.string.newtab_locale IN ('fr'))
+    OR (normalized_country_code IN ('ES')
+      AND metrics.string.newtab_locale IN ('es-ES')) )
 GROUP BY
   1,
   2
