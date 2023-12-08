@@ -527,6 +527,40 @@ FLOW_SPEC = FlowSpec(
                 ),
             ],
         ),
+        FlowDeployment(
+            deployment_name="glean_firefox_new_tab_impressions_daily",
+            schedule=CronSchedule(cron="0 6 * * *"),
+            parameters={
+                "etl_input": SqlEtlJob(
+                    sql_folder_name="glean_firefox_new_tab_impressions_daily"
+                ).dict()  # type: ignore
+            },
+            envars=[
+                FlowEnvar(
+                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
+                    envar_value=CS.deployment_type_value(
+                        dev="cbeck", staging="staging", main="mozilla"
+                    ),  # type: ignore
+                ),
+            ],
+        ),
+        FlowDeployment(
+            deployment_name="glean_firefox_new_tab_impressions_hourly",
+            schedule=CronSchedule(cron="0 * * * *"),
+            parameters={
+                "etl_input": SqlEtlJob(
+                    sql_folder_name="glean_firefox_new_tab_impressions_hourly"
+                ).dict()  # type: ignore
+            },
+            envars=[
+                FlowEnvar(
+                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
+                    envar_value=CS.deployment_type_value(
+                        dev="cbeck", staging="staging", main="mozilla"
+                    ),  # type: ignore
+                ),
+            ],
+        ),
     ],
 )
 
@@ -535,8 +569,8 @@ if __name__ == "__main__":
     from asyncio import run
 
     t = SqlEtlJob(
-        sql_folder_name="firefox_new_tab_impressions_daily/firefox_new_tab_monthly_unique_engagement_by_feed",
-        kwargs={"for_backfill": True},
-        override_last_offset="2023-08-01 23:59:59.999999",
+        sql_folder_name="glean_firefox_new_tab_impressions_hourly/glean_firefox_new_tab_daily_engagement_by_tile_id_position_country_locale",
+        kwargs={"for_backfill": False},
+        # override_last_offset="2023-12-04 23:59:59.999999",
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore
