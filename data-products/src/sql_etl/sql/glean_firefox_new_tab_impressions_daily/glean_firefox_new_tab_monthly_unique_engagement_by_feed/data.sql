@@ -91,8 +91,7 @@ WITH
       OR (normalized_country_code IN ('FR')
         AND metrics.string.newtab_locale IN ('fr'))
       OR (normalized_country_code IN ('ES')
-        AND metrics.string.newtab_locale IN ('es-ES')) ) ) /*let's skip the usual click deduplication step, Jeff Silverman's analysis showed that Glean is resistant to the duplicate clicks issue we saw with the legacy PingCentre events:
---https://docs.google.com/document/d/1aL3bjJ6PQLHH455zCMReDpYnyqPTNwTvTW2QujwP-nw/edit#heading=h.bz9b6bjjzei */
+        AND metrics.string.newtab_locale IN ('es-ES')) ) ) 
 SELECT
   DATE_TRUNC(happened_at, month) AS happened_at,
   feed_name,

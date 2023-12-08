@@ -40,9 +40,6 @@ WITH
         'tile_id') IS NOT NULL)
     --include only data from Firefox 121+
     AND SAFE_CAST(SPLIT(client_info.app_display_version, '.')[0] AS int64) >= 121 )
-  --let's skip the usual click deduplication step, Jeff Silverman's analysis showed that Glean is resistant to
-  --the duplicate clicks issue we saw with the legacy PingCentre events:
-  --https://docs.google.com/document/d/1aL3bjJ6PQLHH455zCMReDpYnyqPTNwTvTW2QujwP-nw/edit#heading=h.bz9b6bjjzei
 SELECT
   DATE(submission_timestamp) AS happened_at,
   recommendation_id,
