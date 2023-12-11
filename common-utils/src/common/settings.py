@@ -7,33 +7,7 @@ from pydantic import BaseModel, BaseSettings, Field
 # allow for setting the secrets manager service via envar
 SECRETS_MANAGER = os.getenv("MOZILLA_PREFECT_SECRETS_MANAGER", "default")
 
-SECRETS_MANAGER_CONFIG = {"aws": fetch_aws_secret}
-
-
-class SecretsConfig(BaseSettings.Config):
-    """Custom Config class that can be used to enable
-    secrets fetching from supported service enabled via
-    MOZILLA_PREFECT_SECRETS_MANAGER envar.
-    """
-
-    secrets_manager = SECRETS_MANAGER_CONFIG[SECRETS_MANAGER]
-    secret_fields = []
-    prefix = ""
-    slugify_name = True
-
-    @classmethod
-    def customise_sources(
-        cls,
-        init_settings,
-        env_settings,
-        file_secret_settings,
-    ):
-        return (
-            init_settings,
-            env_settings,
-            file_secret_settings,
-            cls.secrets_manager,  # type: ignore
-        )
+SECRETS_MANAGER_CONFIG = {"aws": fetch_aws_secret, "default": lambda x: {}}
 
 
 class NestedSettings(BaseModel):
@@ -54,9 +28,6 @@ class Settings(BaseSettings):
     class Config:
         env_prefix = "df_config_"
         env_nested_delimiter = "__"
-
-class SettingsCache(BaseModel):
-    settings: Settings 
 
 
 class CommonSettings(Settings):
@@ -104,3 +75,33 @@ class CommonSettings(Settings):
     ) -> Union[str, None]:
         mapping = {"dev": dev, "staging": staging, "main": main}
         return mapping[self.deployment_type]
+
+
+CS = CommonSettings()  # type: ignore
+
+
+class SecretSettings(Settings):
+    class Config:
+        """Custom Config class that can be used to enable
+        secrets fetching from supported service enabled via
+        MOZILLA_PREFECT_SECRETS_MANAGER envar.
+        """
+
+        secrets_manager = SECRETS_MANAGER_CONFIG[SECRETS_MANAGER]
+        secret_fields = []
+        prefix = f"data-flows/{CS.deployment_type}"
+        slugify_name = True
+
+        @classmethod
+        def customise_sources(
+            cls,
+            init_settings,
+            env_settings,
+            file_secret_settings,
+        ):
+            return (
+                init_settings,
+                env_settings,
+                file_secret_settings,
+                cls.secrets_manager,  # type: ignore
+            )

@@ -1,7 +1,7 @@
 from pathlib import PosixPath
 from unittest.mock import patch
 
-from common.databases.snowflake_utils import PktSnowflakeConnector, get_gcs_stage
+from common.databases.snowflake_utils import MozSnowflakeConnector, get_gcs_stage
 from common.settings import CommonSettings
 from pydantic import SecretStr
 
@@ -10,7 +10,7 @@ DB_MAPPING = {"dev": "development", "production": "prefect"}
 
 
 def test_pkt_snowflake_connector():
-    x = PktSnowflakeConnector()
+    x = MozSnowflakeConnector()
     assert x.credentials.account == "test.us-test-1"
     assert x.credentials.user == "test@mozilla.com"
     assert x.credentials.password is None
@@ -26,7 +26,7 @@ def test_pkt_snowflake_connector():
 @patch("common.settings.CommonSettings.is_production")
 def test_pkt_snowflake_connector_production(mock):
     mock.return_value = True
-    x = PktSnowflakeConnector()
+    x = MozSnowflakeConnector()
     assert x.credentials.account == "test.us-test-1"
     assert x.credentials.user == "test@mozilla.com"
     assert x.credentials.password is None

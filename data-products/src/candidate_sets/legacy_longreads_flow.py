@@ -1,24 +1,21 @@
 from typing import List
 
 # from prefect import Flow, task, unmapped
-
-# from common.databases.snowflake_utils import PktSnowflakeConnector
+# from common.databases.snowflake_utils import MozSnowflakeConnector
 # from prefect_snowflake.database import snowflake_query
-
-
-from common.databases.snowflake_utils import PktSnowflakeConnector
-from snowflake.connector import DictCursor
+from common.databases.snowflake_utils import MozSnowflakeConnector
+from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
+from common.settings import CommonSettings
 from prefect import flow, task, unmapped
+from prefect.server.schemas.schedules import CronSchedule
 from prefect_snowflake.database import snowflake_query
 from shared.api_clients.sqs import (
     NewTabFeedID,
-    validate_candidate_items,
     RecommendationCandidate,
     put_results,
+    validate_candidate_items,
 )
-from common.deployment import FlowSpec, FlowEnvar, FlowDeployment
-from prefect.server.schemas.schedules import CronSchedule
-from common.settings import CommonSettings
+from snowflake.connector import DictCursor
 
 # from api_clients.pocket_snowflake_query import PocketSnowflakeQuery, OutputType
 # from api_clients.sqs import put_results, RecommendationCandidate, NewTabFeedID, validate_candidate_items
@@ -67,7 +64,7 @@ async def transform_to_candidates(
 # with Flow(FLOW_NAME, schedule=get_interval_schedule(minutes=180)) as flow:
 @flow()
 async def main():
-    sfc = PktSnowflakeConnector()  # copied from curared_candidates_flow.py
+    sfc = MozSnowflakeConnector()  # copied from curared_candidates_flow.py
 
     set_params = [
         {

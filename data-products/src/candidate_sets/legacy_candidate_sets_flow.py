@@ -1,4 +1,4 @@
-from common.databases.snowflake_utils import PktSnowflakeConnector
+from common.databases.snowflake_utils import MozSnowflakeConnector
 from prefect import flow, task, unmapped
 from prefect_snowflake.database import snowflake_query
 from shared.api_clients.sqs import (
@@ -183,6 +183,8 @@ SET_PARAM_CONFIG = {
     },
 }
 
+SFC = MozSnowflakeConnector()
+
 
 @task()
 def transform_to_candidates(
@@ -215,7 +217,7 @@ def transform_to_candidates(
 
 @flow()
 async def create_set(set_params_id: str):
-    sfc = PktSnowflakeConnector()
+    sfc = MozSnowflakeConnector()
 
     async def get_params(set_params_id):
         set_params = SET_PARAM_CONFIG[set_params_id]

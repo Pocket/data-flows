@@ -1,18 +1,18 @@
 from typing import List
 
-from common.databases.snowflake_utils import PktSnowflakeConnector
-from snowflake.connector import DictCursor
+from common.databases.snowflake_utils import MozSnowflakeConnector
+from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
+from common.settings import CommonSettings
 from prefect import flow, task, unmapped
+from prefect.server.schemas.schedules import CronSchedule
 from prefect_snowflake.database import snowflake_query
 from shared.api_clients.sqs import (
     NewTabFeedID,
-    validate_candidate_items,
     RecommendationCandidate,
     put_results,
+    validate_candidate_items,
 )
-from common.deployment import FlowSpec, FlowEnvar, FlowDeployment
-from prefect.server.schemas.schedules import CronSchedule
-from common.settings import CommonSettings
+from snowflake.connector import DictCursor
 
 CS = CommonSettings()  # type: ignore
 
@@ -57,7 +57,7 @@ def transform_to_candidates(
 
 @flow()
 async def main():
-    sfc = PktSnowflakeConnector()
+    sfc = MozSnowflakeConnector()
 
     set_params = [
         {

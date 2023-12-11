@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Any, Literal, Optional, Union
 
 import pendulum as pdm
-from common.cloud.gcp_utils import PktGcpCredentials
-from common.databases.snowflake_utils import PktSnowflakeConnector
-from common.databases.sqlalchemy_utils import MzsSqlalchemyCredentials
+from common.cloud.gcp_utils import MozGcpCredentials
+from common.databases.snowflake_utils import MozSnowflakeConnector
+from common.databases.sqlalchemy_utils import MozSqlalchemyCredentials
 from common.settings import Settings
 from jinja2 import Environment, FileSystemLoader, Template
 from pendulum import from_format
@@ -110,10 +110,10 @@ class IntervalSet(BaseModel):
 
 # Globals to help with enforcing engine types and dynamic tasks
 QUERY_ENGINE_MAPPING = {
-    "snowflake": {"snowflake_connector": PktSnowflakeConnector},
-    "bigquery": {"gcp_credentials": PktGcpCredentials},
-    "postgres": {"sqlalchemy_credentials": MzsSqlalchemyCredentials},
-    "mysql": {"sqlalchemy_credentials": MzsSqlalchemyCredentials},
+    "snowflake": {"snowflake_connector": MozSnowflakeConnector},
+    "bigquery": {"gcp_credentials": MozGcpCredentials},
+    "postgres": {"sqlalchemy_credentials": MozSqlalchemyCredentials},
+    "mysql": {"sqlalchemy_credentials": MozSqlalchemyCredentials},
 }
 QUERY_ENGINE_TYPES_LITERAL = Literal["snowflake", "bigquery", "postgres", "mysql"]
 QUERY_ENGINE_TYPES_SET = QUERY_ENGINE_MAPPING.keys()

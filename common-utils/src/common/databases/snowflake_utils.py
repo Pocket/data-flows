@@ -3,7 +3,7 @@ from typing import Optional
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
 from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
 
-from common.settings import CommonSettings, NestedSettings, Settings
+from common.settings import CommonSettings, NestedSettings, SecretSettings
 
 CS = CommonSettings()  # type: ignore
 
@@ -27,7 +27,18 @@ class SnowflakeCredSettings(NestedSettings):
 WAREHOUSE_REGEX = "^(?i)prefect.*?"
 
 
-class SnowflakeSettings(Settings):
+class SnowflakeGcsStageData(NestedSettings):
+    default_name: str
+    default_location: str
+    gcs_pocket_shared_name: str
+    gcs_pocket_shared_location: str
+
+
+class SnowflakeGcsStageSettings(SecretSettings):
+    snowflake_gcp_stage_data: SnowflakeGcsStageData
+
+
+class SnowflakeSettings(SecretSettings):
     """Settings for Snowflake Connection.  Database can only be 'development'
     or 'prefect' depending on CommonSetings.dev_or_production property value.
 
@@ -43,7 +54,6 @@ class SnowflakeSettings(Settings):
     _database: str = PrivateAttr()
     snowflake_warehouse: constr(regex=WAREHOUSE_REGEX) = f"prefect_wh_{CS.dev_or_production}"  # type: ignore  # noqa: E501
     snowflake_schema: str = "public"
-    snowflake_gcp_stages: Optional[dict]
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -56,9 +66,15 @@ class SnowflakeSettings(Settings):
     def database(self):
         return self._database
 
+    class Config:
+        secret_fields = ["snowflake_credentials"]
 
-class PktSnowflakeConnector(SnowflakeConnector):
-    """Pocket version of the Snowflake Connector provided
+
+SETTINGS = SnowflakeSettings()
+
+
+class MozSnowflakeConnector(SnowflakeConnector):
+    """Mozilla version of the Snowflake Connector provided
     by Prefect-Snowflake with credentials and other settings already applied.
     schema and warehouse must be set via envars.
     All other base model attributes can be set explicitly here.
@@ -73,7 +89,7 @@ class PktSnowflakeConnector(SnowflakeConnector):
         model.  SnowflakeSettings values for schema and warehouse
         are given preference.
         """
-        settings = SnowflakeSettings()  # type: ignore
+        settings = SETTINGS
         data["database"] = settings.database
         data["credentials"] = SnowflakeCredentials(
             **settings.snowflake_credentials.dict()
@@ -95,7 +111,9 @@ class SfGcsStage(BaseModel):
         return self.stage_name
 
 
-def get_gcs_stage(stage_id: str = "default") -> SfGcsStage:
+def get_gcs_stage(
+    stage_config: SnowflakeGcsStageData, stage_id: str = "default"
+) -> SfGcsStage:
     """Return the proper Snowflake to GCS (Google Cloud Storage) for Prefect Flows.
     Based on deployment type.  Will take in an optional stage id as
     a escape hatch for special circumstances.
@@ -104,8 +122,7 @@ def get_gcs_stage(stage_id: str = "default") -> SfGcsStage:
         str: Full 3 part stage name.
     """
 
-    stage_config = SnowflakeSettings().snowflake_gcp_stages  # type: ignore
     return SfGcsStage(
-        stage_name=stage_config[f"{stage_id}_name"],
-        stage_location=stage_config[f"{stage_id}_location"],
+        stage_name=stage_config.dict()[f"{stage_id}_name"],
+        stage_location=stage_config.dict()[f"{stage_id}_location"],
     )
