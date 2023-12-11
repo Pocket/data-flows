@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 from asyncio import gather, run
+=======
+from asyncio import run, gather
+>>>>>>> f5cba26 (feat: adding logic for secrets manager based settings)
 from typing import NamedTuple
 
 import pandas as pd
@@ -21,6 +25,8 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
             SELECT s.*
             FROM `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1` AS s
             WHERE submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+            -- addon_version (Fx build id) must be less than the Glean build below to avoid double-counting impressions
+            AND addon_version < '20231116134553'
             AND (source = 'TOP_STORIES' OR source = 'CARDGRID')
             AND loaded IS NULL
             AND normalized_country_code IS NOT NULL
@@ -30,16 +36,7 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
             CAST(flattened_tiles.id AS INT64) AS TILE_ID,
             FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
             COUNT(*) AS TRAILING_1_DAY_IMPRESSIONS,
-            SUM(CASE WHEN click IS NOT NULL THEN 1 ELSE 0 END) AS TRAILING_1_DAY_OPENS,
-            -- For now, we only need 1 day trailing data, so leave the other ones at 0.  
-            0 AS TRAILING_7_DAY_IMPRESSIONS,
-            0 AS TRAILING_7_DAY_OPENS,
-            0 AS TRAILING_14_DAY_IMPRESSIONS,
-            0 AS TRAILING_14_DAY_OPENS,
-            0 AS TRAILING_21_DAY_IMPRESSIONS,
-            0 AS TRAILING_21_DAY_OPENS,
-            0 AS TRAILING_28_DAY_IMPRESSIONS,
-            0 AS TRAILING_28_DAY_OPENS
+            SUM(CASE WHEN click IS NOT NULL THEN 1 ELSE 0 END) AS TRAILING_1_DAY_OPENS
         FROM impressions_data
         CROSS JOIN UNNEST(impressions_data.tiles) AS flattened_tiles
         GROUP BY TILE_ID
@@ -77,7 +74,7 @@ EXPORT_GLEAN_TELEMETRY_SQL = """
 
 EXPORT_CORPUS_ITEM_KEYS_SQL = """
     SELECT DISTINCT 
-        TILE_ID,
+        {JOIN_COLUMN_NAME},
         concat_ws(
             -- corpus-engagement-v1 is keyed on the following three fields, separated by slashes.
             '/', recommendation_surface_id, corpus_slate_configuration_id, corpus_item_id
@@ -129,6 +126,7 @@ async def export_telemetry_by_corpus_item_id(
         JOIN_COLUMN_NAME=join_column_name
     )
     df_telemetry = await bigquery_query(
+<<<<<<< HEAD
         gcp_credentials=MozGcpCredentials(),
         query=EXPORT_FIREFOX_TELEMETRY_SQL,
         to_dataframe=True,
@@ -136,6 +134,14 @@ async def export_telemetry_by_corpus_item_id(
 
     corpus_item_keys_records = await snowflake_query(
         snowflake_connector=MozSnowflakeConnector(),
+=======
+        gcp_credentials=PktGcpCredentials(),
+        query=export_telemetry_sql,
+        to_dataframe=True,
+    )
+    corpus_item_keys_records = await snowflake_query(
+        snowflake_connector=PktSnowflakeConnector(),
+>>>>>>> f5cba26 (feat: adding logic for secrets manager based settings)
         query=export_corpus_item_keys_sql,
         cursor_type=DictCursor,
         params={"ID_LIST": df_telemetry[join_column_name].tolist()},
