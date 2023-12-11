@@ -1,6 +1,39 @@
+import os
 from typing import Literal, Union
 
+from common.cloud.aws_utils import fetch_aws_secret
 from pydantic import BaseModel, BaseSettings, Field
+
+# allow for setting the secrets manager service via envar
+SECRETS_MANAGER = os.getenv("MOZILLA_PREFECT_SECRETS_MANAGER", "default")
+
+SECRETS_MANAGER_CONFIG = {"aws": fetch_aws_secret}
+
+
+class SecretsConfig(BaseSettings.Config):
+    """Custom Config class that can be used to enable
+    secrets fetching from supported service enabled via
+    MOZILLA_PREFECT_SECRETS_MANAGER envar.
+    """
+
+    secrets_manager = SECRETS_MANAGER_CONFIG[SECRETS_MANAGER]
+    secret_fields = []
+    prefix = ""
+    slugify_name = True
+
+    @classmethod
+    def customise_sources(
+        cls,
+        init_settings,
+        env_settings,
+        file_secret_settings,
+    ):
+        return (
+            init_settings,
+            env_settings,
+            file_secret_settings,
+            cls.secrets_manager,  # type: ignore
+        )
 
 
 class NestedSettings(BaseModel):
@@ -21,6 +54,9 @@ class Settings(BaseSettings):
     class Config:
         env_prefix = "df_config_"
         env_nested_delimiter = "__"
+
+class SettingsCache(BaseModel):
+    settings: Settings 
 
 
 class CommonSettings(Settings):

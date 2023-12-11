@@ -131,6 +131,7 @@ export class AgentIamPolicies extends Construct {
     scope: Construct,
     name: string,
     prefectV2Secret: DataAwsSecretsmanagerSecret,
+    dockerSharedSecret: DataAwsSecretsmanagerSecret,
     ecsAppPrefix: string,
     caller: DataAwsCallerIdentity,
     region: DataAwsRegion
@@ -148,7 +149,7 @@ export class AgentIamPolicies extends Construct {
           'ssm:GetParameters'
         ],
         effect: 'Allow',
-        resources: [prefectV2Secret.arn]
+        resources: [prefectV2Secret.arn, dockerSharedSecret.arn]
       }
     ];
 
@@ -229,6 +230,7 @@ export class DataFlowsIamRoles extends Construct {
   private readonly pocketDataItemBucket: DataAwsS3Bucket;
   private readonly caller: DataAwsCallerIdentity;
   private readonly region: DataAwsRegion;
+  private readonly deploymentType: string;
   constructor(
     scope: Construct,
     name: string,
@@ -241,22 +243,12 @@ export class DataFlowsIamRoles extends Construct {
     super(scope, name);
     this.caller = caller;
     this.region = region;
+    this.deploymentType = deploymentType;
     this.fileSystem = fileSystem;
     this.pocketDataItemBucket = pocketDataItemBucket;
     // create an inline policy doc for the execution role that can be combined with AWS managed policy
     const flowExecutionPolicyStatements = [
-      {
-        actions: [
-          'kms:Decrypt',
-          'secretsmanager:GetSecretValue',
-          'ssm:GetParameters'
-        ],
-        effect: 'Allow',
-        resources: [
-          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${deploymentType}/data_flows_prefect_*`,
-          `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${deploymentType}/*`
-        ]
-      },
+      this.getSecrets(),
       {
         effect: 'Allow',
         actions: [
@@ -289,7 +281,8 @@ export class DataFlowsIamRoles extends Construct {
       this.getFlowS3BucketAccess(),
       this.getFlowS3ObjectAccess(),
       this.putFeatureGroupRecordsAccess(),
-      this.getDataProductsSqsWriteAccess()
+      this.getDataProductsSqsWriteAccess(),
+      this.getSecrets()
     ];
 
     this.createFlowIamRole(
@@ -334,9 +327,24 @@ export class DataFlowsIamRoles extends Construct {
       actions: ['sqs:SendMessage', 'sqs:GetQueueUrl'],
       resources: [
         'arn:aws:sqs:*:*:RecommendationAPI-*',
-        'arn:aws:sqs:*:*:ProspectAPI-*',
+        'arn:aws:sqs:*:*:ProspectAPI-*'
+      ],
+      effect: 'Allow'
+    };
+  }
+  // Give access to secrets
+  private getSecrets(): DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: [
+        'kms:Decrypt',
+        'secretsmanager:GetSecretValue',
+        'ssm:GetParameters'
       ],
       effect: 'Allow',
+      resources: [
+        `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${this.deploymentType}/data_flows_prefect_*`,
+        `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${this.deploymentType}/*`
+      ]
     };
   }
   // build policy statement for S3 object access
@@ -366,7 +374,6 @@ export class DataFlowsIamRoles extends Construct {
       statement: policyStatements
     });
   }
-
   private createFlowIamRole(
     name: string,
     policy: DataAwsIamPolicyDocumentStatement[]
