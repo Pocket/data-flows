@@ -4,6 +4,13 @@ from common.settings import CS, NestedSettings, SecretSettings, get_cached_setti
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
 from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
 
+<<<<<<< HEAD
+=======
+from common.settings import CommonSettings, NestedSettings, SecretSettings
+
+CS = CommonSettings()  # type: ignore
+
+>>>>>>> 185a9b9 (feat: adding logic for secrets manager based settings)
 
 class SnowflakeCredSettings(NestedSettings):
     """Settings that can be passed in for
