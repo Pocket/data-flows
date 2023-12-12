@@ -106,11 +106,8 @@ class SecretSettings(Settings):
                 file_secret_settings,
                 cls.secrets_manager,  # type: ignore
             )
-<<<<<<< HEAD
 
 
 @cache
 def get_cached_settings(settings: Settings):
     return settings()  # type: ignore
-=======
->>>>>>> 185a9b9 (feat: adding logic for secrets manager based settings)
