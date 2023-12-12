@@ -4,7 +4,6 @@ import os
 from typing import Any
 
 from boto3 import Session
-from botocore.exceptions import ClientError
 from pydantic import BaseSettings
 from slugify import slugify
 
@@ -23,9 +22,7 @@ def fetch_aws_secret(settings: BaseSettings) -> dict[str, Any]:
         try:
             secret_string = sm.get_secret_value(SecretId=secret_name)["SecretString"]
             return json.loads(secret_string)
-        except json.decoder.JSONDecodeError:
-            return secret_string
-        except ClientError as e:
+        except Exception as e:
             LOGGER.debug(e)
             return secret_string
 

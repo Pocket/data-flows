@@ -1,8 +1,10 @@
 import os
+from functools import cache
 from typing import Literal, Union
 
-from common.cloud.aws_utils import fetch_aws_secret
 from pydantic import BaseModel, BaseSettings, Field
+
+from common.cloud.aws_utils import fetch_aws_secret
 
 # allow for setting the secrets manager service via envar
 SECRETS_MANAGER = os.getenv("MOZILLA_PREFECT_SECRETS_MANAGER", "default")
@@ -105,3 +107,8 @@ class SecretSettings(Settings):
                 file_secret_settings,
                 cls.secrets_manager,  # type: ignore
             )
+
+
+@cache
+def get_cached_settings(settings: Settings):
+    return settings() # type: ignore

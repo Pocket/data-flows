@@ -3,7 +3,12 @@ from typing import Optional
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
 from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
 
-from common.settings import CommonSettings, NestedSettings, SecretSettings
+from common.settings import (
+    CommonSettings,
+    NestedSettings,
+    SecretSettings,
+    get_cached_settings,
+)
 
 CS = CommonSettings()  # type: ignore
 
@@ -70,9 +75,6 @@ class SnowflakeSettings(SecretSettings):
         secret_fields = ["snowflake_credentials"]
 
 
-SETTINGS = SnowflakeSettings()
-
-
 class MozSnowflakeConnector(SnowflakeConnector):
     """Mozilla version of the Snowflake Connector provided
     by Prefect-Snowflake with credentials and other settings already applied.
@@ -89,7 +91,7 @@ class MozSnowflakeConnector(SnowflakeConnector):
         model.  SnowflakeSettings values for schema and warehouse
         are given preference.
         """
-        settings = SETTINGS
+        settings = get_cached_settings(SnowflakeSettings)
         data["database"] = settings.database
         data["credentials"] = SnowflakeCredentials(
             **settings.snowflake_credentials.dict()

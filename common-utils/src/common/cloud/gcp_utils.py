@@ -1,9 +1,15 @@
 from pathlib import Path
 from typing import Optional
 
-from common.settings import CommonSettings, NestedSettings, SecretSettings
 from prefect.blocks.fields import SecretDict
 from prefect_gcp import GcpCredentials
+
+from common.settings import (
+    CommonSettings,
+    NestedSettings,
+    SecretSettings,
+    get_cached_settings,
+)
 
 CS = CommonSettings()  # type: ignore
 
@@ -28,9 +34,6 @@ class GcpSettings(SecretSettings):
     gcp_credentials: Optional[GcpCredSettings]
 
 
-SETTINGS = GcpSettings()  # type: ignore
-
-
 class MozGcpCredentials(GcpCredentials):
     """Mozilla GcpCrentials model with service account
     details already set if provided.  Application Default
@@ -40,7 +43,7 @@ class MozGcpCredentials(GcpCredentials):
     """
 
     def __init__(self, **data):
-        settings = SETTINGS
+        settings = get_cached_settings(GcpSettings)
         if x := settings.gcp_credentials:
             if xs := x.service_account_info:
                 data["service_account_info"] = xs
