@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.8.0"
+version = "0.8.1"
 
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
@@ -12,7 +12,6 @@ python = "^3.10"
 pydantic = "<2"
 prefect = "^2.8.6"
 prefect-dask = "^0.2.3"
-common-utils = {path = "../common-utils", develop = true}
 snowflake-connector-python = "^3.0.0"
 prefect-snowflake = "^0.26.1"
 prefect-gcp = {extras = ["bigquery"], version = "^0.4.2"}
@@ -25,6 +24,7 @@ aioboto3 = "^11.2.0"
 prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-prs"}
 html2text = "^2020.1.16"
 oscrypto = {git = "https://github.com/wbond/oscrypto.git", rev = "d5f3437ed24257895ae1edd9e503cfb352e635a8"} # https://github.com/DataDog/datadog-agent/pull/19899/files
+common-utils = {path = "../common-utils", develop = true}
 
 
 [tool.poetry.group.dev.dependencies]

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.4.0"
+version = "0.5.0"
 description = "Shared modules for prefect flow development and deployment"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -13,6 +13,7 @@ prefect = "^2.8.2"
 
 [tool.poetry.scripts]
 deploy-cli = 'common.deployment.cli:main'
+df-cli = 'common.deployment.worker.cli:app'
 
 [tool.poetry.group.dev.dependencies]
 prefect = "^2.8.2"
@@ -43,9 +44,15 @@ flows_folder = "tests/test_flows"
 python_version = "3.10"
 dockerfile_path=".docker/main/Dockerfile"
 
+[tool.prefect.docker.base_v2]
+python_version = "3.10"
+dockerfile_path=".docker/main/Dockerfile"
+
 [tool.pytest.ini_options]
 env = [
+    'MOZILLA_FLOWS_PATH_OVERRIDE=tests/deployment/worker/test_flows',
     'AWS_DEFAULT_REGION=us-east-1',
+    'AWS_ACCOUNT_ID=123456789',
     'POCKET_AWS_SECURITY_GROUPS=["sg-1234"]',
     'POCKET_AWS_SUBNETS=["subnet-1234", "subnet-1234"]',
     'POCKET_PREFECT_FLOW_NAME=common-utils.flow-group-1.flow-1',
