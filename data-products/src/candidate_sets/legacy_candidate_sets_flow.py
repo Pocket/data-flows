@@ -9,6 +9,7 @@ from shared.api_clients.sqs import (
     validate_candidate_items,
 )
 from snowflake.connector import DictCursor
+from common.deployment.worker import FlowSpec, FlowDeployment
 
 
 @task()
@@ -84,6 +85,18 @@ async def create_set(set_params_id: str):
         candidate_sets,  # type: ignore
         curated=unmapped(set_params["curated"]),  # type: ignore
     )
+
+
+FLOW_SPEC = FlowSpec(
+    flow=create_set,
+    docker_env="base",
+    deployments=[
+        FlowDeployment(
+            name="topics",
+            cron="*/30 * * * *"
+        )
+    ]
+)
 
 
 if __name__ == "__main__":
