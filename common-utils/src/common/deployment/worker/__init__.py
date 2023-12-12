@@ -11,11 +11,10 @@ from typing import Any
 
 import toml
 import yaml
+from common import find_pyproject_file, get_script_path
 from prefect import Flow
 from pydantic import BaseModel, PrivateAttr, StrictStr, ValidationError
 from slugify import slugify
-
-from common import find_pyproject_file, get_script_path
 
 # Create logger for module
 LOGGER_NAME = __name__
@@ -457,7 +456,7 @@ class PrefectProject(BaseModel):
                         },
                         "entrypoint": f"{name}:{fs.flow.fn.__name__}",
                     }
-                    if x := d.cron:
+                    if x := d.cron and DEPLOYMENT_TYPE == "main":
                         fd["schedule"] = {
                             "cron": x,
                             "timezone": d.timezone,
