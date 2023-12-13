@@ -1,5 +1,6 @@
 from candidate_sets.candidate_config import SET_PARAM_CONFIG
 from common.databases.snowflake_utils import MozSnowflakeConnector
+from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, task, unmapped
 from prefect_snowflake.database import snowflake_query
 from shared.api_clients.sqs import (
@@ -9,7 +10,6 @@ from shared.api_clients.sqs import (
     validate_candidate_items,
 )
 from snowflake.connector import DictCursor
-from common.deployment.worker import FlowSpec, FlowDeployment
 
 
 @task()
@@ -42,7 +42,7 @@ def transform_to_candidates(
 
 
 @flow()
-async def create_set(set_params_id: str):
+async def create_legacy_candidate_set(set_params_id: str):
     sfc = MozSnowflakeConnector()
 
     async def get_params(set_params_id):
@@ -88,14 +88,13 @@ async def create_set(set_params_id: str):
 
 
 FLOW_SPEC = FlowSpec(
-    flow=create_set,
+    flow=create_legacy_candidate_set,
     docker_env="base",
     deployments=[
         FlowDeployment(
-            name="topics",
-            cron="*/30 * * * *"
+            name="topics", cron="*/30 * * * *", parameters={"set_params_id": "topics"}
         )
-    ]
+    ],
 )
 
 
@@ -103,4 +102,4 @@ if __name__ == "__main__":
     import asyncio
     import sys
 
-    asyncio.run(create_set(sys.argv[1]))  # type: ignore
+    asyncio.run(create_legacy_candidate_set(sys.argv[1]))  # type: ignore
