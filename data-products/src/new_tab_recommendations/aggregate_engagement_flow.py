@@ -1,4 +1,4 @@
-from asyncio import run, gather
+from asyncio import gather, run
 from typing import NamedTuple
 
 import pandas as pd
@@ -10,9 +10,8 @@ from prefect import flow
 from prefect.server.schemas.schedules import CronSchedule
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
+from shared.feature_store import FeatureGroupSettings, dataframe_to_feature_group
 from snowflake.connector import DictCursor
-
-from shared.feature_store import dataframe_to_feature_group, FeatureGroupSettings
 
 CS = CommonSettings()  # type: ignore
 
@@ -122,12 +121,12 @@ async def export_telemetry_by_corpus_item_id(
         JOIN_COLUMN_NAME=join_column_name
     )
     df_telemetry = await bigquery_query(
-        gcp_credentials=PktGcpCredentials(),
+        gcp_credentials=MozGcpCredentials(),
         query=export_telemetry_sql,
         to_dataframe=True,
     )
     corpus_item_keys_records = await snowflake_query(
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         query=export_corpus_item_keys_sql,
         cursor_type=DictCursor,
         params={"ID_LIST": df_telemetry[join_column_name].tolist()},
