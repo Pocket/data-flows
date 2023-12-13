@@ -3,7 +3,6 @@ ARG PREFECT_VERSION
 FROM prefecthq/prefect:${PREFECT_VERSION}-python${PYTHON_VERSION}
 
 ENV PATH=/root/.local/bin:$PATH
-ENV PYTHONPATH=/opt/prefect/data-products/src
 
 RUN apt update && \
     apt install -y curl default-libmysqlclient-dev \

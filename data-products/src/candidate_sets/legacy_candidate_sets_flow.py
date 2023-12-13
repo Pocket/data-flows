@@ -1,4 +1,4 @@
-from candidate_sets.candidate_config import SET_PARAM_CONFIG
+from .candidate_config import SET_PARAM_CONFIG
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, task, unmapped
