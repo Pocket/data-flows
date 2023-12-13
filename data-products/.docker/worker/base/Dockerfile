@@ -3,7 +3,6 @@ ARG PREFECT_VERSION
 FROM prefecthq/prefect:${PREFECT_VERSION}-python${PYTHON_VERSION}
 
 ENV PATH=/root/.local/bin:$PATH
-ENV PYTHONPATH=/opt/prefect/data-products/src
 
 RUN apt update && \
     apt install -y curl default-libmysqlclient-dev \
@@ -17,6 +16,7 @@ RUN apt update && \
 COPY src/shared src/shared
 COPY README.md README.md
 COPY dist ../common-utils
+COPY src/shared shared
 COPY poetry.lock poetry.lock
 COPY pyproject.toml pyproject.toml
 RUN poetry config virtualenvs.create false
