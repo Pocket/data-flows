@@ -11,7 +11,6 @@ def test_parse_args():
     assert x.build_only
     assert x.subparser_name == "deploy-envs"
     x = parse_args([])
-    print(x)
     assert not x.subparser_name
 
 

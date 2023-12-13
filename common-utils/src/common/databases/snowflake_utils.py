@@ -1,16 +1,8 @@
 from typing import Optional
 
+from common.settings import CS, NestedSettings, SecretSettings, get_cached_settings
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
 from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
-
-from common.settings import (
-    CommonSettings,
-    NestedSettings,
-    SecretSettings,
-    get_cached_settings,
-)
-
-CS = CommonSettings()  # type: ignore
 
 
 class SnowflakeCredSettings(NestedSettings):

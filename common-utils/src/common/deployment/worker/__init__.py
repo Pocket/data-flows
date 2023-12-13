@@ -456,7 +456,7 @@ class PrefectProject(BaseModel):
                         },
                         "entrypoint": f"{name}:{fs.flow.fn.__name__}",
                     }
-                    if x := d.cron and DEPLOYMENT_TYPE == "main":
+                    if (x := d.cron) and DEPLOYMENT_TYPE == "main":
                         fd["schedule"] = {
                             "cron": x,
                             "timezone": d.timezone,

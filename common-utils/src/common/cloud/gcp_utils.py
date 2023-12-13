@@ -5,13 +5,10 @@ from prefect.blocks.fields import SecretDict
 from prefect_gcp import GcpCredentials
 
 from common.settings import (
-    CommonSettings,
     NestedSettings,
     SecretSettings,
     get_cached_settings,
 )
-
-CS = CommonSettings()  # type: ignore
 
 
 class GcpCredSettings(NestedSettings):

@@ -1,13 +1,5 @@
+from common.settings import NestedSettings, SecretSettings, get_cached_settings
 from prefect_sqlalchemy import DatabaseCredentials
-
-from common.settings import (
-    CommonSettings,
-    NestedSettings,
-    SecretSettings,
-    get_cached_settings,
-)
-
-CS = CommonSettings()  # type: ignore
 
 
 class SqlalchemyCredSettings(NestedSettings):

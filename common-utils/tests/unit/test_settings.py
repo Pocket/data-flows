@@ -1,5 +1,6 @@
 import os
 
+import pytest
 from common.settings import CommonSettings, NestedSettings, Settings
 
 
@@ -32,23 +33,27 @@ def test_nested():
     assert SettingsTest().test_nested.test == "test"  # type: ignore
 
 
-def test_common_settings():
-    cs = CommonSettings()  # type: ignore
-    if x := os.getenv("DF_CONFIG_DEPLOYMENT_TYPE"):
-        assert x == cs.deployment_type
-    cs.deployment_type = "dev"
-    assert cs.deployment_type == "dev"
-    assert cs.is_production is False
-    assert cs.dev_or_production == "dev"
-    x = cs.deployment_type_value("dev", "staging", "main")
-    assert x == "dev"
+CS_MAPPING = {
+    "dev": (False, "dev"),
+    "staging": (False, "dev"),
+    "main": (True, "production"),
+}
 
 
-def test_common_settings_not_dev():
-    cs = CommonSettings()  # type: ignore
-    cs.deployment_type = "main"
-    assert cs.is_production is True
-    assert cs.dev_or_production == "production"
+@pytest.mark.parametrize("deployment_type", ["dev", "staging", "main"])
+def test_common_settings(deployment_type):
+    cs = CommonSettings(deployment_type=deployment_type)
+    assert cs.is_production is CS_MAPPING[deployment_type][0]
+    assert cs.dev_or_production == CS_MAPPING[deployment_type][1]
     x = cs.deployment_type_value("dev", "staging", "main")
-    assert x == "main"
-    assert x == "main"
+    assert x == deployment_type
+
+
+@pytest.mark.parametrize("deployment_type", ["dev", "staging", "main"])
+def test_common_settings_env(deployment_type):
+    os.environ["DF_CONFIG_DEPLOYMENT_TYPE"] = deployment_type
+    cs = CommonSettings() # type: ignore
+    assert cs.is_production is CS_MAPPING[deployment_type][0]
+    assert cs.dev_or_production == CS_MAPPING[deployment_type][1]
+    x = cs.deployment_type_value("dev", "staging", "main")
+    assert x == deployment_type
