@@ -2,9 +2,8 @@ import os
 from functools import cache
 from typing import Literal, Union
 
-from pydantic import BaseModel, BaseSettings, Field
-
 from common.cloud.aws_utils import fetch_aws_secret
+from pydantic import BaseModel, BaseSettings, Field
 
 # allow for setting the secrets manager service via envar
 SECRETS_MANAGER = os.getenv("DF_CONFIG_SECRETS_MANAGER", "aws")
