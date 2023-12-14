@@ -1,34 +1,26 @@
+import importlib
 import json
 import os
 from pathlib import PosixPath
 
-from common.cloud.gcp_utils import PktBigQueryWarehouse
+import common.cloud.gcp_utils as gcpu
 from prefect.blocks.fields import SecretDict
-from prefect_gcp.bigquery import BigQueryWarehouse
 
 
-def test_pkt_big_query_warehouse():
-    x = PktBigQueryWarehouse()
+def test_moz_gcp():
+    x = gcpu.MozGcpCredentials()
     compare = x.dict()
-    compare.pop(
-        "_connection"
-    )  # popping _connection because its object and hard to compare  # noqa: E501
     assert compare == {
-        "gcp_credentials": {
-            "service_account_file": PosixPath("tests/test.json"),
-            "service_account_info": None,
-            "project": "test",
-            "_service_account_email": "test@test.iam.gserviceaccount.com",
-            "block_type_slug": "gcp-credentials",
-        },
-        "fetch_size": 1,
-        "_unique_cursors": {},
-        "block_type_slug": "bigquery-warehouse",
+        "service_account_file": PosixPath("tests/test.json"),
+        "service_account_info": None,
+        "project": "test",
+        "_service_account_email": "test@test.iam.gserviceaccount.com",
+        "block_type_slug": "gcp-credentials",
     }
-    assert isinstance(x, BigQueryWarehouse)
+    assert isinstance(x, gcpu.MozGcpCredentials)
 
 
-def test_pkt_big_query_warehouse_with_sa_info():
+def test_moz_gcp_with_sa_info():
     os.environ["DF_CONFIG_GCP_CREDENTIALS"] = json.dumps(
         {
             "service_account_info": {
@@ -36,7 +28,7 @@ def test_pkt_big_query_warehouse_with_sa_info():
                 "project_id": "test",
                 "private_key_id": "key_foo",
                 "private_key": "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIIGb2np7v54Hs6++NiLE7CQtQg7rzm4znstHvrOUlcMMoAoGCCqGSM49\nAwEHoUQDQgAECvv0VyZS9nYOa8tdwKCbkNxlWgrAZVClhJXqrvOZHlH4N3d8Rplk\n2DEJvzp04eMxlHw1jm6JCs3iJR6KAokG+w==\n-----END EC PRIVATE KEY-----\n",  # noqa: E501
-                "client_email": "test@test.iam.gserviceaccount.com",
+                "client_email": "test2@test.iam.gserviceaccount.com",
                 "client_id": "123456789",
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
@@ -46,8 +38,29 @@ def test_pkt_big_query_warehouse_with_sa_info():
             }
         }
     )
-    x = PktBigQueryWarehouse()
+    importlib.reload(gcpu)
+    x = gcpu.MozGcpCredentials()
     compare = x.dict()
-    assert compare["gcp_credentials"]["service_account_file"] is None
-    assert isinstance(x, BigQueryWarehouse)
-    assert isinstance(compare["gcp_credentials"]["service_account_info"], SecretDict)
+    compare["service_account_info"] = compare["service_account_info"].dict()
+    assert compare == {
+        "service_account_file": None,
+        "service_account_info": SecretDict(
+            {
+                "type": "**********",
+                "project_id": "**********",
+                "private_key_id": "**********",
+                "private_key": "**********",
+                "client_email": "**********",
+                "client_id": "**********",
+                "auth_uri": "**********",
+                "token_uri": "**********",
+                "auth_provider_x509_cert_url": "**********",
+                "client_x509_cert_url": "**********",
+                "universe_domain": "**********",
+            }
+        ).dict(),
+        "project": "test",
+        "_service_account_email": "test2@test.iam.gserviceaccount.com",
+        "block_type_slug": "gcp-credentials",
+    }
+    assert isinstance(x, gcpu.MozGcpCredentials)

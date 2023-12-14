@@ -1,8 +1,5 @@
+from common.settings import NestedSettings, SecretSettings, get_cached_settings
 from prefect_sqlalchemy import DatabaseCredentials
-
-from common.settings import CommonSettings, NestedSettings, Settings
-
-CS = CommonSettings()  # type: ignore
 
 
 class SqlalchemyCredSettings(NestedSettings):
@@ -14,7 +11,7 @@ class SqlalchemyCredSettings(NestedSettings):
     url: str
 
 
-class SqlalchemySettings(Settings):
+class SqlalchemySettings(SecretSettings):
     """Settings that can be passed in for
     Sqlalchemy connection.
     """
@@ -22,8 +19,8 @@ class SqlalchemySettings(Settings):
     sqlalchemy_credentials: SqlalchemyCredSettings
 
 
-class MzsSqlalchemyCredentials(DatabaseCredentials):
-    """Moz Social version of the Sqlalchemy DatabaseCredentials provided
+class MozSqlalchemyCredentials(DatabaseCredentials):
+    """Mozilla version of the Sqlalchemy DatabaseCredentials provided
     by Prefect-Sqlalchemy with settings already applied.
     All other base model attributes can be set explicitly here.
 
@@ -34,6 +31,6 @@ class MzsSqlalchemyCredentials(DatabaseCredentials):
         """Set credentials and other settings on usage of
         model.
         """
-        settings = SqlalchemySettings()  # type: ignore
+        settings = get_cached_settings(SqlalchemySettings)
         data["url"] = settings.sqlalchemy_credentials.url
         super().__init__(**data)

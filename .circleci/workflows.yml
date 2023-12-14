@@ -103,12 +103,7 @@ commands:
             then
               poetry run deploy-cli --check-version
             fi
-            for env in "dev" "staging" "main"
-            do
-              export DF_CONFIG_DEPLOYMENT_TYPE=$env
-              echo "Running unit tests for deployment type: $env..."
-              poetry run python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
-            done
+            poetry run python -m pytest -vvvs --cov=<<parameters.coverage_path>> --cov-report term-missing --cov-fail-under=100 <<parameters.tests_path>>
           name: Python Testing and Validation
   # shortcut for the common_utils_build.sh script
   common_utils_wheel_file:
@@ -131,6 +126,23 @@ commands:
           command: |
             poetry run deploy-cli deploy-envs
             poetry run deploy-cli deploy-flows
+          name: Prefect Project Deploy
+  # steps for using deploy-cli to validate flow configs and build steps
+  prefect_project_worker_build:
+    steps:
+      - run:
+          command: |
+            poetry run df-cli process-docker-envs --build-only
+            poetry run df-cli process-flow-specs
+          name: Prefect Project Build
+  # steps for using the deploy-cli to push dockers envs and flows
+  prefect_project_worker_deploy:
+    steps:
+      - run:
+          command: |
+            poetry run df-cli process-docker-envs --build-only
+            poetry run df-cli process-flow-specs
+            poetry run prefect deploy --no-prompt --all 
           name: Prefect Project Deploy
             
 
@@ -242,6 +254,7 @@ jobs:
                       condition: << parameters.validate_build_only >>
                       steps:
                         - prefect_project_build
+                        - prefect_project_worker_build
                   - unless:
                       condition: << parameters.validate_build_only >>
                       steps:
@@ -249,6 +262,7 @@ jobs:
                             role-arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/data-flows-ci-oidc-role"
                             role-session-name: prefect-flow-deploy
                         - prefect_project_deploy
+                        - prefect_project_worker_deploy
       - no_op
     working_directory: << pipeline.parameters.base_working_directory >>/<< parameters.project_folder >>
   # In order for the common_utils to work properly with the prefect agent... 
