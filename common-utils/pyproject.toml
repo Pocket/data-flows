@@ -50,7 +50,7 @@ dockerfile_path=".docker/main/Dockerfile"
 
 [tool.pytest.ini_options]
 env = [
-    'MOZILLA_FLOWS_PATH_OVERRIDE=tests/deployment/worker/test_flows',
+    'DF_CONFIG_FLOWS_PATH_OVERRIDE=tests/deployment/worker/test_flows',
     'AWS_DEFAULT_REGION=us-east-1',
     'AWS_ACCOUNT_ID=123456789',
     'POCKET_AWS_SECURITY_GROUPS=["sg-1234"]',

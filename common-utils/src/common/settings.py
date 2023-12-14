@@ -2,14 +2,13 @@ import os
 from functools import cache
 from typing import Literal, Union
 
+from common.cloud.aws_utils import fetch_aws_secret
 from pydantic import BaseModel, BaseSettings, Field
 
-from common.cloud.aws_utils import fetch_aws_secret
-
 # allow for setting the secrets manager service via envar
-SECRETS_MANAGER = os.getenv("MOZILLA_PREFECT_SECRETS_MANAGER", "default")
+SECRETS_MANAGER = os.getenv("DF_CONFIG_SECRETS_MANAGER", "aws")
 
-SECRETS_MANAGER_CONFIG = {"aws": fetch_aws_secret, "default": lambda x: {}}
+SECRETS_MANAGER_CONFIG = {"aws": fetch_aws_secret}
 
 
 class NestedSettings(BaseModel):
@@ -86,7 +85,7 @@ class SecretSettings(Settings):
     class Config:
         """Custom Config class that can be used to enable
         secrets fetching from supported service enabled via
-        MOZILLA_PREFECT_SECRETS_MANAGER envar.
+        DF_CONFIG_SECRETS_MANAGER envar.
         """
 
         secrets_manager = SECRETS_MANAGER_CONFIG[SECRETS_MANAGER]
@@ -111,4 +110,4 @@ class SecretSettings(Settings):
 
 @cache
 def get_cached_settings(settings: Settings):
-    return settings() # type: ignore
+    return settings()  # type: ignore

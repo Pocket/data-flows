@@ -24,13 +24,13 @@ LOGGER = logging.getLogger(LOGGER_NAME)
 SCRIPT_PATH = get_script_path()
 
 # config for deploying flows and environments
-DEPLOYMENT_TYPE = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_TYPE", "dev")
+DEPLOYMENT_TYPE = os.getenv("DF_CONFIG_DEPLOYMENT_TYPE", "dev")
 AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1")
 AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID")
 PYPROJECT_FILE_PATH = os.path.expanduser(os.path.join(os.getcwd(), "pyproject.toml"))
-FLOWS_PATH = Path(os.getenv("MOZILLA_FLOWS_PATH_OVERRIDE", "src"))
-DEFAULT_WORK_POOL = os.getenv("MOZILLA_DEFAULT_WORK_POOL", "mozilla-aws-ecs-fargate")
-DEPLOYMENT_BRANCH = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_BRANCH", "dev-v2")
+FLOWS_PATH = Path(os.getenv("DF_CONFIG_FLOWS_PATH_OVERRIDE", "src"))
+DEFAULT_WORK_POOL = os.getenv("DF_CONFIG_DEFAULT_WORK_POOL", "mozilla-aws-ecs-fargate")
+DEPLOYMENT_BRANCH = os.getenv("DF_CONFIG_DEPLOYMENT_BRANCH", "dev-v2")
 GIT_SHA = os.getenv("GIT_SHA", "dev")
 DEFAULT_CPU = "512"
 DEFAULT_MEMORY = "1024"
