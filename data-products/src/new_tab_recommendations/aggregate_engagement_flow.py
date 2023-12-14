@@ -18,7 +18,7 @@ CS = CommonSettings()  # type: ignore
 
 def optional_suffix():
     value = f"_{CS.deployment_type}"
-    if value == "main":
+    if value == "_main":
         value = None
     return value
 

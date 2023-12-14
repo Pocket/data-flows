@@ -1,13 +1,11 @@
+import importlib
 import uuid
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+import src.new_tab_recommendations.aggregate_engagement_flow as ntr
 from prefect.testing.utilities import prefect_test_harness
-from src.new_tab_recommendations.aggregate_engagement_flow import (
-    aggregate_engagement,
-    export_telemetry_by_corpus_item_id,
-)
 from tests.utils import async_patch
 
 
@@ -71,7 +69,7 @@ async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
         async_patch(f"{MODULE}.snowflake_query", return_value=snowflake_data),
         patch(f"{MODULE}.MozGcpCredentials", return_value=MagicMock()),
     ):
-        result = await export_telemetry_by_corpus_item_id(
+        result = await ntr.export_telemetry_by_corpus_item_id(
             "select foo from bar", join_column_name
         )
 
@@ -127,13 +125,13 @@ async def test_aggregate_engagement():
         ) as mock_dataframe_to_feature_group,
     ):
         # Call the aggregate_engagement function
-        await aggregate_engagement()
+        await ntr.aggregate_engagement()  # type: ignore
 
         # Assert that dataframe_to_feature_group is called with the expected DataFrame
-        assert mock_dataframe_to_feature_group.call_count == 1
+        assert mock_dataframe_to_feature_group.call_count == 1  # type: ignore
 
         pd.testing.assert_frame_equal(
-            mock_dataframe_to_feature_group.call_args.kwargs["dataframe"],
+            mock_dataframe_to_feature_group.call_args.kwargs["dataframe"],  # type: ignore  # noqa: E501
             pd.DataFrame(
                 {
                     "UPDATED_AT": ["1", "2", "3"],
@@ -154,3 +152,14 @@ async def test_aggregate_engagement():
                 }
             ),
         )
+
+
+@pytest.mark.parametrize("deployment_type", ["dev", "staging", "main"])
+def test_optional_suffix(deployment_type):
+    importlib.reload(ntr)  # type: ignore
+    ntr.CS.deployment_type = deployment_type
+    x = ntr.optional_suffix()
+    if deployment_type == "main":
+        assert x is None
+    else:
+        assert x == f"_{deployment_type}"

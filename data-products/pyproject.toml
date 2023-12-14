@@ -65,9 +65,10 @@ env = [
     'DF_CONFIG_SNOWFLAKE_SCHEMA=test',
     'DF_CONFIG_SNOWFLAKE_WAREHOUSE=prefect_wh_test',
     'R:DF_CONFIG_GCP_CREDENTIALS={"service_account_file": "tests/test.json"}',
-    'R:DF_CONFIG_SNOWFLAKE_GCP_STAGES={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED","gcs_pocket_shared_location": "gs://test"}',
+    'R:DF_CONFIG_SNOWFLAKE_GCP_STAGE_DATA={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED","gcs_pocket_shared_location": "gs://test"}',
     'D:DF_CONFIG_SQL_TEMPLATE_PATH=tests/sql_etl/unit/sql', # only sets if not already set https://github.com/pytest-dev/pytest-env#only-set-if-not-already-set
     'ARTICLES_MAX_PER_RUN=25',
     'PREFECT_LOGGING_LEVEL=ERROR', # reduce verbosity of logging
-    'DASK_DISTRIBUTED__LOGGING__DISTRIBUTED=ERROR' # reduce verbosity of logging
+    'DASK_DISTRIBUTED__LOGGING__DISTRIBUTED=ERROR', # reduce verbosity of logging
+    'NEW_TAB_REC_DATASET=braun',
 ]

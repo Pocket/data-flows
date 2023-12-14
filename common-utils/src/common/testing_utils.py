@@ -1,3 +1,4 @@
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -42,4 +43,11 @@ def reset_script_path(request, monkeypatch):
     namespace = namespace_marker.args[0]
     mock = MagicMock(return_value=path_override)
     monkeypatch.setattr(f"{namespace}.get_script_path", mock)
+    yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def tests_setup_and_teardown():
+    os.environ.pop("AWS_PROFILE", None)
+    os.environ.pop("DF_CONFIG_IGNORE_GCP_SETTINGS", None)
     yield
