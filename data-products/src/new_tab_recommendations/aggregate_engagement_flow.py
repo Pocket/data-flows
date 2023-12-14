@@ -15,7 +15,17 @@ from snowflake.connector import DictCursor
 
 CS = CommonSettings()  # type: ignore
 
-NEW_TAB_REC_DATASET = os.getenv("NEW_TAB_REC_DATASET")
+
+def optional_suffix():
+    value = f"_{CS.deployment_type}"
+    if value == "main":
+        value = None
+    return value
+
+
+NEW_TAB_REC_DATASET = os.getenv(
+    "NEW_TAB_REC_DATASET", f"new_tab_recommendations{optional_suffix()}"
+)
 NEW_TAB_REC_GCP_PROJECT_ENV_MAP = {"dev": "nonprod", "production": "prod"}
 
 NEW_TAB_REC_GCP_PROJECT_ENV = NEW_TAB_REC_GCP_PROJECT_ENV_MAP[CS.dev_or_production]
@@ -42,13 +52,26 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
         GROUP BY TILE_ID
         ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
         LIMIT 16384 -- Limit to Snowflake's max list size. There are a lot of old items that still get some impressions.
-    """
+    """  # noqa: E501
 
 EXPORT_GLEAN_TELEMETRY_SQL = f"""
 DECLARE max_ts timestamp;
+-- create dataset if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}`
 
 -- table if not exists
-
+create table if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events` as (
+      SELECT
+        document_id,
+        submission_timestamp,
+        event.name AS event_name,
+        extra.value AS recommendation_id
+      FROM `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` AS e
+      CROSS JOIN UNNEST(e.events) AS event
+      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
+      WHERE
+        submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+        AND 1 = 2
+);
 -- get max submission timestamp from table
 SET max_ts = (select coalesce(max(submission_timestamp), TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)) as max_ts
 from `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`);
@@ -78,7 +101,7 @@ insert into `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.
   where submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
   GROUP BY recommendation_id
   ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
-  LIMIT 16384; -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore."""
+  LIMIT 16384; -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore."""  # noqa: E501
 
 
 EXPORT_CORPUS_ITEM_KEYS_SQL = """
@@ -96,7 +119,7 @@ EXPORT_CORPUS_ITEM_KEYS_SQL = """
     -- Speed up query using clustered column. 28 day recommendation window was chosen arbitrarily to cover 1 day 
     -- trailing telemetry. It executes in 35 seconds on XS.
     AND recommended_at > DATEADD(DAY, -28, CURRENT_TIMESTAMP())
-"""
+"""  # noqa: E501
 
 
 class TelemetrySource(NamedTuple):
@@ -105,11 +128,14 @@ class TelemetrySource(NamedTuple):
 
 
 """
-Glean events have a 'recommendation id' (a.k.a. 'corpus recommendation id'), which is distinct for each server-side
-event when content is recommended. Activity Stream uses the older 'tile id', which is distinct for each time content is
+Glean events have a 'recommendation id' (a.k.a. 'corpus recommendation id'), 
+which is distinct for each server-side
+event when content is recommended. Activity Stream uses the older 'tile id', 
+which is distinct for each time content is
 scheduled, and cannot be traced back to a single server-side recommendation event.
 
-The ability to trace back to server-side events improves observability and enables experiments with rankers.
+The ability to trace back to server-side events improves observability 
+and enables experiments with rankers.
 """
 telemetry_sources: list[TelemetrySource] = [
     TelemetrySource(
@@ -125,12 +151,15 @@ async def export_telemetry_by_corpus_item_id(
     export_telemetry_sql: str, join_column_name: str
 ):
     """
-    Exports `export_telemetry_sql` from BigQuery, joined with corpus metadata from Snowflake on `join_column_name`.
-    :param export_telemetry_sql: BigQuery SQL to export open and impression counts. Must export `join_column_name`.
+    Exports `export_telemetry_sql` from BigQuery,
+    joined with corpus metadata from Snowflake on `join_column_name`.
+    :param export_telemetry_sql: BigQuery SQL to export open and impression counts.
+    Must export `join_column_name`.
     :param join_column_name: Column in STG_CORPUS_SLATE_RECOMMENDATIONS to join on.
     :return: Telemetry aggregated by CORPUS_ITEM_ID
     """
-    # join_column_name is a string literal, so there's no risk of SQL injection by inserting it in the query below.
+    # join_column_name is a string literal,
+    # so there's no risk of SQL injection by inserting it in the query below.
     export_corpus_item_keys_sql = EXPORT_CORPUS_ITEM_KEYS_SQL.format(
         JOIN_COLUMN_NAME=join_column_name
     )
@@ -142,18 +171,19 @@ async def export_telemetry_by_corpus_item_id(
     corpus_item_keys_records = await snowflake_query(
         snowflake_connector=MozSnowflakeConnector(),
         query=export_corpus_item_keys_sql,
-        cursor_type=DictCursor, # type: ignore
+        cursor_type=DictCursor,  # type: ignore
         params={"ID_LIST": df_telemetry[join_column_name].tolist()},
     )
 
     df_corpus_item_keys = pd.DataFrame(corpus_item_keys_records)
     # Combine the BigQuery and Snowflake results on TILE_ID.
     df_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
-    # Drop TILE_ID or CORPUS_RECOMMENDATION_ID after merging, to match the dataframe columns with the feature group.
+    # Drop TILE_ID or CORPUS_RECOMMENDATION_ID after merging,
+    # to match the dataframe columns with the feature group.
     return df_telemetry.drop(columns=[join_column_name])
 
 
-@flow()
+@flow(name="new-tab-recommendations.aggregate-engagement")
 async def aggregate_engagement():
     """
     Ingests NewTab telemetry joined with Corpus metadata into a Sagemaker Feature Group.
@@ -182,7 +212,8 @@ async def aggregate_engagement():
         .reset_index()
     )
 
-    # Feature Store requires all columns to be present. We only need 1 day trailing data, so add the others as 0.
+    # Feature Store requires all columns to be present.
+    # We only need 1 day trailing data, so add the others as 0.
     df_combined["TRAILING_7_DAY_IMPRESSIONS"] = 0
     df_combined["TRAILING_7_DAY_OPENS"] = 0
     df_combined["TRAILING_14_DAY_IMPRESSIONS"] = 0
@@ -206,9 +237,9 @@ FLOW_SPEC = FlowSpec(
             name="deployment",
             cron="*/15 * * * *",
             job_variables={
-                "cpu": "4096",
-                "memory": "8192",
-                "env": {"PREFECT_API_ENABLE_HTTP2": False},
+                "cpu": 4096,
+                "memory": 8192,
+                "env": {"PREFECT_API_ENABLE_HTTP2": str(False)},
             },
         ),
     ],
