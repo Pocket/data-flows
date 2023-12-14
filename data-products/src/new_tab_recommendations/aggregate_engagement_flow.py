@@ -1,20 +1,24 @@
-from asyncio import run, gather
+import os
+from asyncio import gather, run
 from typing import NamedTuple
 
 import pandas as pd
-from common.cloud.gcp_utils import PktGcpCredentials
-from common.databases.snowflake_utils import PktSnowflakeConnector
-from common.deployment import FlowSpec, FlowEnvar, FlowDeployment
+from common.cloud.gcp_utils import MozGcpCredentials
+from common.databases.snowflake_utils import MozSnowflakeConnector
+from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings
 from prefect import flow
-from prefect.server.schemas.schedules import CronSchedule
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
+from shared.feature_store import FeatureGroupSettings, dataframe_to_feature_group
 from snowflake.connector import DictCursor
 
-from shared.feature_store import dataframe_to_feature_group, FeatureGroupSettings
-
 CS = CommonSettings()  # type: ignore
+
+NEW_TAB_REC_DATASET = os.getenv("NEW_TAB_REC_DATASET")
+NEW_TAB_REC_GCP_PROJECT_ENV_MAP = {"dev": "nonprod", "production": "prod"}
+
+NEW_TAB_REC_GCP_PROJECT_ENV = NEW_TAB_REC_GCP_PROJECT_ENV_MAP[CS.dev_or_production]
 
 EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
         WITH impressions_data AS (
@@ -40,8 +44,11 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
         LIMIT 16384 -- Limit to Snowflake's max list size. There are a lot of old items that still get some impressions.
     """
 
-EXPORT_GLEAN_TELEMETRY_SQL = """
-    WITH events AS (
+EXPORT_GLEAN_TELEMETRY_SQL = f"""
+DECLARE max_ts timestamp;
+
+-- table if not exists
+create table if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events` as (
       SELECT
         document_id,
         submission_timestamp,
@@ -52,20 +59,38 @@ EXPORT_GLEAN_TELEMETRY_SQL = """
       CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
       WHERE
         submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+        AND 1 = 2
+);
+-- get max submission timestamp from table
+SET max_ts = (select coalesce(max(submission_timestamp), TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)) as max_ts
+from `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`);
+
+-- insert new records
+insert into `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`
+      SELECT
+        document_id,
+        submission_timestamp,
+        event.name AS event_name,
+        extra.value AS recommendation_id
+      FROM `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` AS e
+      CROSS JOIN UNNEST(e.events) AS event
+      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
+      WHERE
+        submission_timestamp > max_ts
         AND client_info.app_build >= '20231116134553' -- Fx 120 was the first build to emit recommendation_id
         AND event.category = 'pocket'
-        AND event.name in ('click', 'impression')
-    )
-    SELECT
-        recommendation_id as CORPUS_RECOMMENDATION_ID,
-        FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
-        APPROX_COUNT_DISTINCT(IF(event_name = 'impression', document_id, NULL)) AS TRAILING_1_DAY_IMPRESSIONS,
-        APPROX_COUNT_DISTINCT(IF(event_name = 'click', document_id, NULL)) AS TRAILING_1_DAY_OPENS
-    FROM events
-    GROUP BY recommendation_id
-    ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
-    LIMIT 16384 -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore.
-"""
+        AND event.name in ('click', 'impression');
+-- get aggregations
+  SELECT
+      recommendation_id as CORPUS_RECOMMENDATION_ID,
+      FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
+      APPROX_COUNT_DISTINCT(IF(event_name = 'impression', document_id, NULL)) AS TRAILING_1_DAY_IMPRESSIONS,
+      APPROX_COUNT_DISTINCT(IF(event_name = 'click', document_id, NULL)) AS TRAILING_1_DAY_OPENS
+  FROM `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`
+  where submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+  GROUP BY recommendation_id
+  ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
+  LIMIT 16384; -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore."""
 
 
 EXPORT_CORPUS_ITEM_KEYS_SQL = """
@@ -122,14 +147,14 @@ async def export_telemetry_by_corpus_item_id(
         JOIN_COLUMN_NAME=join_column_name
     )
     df_telemetry = await bigquery_query(
-        gcp_credentials=PktGcpCredentials(),
+        gcp_credentials=MozGcpCredentials(),
         query=export_telemetry_sql,
         to_dataframe=True,
     )
     corpus_item_keys_records = await snowflake_query(
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         query=export_corpus_item_keys_sql,
-        cursor_type=DictCursor,
+        cursor_type=DictCursor, # type: ignore
         params={"ID_LIST": df_telemetry[join_column_name].tolist()},
     )
 
@@ -188,32 +213,15 @@ async def aggregate_engagement():
 FLOW_SPEC = FlowSpec(
     flow=aggregate_engagement,
     docker_env="base",
-    secrets=[
-        FlowEnvar(
-            envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake-credentials",
-        ),
-        FlowEnvar(
-            envar_name="DF_CONFIG_GCP_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/gcp-credentials",
-        ),
-        FlowEnvar(
-            envar_name="DF_CONFIG_SNOWFLAKE_GCP_STAGES",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake-gcp-stage-data",
-        ),
-    ],
-    envars=[
-        FlowEnvar(
-            envar_name="PREFECT_API_ENABLE_HTTP2",
-            envar_value="False",
-        )
-    ],
     deployments=[
         FlowDeployment(
-            deployment_name="deployment",
-            schedule=CronSchedule(cron="*/15 * * * *"),
-            cpu="4096",
-            memory="8192",
+            name="deployment",
+            cron="*/15 * * * *",
+            job_variables={
+                "cpu": "4096",
+                "memory": "8192",
+                "env": {"PREFECT_API_ENABLE_HTTP2": False},
+            },
         ),
     ],
 )

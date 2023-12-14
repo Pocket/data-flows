@@ -30,7 +30,7 @@ from typing import Any
 
 import pandas as pd
 import pendulum as pdm
-from common.databases.snowflake_utils import PktSnowflakeConnector
+from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
 from prefect import flow, get_run_logger, task
@@ -352,12 +352,12 @@ async def etl(
     # perform the snowflake statements needed for ingestion
     create_table = await snowflake_query(
         query=CREATE_TABLE_SQL,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[uploads_completed],
     )  # type: ignore
     load = await snowflake_query(
         query=IMPORT_SQL,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         params={"uri": f"s3://{S3_BUCKET}/{STAGE_PREFIX}"},
         wait_for=[create_table],
     )  # type: ignore
@@ -383,7 +383,7 @@ async def etl(
     # insert new records into the ordered table and metaflow uses
     ordered_dataset_insert = await snowflake_multiquery(
         queries=[CREATE_ORDERED_TABLE_SQL, MAX_DATE, INSERT_ORDERED_SQL],
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[cleanup_results],
     )  # type: ignore
     logger.info(
@@ -439,23 +439,23 @@ async def main():
         logger.info("Running weekly reorder...")
         for q in list(filter(bool, REORDERING_SQL.split(";"))):
             await snowflake_query_sync(
-                query=q, snowflake_connector=PktSnowflakeConnector()
+                query=q, snowflake_connector=MozSnowflakeConnector()
             )
     # create failures table if needed
     create_failures_table = await snowflake_query(
         query=CREATE_FAILURES_TABLE_SQL,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
     )
     # put file
     put_file = await snowflake_query_sync(
         query=PUT_FAILURES,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[create_failures_table],
     )  # type: ignore
     # load failures to snowflake
     await snowflake_query(
         query=INSERT_FAILURES,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         params={
             "flow_run_id": flow_run.id,
             "flow_run_name": flow_run.name,

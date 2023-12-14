@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 import requests
-from common.databases.snowflake_utils import PktSnowflakeConnector
+from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
 from common.settings import CommonSettings
 from prefect import flow, get_run_logger, task
@@ -224,27 +224,27 @@ async def freestar_report_flow():
     eft = extract_freestar_data()
     create_schema = await snowflake_query_sync(
         query=create_schema_sql,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[eft],
     )  # type: ignore
     create = await snowflake_query_sync(
         query=create_table_sql,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[create_schema],
     )  # type: ignore
     format_file = await snowflake_query_sync(
         query=format_file_sql,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[create],
     )  # type: ignore
     create_stage = await snowflake_query_sync(
         query=create_stage_sql,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[format_file],
     )  # type: ignore
     put_parquet = await snowflake_query_sync(
         query=put_parquet_sql,
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[create_stage],
     )  # type: ignore
     await snowflake_multiquery(
@@ -255,7 +255,7 @@ async def freestar_report_flow():
             delete_sql,
             insert_sql,
         ],
-        snowflake_connector=PktSnowflakeConnector(),
+        snowflake_connector=MozSnowflakeConnector(),
         wait_for=[put_parquet],
         as_transaction=True,
     )  # type: ignore

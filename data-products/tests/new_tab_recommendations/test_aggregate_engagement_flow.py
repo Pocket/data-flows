@@ -1,13 +1,12 @@
 import uuid
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 from prefect.testing.utilities import prefect_test_harness
-
 from src.new_tab_recommendations.aggregate_engagement_flow import (
-    export_telemetry_by_corpus_item_id,
     aggregate_engagement,
+    export_telemetry_by_corpus_item_id,
 )
 from tests.utils import async_patch
 
@@ -70,7 +69,7 @@ async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
     with (
         async_patch(f"{MODULE}.bigquery_query", return_value=bigquery_data),
         async_patch(f"{MODULE}.snowflake_query", return_value=snowflake_data),
-        patch(f"{MODULE}.PktGcpCredentials", return_value=MagicMock()),
+        patch(f"{MODULE}.MozGcpCredentials", return_value=MagicMock()),
     ):
         result = await export_telemetry_by_corpus_item_id(
             "select foo from bar", join_column_name
