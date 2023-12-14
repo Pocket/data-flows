@@ -57,9 +57,6 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
 EXPORT_GLEAN_TELEMETRY_SQL = f"""
 DECLARE max_ts timestamp;
 
--- create dataset if not exists
-create schema if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}`;
-
 -- table if not exists
 create table if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events` as (
       SELECT
