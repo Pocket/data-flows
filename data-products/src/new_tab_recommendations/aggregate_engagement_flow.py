@@ -48,19 +48,7 @@ EXPORT_GLEAN_TELEMETRY_SQL = f"""
 DECLARE max_ts timestamp;
 
 -- table if not exists
-create table if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events` as (
-      SELECT
-        document_id,
-        submission_timestamp,
-        event.name AS event_name,
-        extra.value AS recommendation_id
-      FROM `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` AS e
-      CROSS JOIN UNNEST(e.events) AS event
-      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
-      WHERE
-        submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
-        AND 1 = 2
-);
+
 -- get max submission timestamp from table
 SET max_ts = (select coalesce(max(submission_timestamp), TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)) as max_ts
 from `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`);
