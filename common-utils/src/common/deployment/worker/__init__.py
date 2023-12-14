@@ -446,7 +446,7 @@ class PrefectProject(BaseModel):
                 for d in fs.deployments:
                     fd = {
                         "name": f"{d.name}-{DEPLOYMENT_TYPE}",
-                        "tags": d.tags,
+                        "tags": d.tags + [DEPLOYMENT_TYPE, self.project_name],
                         "parameters": d.parameters,
                         "enforce_parameter_schema": d.enforce_parameter_schema,
                         "work_pool": {
