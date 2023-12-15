@@ -11,10 +11,11 @@ from typing import Any
 
 import toml
 import yaml
-from common import find_pyproject_file, get_script_path
 from prefect import Flow
 from pydantic import BaseModel, PrivateAttr, StrictStr, ValidationError
 from slugify import slugify
+
+from common import find_pyproject_file, get_script_path
 
 # Create logger for module
 LOGGER_NAME = __name__
@@ -30,7 +31,7 @@ AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID")
 PYPROJECT_FILE_PATH = os.path.expanduser(os.path.join(os.getcwd(), "pyproject.toml"))
 FLOWS_PATH = Path(os.getenv("DF_CONFIG_FLOWS_PATH_OVERRIDE", "src"))
 DEFAULT_WORK_POOL = os.getenv("DF_CONFIG_DEFAULT_WORK_POOL", "mozilla-aws-ecs-fargate")
-DEPLOYMENT_BRANCH = os.getenv("DF_CONFIG_DEPLOYMENT_BRANCH", "dev-v2")
+DEPLOYMENT_BRANCH = f"{DEPLOYMENT_TYPE}-v2"
 GIT_SHA = os.getenv("GIT_SHA", "dev")[0:7]
 DEFAULT_CPU = "512"
 DEFAULT_MEMORY = "1024"
