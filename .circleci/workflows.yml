@@ -142,7 +142,7 @@ commands:
           command: |
             poetry run df-cli process-docker-envs --build-only
             poetry run df-cli process-flow-specs
-            poetry run prefect deploy --no-prompt --all 
+            poetry run prefect --no-prompt deploy --all 
           name: Prefect Project Deploy
             
 
