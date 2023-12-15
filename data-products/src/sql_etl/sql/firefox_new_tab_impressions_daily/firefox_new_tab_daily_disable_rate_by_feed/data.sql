@@ -63,6 +63,7 @@ FROM
   deduplicated
 WHERE
   release_channel = 'release'
+  AND SAFE_CAST(SPLIT(version, '.')[0] AS int64) <= 120 --include only data from Firefox < 121
   AND (version LIKE '1%'
     OR version LIKE '2%'
     OR version LIKE '3%'

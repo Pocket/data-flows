@@ -2,7 +2,6 @@ from pathlib import PosixPath
 
 import pytest
 from pydantic import SecretStr
-from common.settings import CommonSettings
 import importlib
 
 DB_MAPPING = {"dev": "development", "staging": "development", "main": "prefect"}
