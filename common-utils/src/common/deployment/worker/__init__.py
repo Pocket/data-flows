@@ -31,7 +31,7 @@ PYPROJECT_FILE_PATH = os.path.expanduser(os.path.join(os.getcwd(), "pyproject.to
 FLOWS_PATH = Path(os.getenv("DF_CONFIG_FLOWS_PATH_OVERRIDE", "src"))
 DEFAULT_WORK_POOL = os.getenv("DF_CONFIG_DEFAULT_WORK_POOL", "mozilla-aws-ecs-fargate")
 DEPLOYMENT_BRANCH = os.getenv("DF_CONFIG_DEPLOYMENT_BRANCH", "dev-v2")
-GIT_SHA = os.getenv("GIT_SHA", "dev")
+GIT_SHA = os.getenv("GIT_SHA", "dev")[0:7]
 DEFAULT_CPU = "512"
 DEFAULT_MEMORY = "1024"
 
@@ -446,7 +446,7 @@ class PrefectProject(BaseModel):
                 for d in fs.deployments:
                     fd = {
                         "name": f"{d.name}-{DEPLOYMENT_TYPE}",
-                        "tags": d.tags,
+                        "tags": d.tags + [DEPLOYMENT_TYPE, self.project_name],
                         "parameters": d.parameters,
                         "enforce_parameter_schema": d.enforce_parameter_schema,
                         "work_pool": {

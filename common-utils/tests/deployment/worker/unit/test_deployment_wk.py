@@ -244,7 +244,7 @@ def test_flow_specs(mock_cmd, deployment_type):
                     "name": f"base-{deployment_type}",
                     "parameters": {"param_name": "param_value"},
                     "schedule": {"cron": "0 0 * * *", "timezone": "UTC"},
-                    "tags": ["test"],
+                    "tags": ["test", deployment_type, "common-utils"],
                     "version": "1",
                     "work_pool": {
                         "job_variables": {
@@ -263,7 +263,7 @@ def test_flow_specs(mock_cmd, deployment_type):
                     "name": f"test-{deployment_type}",
                     "parameters": {"param_name": "param_value"},
                     "schedule": {"cron": "0 0 * * *", "timezone": "UTC"},
-                    "tags": ["test"],
+                    "tags": ["test", deployment_type, "common-utils"],
                     "version": "1",
                     "work_pool": {
                         "job_variables": {

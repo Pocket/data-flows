@@ -52,7 +52,7 @@ def test_common_settings(deployment_type):
 @pytest.mark.parametrize("deployment_type", ["dev", "staging", "main"])
 def test_common_settings_env(deployment_type):
     os.environ["DF_CONFIG_DEPLOYMENT_TYPE"] = deployment_type
-    cs = CommonSettings() # type: ignore
+    cs = CommonSettings()  # type: ignore
     assert cs.is_production is CS_MAPPING[deployment_type][0]
     assert cs.dev_or_production == CS_MAPPING[deployment_type][1]
     x = cs.deployment_type_value("dev", "staging", "main")

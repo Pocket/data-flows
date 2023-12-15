@@ -115,7 +115,6 @@ def get_gcs_stage(
     Returns:
         str: Full 3 part stage name.
     """
-
     return SfGcsStage(
         stage_name=stage_config.dict()[f"{stage_id}_name"],
         stage_location=stage_config.dict()[f"{stage_id}_location"],
