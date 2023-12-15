@@ -6,8 +6,7 @@ from common.cloud.gcp_utils import MozGcpCredentials
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment import FlowSpec, FlowEnvar, FlowDeployment
 from common.settings import CommonSettings
-from prefect import flow
-from prefect.server.schemas.schedules import CronSchedule
+from prefect import flow, get_run_logger
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
 from shared.feature_store import FeatureGroupSettings, dataframe_to_feature_group
@@ -37,7 +36,57 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
         GROUP BY TILE_ID
         ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
         LIMIT 16384 -- Limit to Snowflake's max list size. There are a lot of old items that still get some impressions.
-    """
+    """  # noqa: E501
+
+EXPORT_GLEAN_TELEMETRY_SQL = f"""
+DECLARE max_ts timestamp;
+
+-- table if not exists
+create table if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events` as (
+      SELECT
+        document_id,
+        submission_timestamp,
+        event.name AS event_name,
+        extra.value AS recommendation_id,
+        current_timestamp() AS _loaded_at
+      FROM `moz-fx-data-shared-prod.firefox_desktop.newtab_live` AS e
+      CROSS JOIN UNNEST(e.events) AS event
+      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
+      WHERE
+        submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+        AND 1 = 2
+);
+-- get max submission timestamp from table
+SET max_ts = (select coalesce(max(submission_timestamp), TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)) as max_ts
+from `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`);
+
+-- insert new records
+insert into `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`
+      SELECT
+        document_id,
+        submission_timestamp,
+        event.name AS event_name,
+        extra.value AS recommendation_id,
+        current_timestamp() AS _loaded_at
+      FROM `moz-fx-data-shared-prod.firefox_desktop.newtab_live` AS e
+      CROSS JOIN UNNEST(e.events) AS event
+      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
+      WHERE
+        submission_timestamp > max_ts
+        AND app_build >= '20231116134553' -- Fx 120 was the first build to emit recommendation_id
+        AND event.category = 'pocket'
+        AND event.name in ('click', 'impression');
+-- get aggregations
+  SELECT
+      recommendation_id as CORPUS_RECOMMENDATION_ID,
+      FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
+      APPROX_COUNT_DISTINCT(IF(event_name = 'impression', document_id, NULL)) AS TRAILING_1_DAY_IMPRESSIONS,
+      APPROX_COUNT_DISTINCT(IF(event_name = 'click', document_id, NULL)) AS TRAILING_1_DAY_OPENS
+  FROM `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`
+  where submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+  GROUP BY recommendation_id
+  ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
+  LIMIT 16384; -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore."""  # noqa: E501
 
 EXPORT_GLEAN_TELEMETRY_SQL = """
     WITH events AS (
@@ -83,6 +132,23 @@ EXPORT_CORPUS_ITEM_KEYS_SQL = """
     -- trailing telemetry. It executes in 35 seconds on XS.
     AND recommended_at > DATEADD(DAY, -28, CURRENT_TIMESTAMP())
 """
+Glean events have a 'recommendation id' (a.k.a. 'corpus recommendation id'), 
+which is distinct for each server-side
+event when content is recommended. Activity Stream uses the older 'tile id', 
+which is distinct for each time content is
+scheduled, and cannot be traced back to a single server-side recommendation event.
+
+The ability to trace back to server-side events improves observability 
+and enables experiments with rankers.
+"""
+telemetry_sources: list[TelemetrySource] = [
+    TelemetrySource(
+        EXPORT_GLEAN_TELEMETRY_SQL, "CORPUS_RECOMMENDATION_ID"
+    ),  # Glean is joined on recommendation UUID.
+    TelemetrySource(
+        EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL, "TILE_ID"
+    ),  # Activity stream is joined on integer tile id.
+]
 
 
 class TelemetrySource(NamedTuple):
@@ -146,7 +212,6 @@ async def aggregate_engagement():
         query=EXPORT_FIREFOX_TELEMETRY_SQL,
         to_dataframe=True,
     )
-
     corpus_item_keys_records = await snowflake_query(
         snowflake_connector=MozSnowflakeConnector(),
         query=EXPORT_CORPUS_ITEM_KEYS_SQL,
@@ -154,16 +219,40 @@ async def aggregate_engagement():
         params={"tile_ids": df_telemetry["TILE_ID"].tolist()},
     )
 
-    if corpus_item_keys_records:
-        df_corpus_item_keys = pd.DataFrame(corpus_item_keys_records)
-        # Combine the BigQuery and Snowflake results on TILE_ID.
-        df_keyed_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
-        # Drop TILE_ID now we no longer need it, to match the dataframe columns with the feature group.
-        df_keyed_telemetry = df_keyed_telemetry.drop(columns=["TILE_ID"])
+    df_corpus_item_keys = pd.DataFrame(corpus_item_keys_records)
+    # Combine the BigQuery and Snowflake results on TILE_ID.
+    df_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
 
-        await dataframe_to_feature_group(
-            dataframe=df_keyed_telemetry,
-            feature_group_name=FeatureGroupSettings().corpus_engagement_feature_group_name,
+    # Drop TILE_ID or CORPUS_RECOMMENDATION_ID after merging,
+    # to match the dataframe columns with the feature group.
+    return df_telemetry.drop(columns=[join_column_name])
+
+
+@flow(name="new-tab-recommendations.aggregate-engagement")
+async def aggregate_engagement():
+    """
+    Ingests NewTab telemetry joined with Corpus metadata into a Sagemaker Feature Group.
+    """
+    logger = get_run_logger()
+    # Export telemetry from Glean and Activity Stream aggregated by CORPUS_ITEM_ID.
+    all_dataframes = await gather(
+        *[
+            export_telemetry_by_corpus_item_id(export_sql, join_column)
+            for export_sql, join_column in telemetry_sources
+        ]
+    )
+    logger.info(f"Dataframe counts are: {[len(x) for x in all_dataframes]}...")
+    # Sum the opens and impressions from Glean and Acitivy Stream.
+    df_combined = (
+        pd.concat(all_dataframes)
+        .groupby(
+            [
+                "UPDATED_AT",
+                "KEY",
+                "RECOMMENDATION_SURFACE_ID",
+                "CORPUS_SLATE_CONFIGURATION_ID",
+                "CORPUS_ITEM_ID",
+            ]
         )
         .sum()
         .reset_index()
@@ -188,32 +277,15 @@ async def aggregate_engagement():
 FLOW_SPEC = FlowSpec(
     flow=aggregate_engagement,
     docker_env="base",
-    secrets=[
-        FlowEnvar(
-            envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake-credentials",
-        ),
-        FlowEnvar(
-            envar_name="DF_CONFIG_GCP_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/gcp-credentials",
-        ),
-        FlowEnvar(
-            envar_name="DF_CONFIG_SNOWFLAKE_GCP_STAGES",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake-gcp-stage-data",
-        ),
-    ],
-    envars=[
-        FlowEnvar(
-            envar_name="PREFECT_API_ENABLE_HTTP2",
-            envar_value="False",
-        )
-    ],
     deployments=[
         FlowDeployment(
-            deployment_name="deployment",
-            schedule=CronSchedule(cron="*/15 * * * *"),
-            cpu="4096",
-            memory="8192",
+            name="deployment",
+            cron="*/15 * * * *",
+            job_variables={
+                "cpu": 4096,
+                "memory": 8192,
+                "env": {"PREFECT_API_ENABLE_HTTP2": str(False)},
+            },
         ),
     ],
 )
