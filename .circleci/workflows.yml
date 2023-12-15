@@ -140,7 +140,7 @@ commands:
     steps:
       - run:
           command: |
-            poetry run df-cli process-docker-envs
+            export GIT_SHA=$CIRCLE_SHA1 && poetry run df-cli process-docker-envs
             poetry run df-cli process-flow-specs
             export PYTHONPATH=$(pwd)/src && poetry run prefect --no-prompt deploy --all 
           name: Prefect Project Deploy
