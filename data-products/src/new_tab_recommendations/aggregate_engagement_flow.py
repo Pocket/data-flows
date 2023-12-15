@@ -63,8 +63,9 @@ create table if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TA
         document_id,
         submission_timestamp,
         event.name AS event_name,
-        extra.value AS recommendation_id
-      FROM `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` AS e
+        extra.value AS recommendation_id,
+        current_timestamp() AS _loaded_at
+      FROM `moz-fx-data-shared-prod.firefox_desktop.newtab_live` AS e
       CROSS JOIN UNNEST(e.events) AS event
       CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
       WHERE
@@ -81,13 +82,14 @@ insert into `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.
         document_id,
         submission_timestamp,
         event.name AS event_name,
-        extra.value AS recommendation_id
-      FROM `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` AS e
+        extra.value AS recommendation_id,
+        current_timestamp() AS _loaded_at
+      FROM `moz-fx-data-shared-prod.firefox_desktop.newtab_live` AS e
       CROSS JOIN UNNEST(e.events) AS event
       CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
       WHERE
         submission_timestamp > max_ts
-        AND client_info.app_build >= '20231116134553' -- Fx 120 was the first build to emit recommendation_id
+        AND app_build >= '20231116134553' -- Fx 120 was the first build to emit recommendation_id
         AND event.category = 'pocket'
         AND event.name in ('click', 'impression');
 -- get aggregations
