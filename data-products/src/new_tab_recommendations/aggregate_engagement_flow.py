@@ -19,7 +19,7 @@ CS = CommonSettings()  # type: ignore
 def optional_suffix():
     value = f"_{CS.deployment_type}"
     if value == "_main":
-        value = None
+        value = ""
     return value
 
 
@@ -56,6 +56,9 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
 
 EXPORT_GLEAN_TELEMETRY_SQL = f"""
 DECLARE max_ts timestamp;
+
+-- create dataset
+create schema if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}`;
 
 -- table if not exists
 create table if not exists `pocket-prefect-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events` as (
