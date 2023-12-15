@@ -1,6 +1,14 @@
+import os
+from functools import cache
 from typing import Literal, Union
 
+from common.cloud.aws_utils import fetch_aws_secret
 from pydantic import BaseModel, BaseSettings, Field
+
+# allow for setting the secrets manager service via envar
+SECRETS_MANAGER = os.getenv("DF_CONFIG_SECRETS_MANAGER", "aws")
+
+SECRETS_MANAGER_CONFIG = {"aws": fetch_aws_secret}
 
 
 class NestedSettings(BaseModel):
@@ -68,3 +76,38 @@ class CommonSettings(Settings):
     ) -> Union[str, None]:
         mapping = {"dev": dev, "staging": staging, "main": main}
         return mapping[self.deployment_type]
+
+
+CS = CommonSettings()  # type: ignore
+
+
+class SecretSettings(Settings):
+    class Config:
+        """Custom Config class that can be used to enable
+        secrets fetching from supported service enabled via
+        DF_CONFIG_SECRETS_MANAGER envar.
+        """
+
+        secrets_manager = SECRETS_MANAGER_CONFIG[SECRETS_MANAGER]
+        secret_fields = []
+        prefix = f"data-flows/{CS.deployment_type}"
+        slugify_name = True
+
+        @classmethod
+        def customise_sources(
+            cls,
+            init_settings,
+            env_settings,
+            file_secret_settings,
+        ):
+            return (
+                init_settings,
+                env_settings,
+                file_secret_settings,
+                cls.secrets_manager,  # type: ignore
+            )
+
+
+@cache
+def get_cached_settings(settings: Settings):
+    return settings()  # type: ignore

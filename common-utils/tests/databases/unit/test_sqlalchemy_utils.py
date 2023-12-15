@@ -1,6 +1,6 @@
-from common.databases.sqlalchemy_utils import MzsSqlalchemyCredentials
+from common.databases.sqlalchemy_utils import MozSqlalchemyCredentials
 
 
 def test_pkt_sqlalchemy_credentials():
-    x = MzsSqlalchemyCredentials()
+    x = MozSqlalchemyCredentials()
     assert x.url == "mysql://scott:tiger@localhost:5432"

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.8.1"
+version = "0.9.0"
 
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
@@ -54,9 +54,9 @@ build-backend = "poetry.core.masonry.api"
 python_version = "3.10"
 dockerfile_path=".docker/base/Dockerfile"
 
-[tool.prefect.docker.base_v2]
+[tool.prefect.docker.base]
 python_version = "3.10"
-dockerfile_path=".docker/base_v2/Dockerfile"
+dockerfile_path=".docker/worker/base/Dockerfile"
 
 [tool.pytest.ini_options]
 pythonpath = "src"
@@ -65,9 +65,10 @@ env = [
     'DF_CONFIG_SNOWFLAKE_SCHEMA=test',
     'DF_CONFIG_SNOWFLAKE_WAREHOUSE=prefect_wh_test',
     'R:DF_CONFIG_GCP_CREDENTIALS={"service_account_file": "tests/test.json"}',
-    'R:DF_CONFIG_SNOWFLAKE_GCP_STAGES={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED","gcs_pocket_shared_location": "gs://test"}',
+    'R:DF_CONFIG_SNOWFLAKE_GCP_STAGE_DATA={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED","gcs_pocket_shared_location": "gs://test"}',
     'D:DF_CONFIG_SQL_TEMPLATE_PATH=tests/sql_etl/unit/sql', # only sets if not already set https://github.com/pytest-dev/pytest-env#only-set-if-not-already-set
     'ARTICLES_MAX_PER_RUN=25',
     'PREFECT_LOGGING_LEVEL=ERROR', # reduce verbosity of logging
-    'DASK_DISTRIBUTED__LOGGING__DISTRIBUTED=ERROR' # reduce verbosity of logging
+    'DASK_DISTRIBUTED__LOGGING__DISTRIBUTED=ERROR', # reduce verbosity of logging
+    'NEW_TAB_REC_DATASET=braun',
 ]

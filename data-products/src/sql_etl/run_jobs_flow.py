@@ -4,9 +4,13 @@ from pathlib import Path
 
 import pendulum as pdm
 from common import get_script_path
-from common.databases.snowflake_utils import SfGcsStage, get_gcs_stage
+from common.databases.snowflake_utils import (
+    SfGcsStage,
+    SnowflakeGcsStageSettings,
+    get_gcs_stage,
+)
 from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
-from common.settings import CommonSettings
+from common.settings import CommonSettings, get_cached_settings
 from prefect import flow, get_run_logger
 from prefect.server.schemas.schedules import CronSchedule
 from shared.async_utils import process_parallel_subflows
@@ -115,7 +119,8 @@ class SqlEtlJob(SqlJob):
         Returns:
             SfGcsStage: Model for stage metadata.
         """
-        return get_gcs_stage(self.snowflake_stage_id)
+        stg_data = get_cached_settings(SnowflakeGcsStageSettings)
+        return get_gcs_stage(stg_data.snowflake_gcp_stage_data, self.snowflake_stage_id)
 
     def get_gcs_uri(self, interval_input: IntervalSet) -> str:
         """Get the Gcp storage uri based on interval metadata.

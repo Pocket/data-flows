@@ -35,7 +35,6 @@ def get_main_version_tag() -> list:
             poetry version -C /tmp/{dir_name}
             """
         )
-        print(tag_data)
         return tag_data.strip().split()
     except Exception as e:
         if "Invalid TOML file" in str(e):

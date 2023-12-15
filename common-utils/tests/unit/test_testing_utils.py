@@ -1,10 +1,9 @@
 import os
 
 import pytest
-from prefect import flow, get_run_logger
-
 from common import get_script_path
 from common.testing_utils import reset_script_path  # noqa: F401
+from prefect import flow, get_run_logger
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 

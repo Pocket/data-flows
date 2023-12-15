@@ -11,11 +11,10 @@ from typing import Any
 
 import toml
 import yaml
+from common import find_pyproject_file, get_script_path
 from prefect import Flow
 from pydantic import BaseModel, PrivateAttr, StrictStr, ValidationError
 from slugify import slugify
-
-from common import find_pyproject_file, get_script_path
 
 # Create logger for module
 LOGGER_NAME = __name__
@@ -25,14 +24,14 @@ LOGGER = logging.getLogger(LOGGER_NAME)
 SCRIPT_PATH = get_script_path()
 
 # config for deploying flows and environments
-DEPLOYMENT_TYPE = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_TYPE", "dev")
+DEPLOYMENT_TYPE = os.getenv("DF_CONFIG_DEPLOYMENT_TYPE", "dev")
 AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1")
 AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID")
 PYPROJECT_FILE_PATH = os.path.expanduser(os.path.join(os.getcwd(), "pyproject.toml"))
-FLOWS_PATH = Path(os.getenv("MOZILLA_FLOWS_PATH_OVERRIDE", "src"))
-DEFAULT_WORK_POOL = os.getenv("MOZILLA_DEFAULT_WORK_POOL", "mozilla-aws-ecs-fargate")
-DEPLOYMENT_BRANCH = os.getenv("MOZILLA_PREFECT_DEPLOYMENT_BRANCH", "dev-v2")
-GIT_SHA = os.getenv("GIT_SHA", "dev")
+FLOWS_PATH = Path(os.getenv("DF_CONFIG_FLOWS_PATH_OVERRIDE", "src"))
+DEFAULT_WORK_POOL = os.getenv("DF_CONFIG_DEFAULT_WORK_POOL", "mozilla-aws-ecs-fargate")
+DEPLOYMENT_BRANCH = os.getenv("DF_CONFIG_DEPLOYMENT_BRANCH", "dev-v2")
+GIT_SHA = os.getenv("GIT_SHA", "dev")[0:7]
 DEFAULT_CPU = "512"
 DEFAULT_MEMORY = "1024"
 
@@ -447,7 +446,7 @@ class PrefectProject(BaseModel):
                 for d in fs.deployments:
                     fd = {
                         "name": f"{d.name}-{DEPLOYMENT_TYPE}",
-                        "tags": d.tags,
+                        "tags": d.tags + [DEPLOYMENT_TYPE, self.project_name],
                         "parameters": d.parameters,
                         "enforce_parameter_schema": d.enforce_parameter_schema,
                         "work_pool": {
@@ -457,7 +456,7 @@ class PrefectProject(BaseModel):
                         },
                         "entrypoint": f"{name}:{fs.flow.fn.__name__}",
                     }
-                    if x := d.cron:
+                    if (x := d.cron) and DEPLOYMENT_TYPE == "main":
                         fd["schedule"] = {
                             "cron": x,
                             "timezone": d.timezone,

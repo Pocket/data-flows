@@ -216,77 +216,86 @@ def test_prefect_project(mock_cmd):
 
 
 @mock_ecs
+@pytest.mark.parametrize("deployment_type", ["dev", "staging", "main"])
 @patch("common.deployment.worker.run_command")
-def test_flow_specs(mock_cmd):
-    # test all test flows
-    mock_cmd.return_value = "2.14.9"
-    x = get_pyproject_metadata()
-    x.process_docker_envs()
-    mock_cmd.reset_mock()
-    mock_cmd.return_value = "https://github.com/Pocket/data-flows.git"
-    with pytest.raises(Exception) as e:
-        # this has failures because of test flows and is expected.
-        asyncio.run(x.process_flow_specs())
-        assert "The following flows failed validation: ['example_flow']" in str(e.value)
-    with open("prefect.yaml") as f:
-        data = yaml.load(f, Loader=yaml.SafeLoader)
-    assert data == {
-        "deployments": [
-            {
-                "description": "flow",
-                "enforce_parameter_schema": False,
-                "entrypoint": "tests/deployment/worker/test_flows/example_flow.py:flow_1",  # noqa: E501
-                "name": "base-dev",
-                "parameters": {"param_name": "param_value"},
-                "schedule": {"cron": "0 0 * * *", "timezone": "UTC"},
-                "tags": ["test"],
-                "version": "1",
-                "work_pool": {
-                    "job_variables": {
-                        "cpu": "1024",
-                        "memory": "4096",
-                        "task_definition_arn": "arn:aws:ecs:us-east-1:123456789:task-definition/common-utils-base-v2-dev",  # noqa: E501
+def test_flow_specs(mock_cmd, deployment_type):
+    with patch("common.deployment.worker.DEPLOYMENT_TYPE", deployment_type):
+        # test all test flows
+        mock_cmd.return_value = "2.14.9"
+        x = get_pyproject_metadata()
+        x.process_docker_envs()
+        mock_cmd.reset_mock()
+        mock_cmd.return_value = "https://github.com/Pocket/data-flows.git"
+        with pytest.raises(Exception) as e:
+            # this has failures because of test flows and is expected.
+            asyncio.run(x.process_flow_specs())
+            assert "The following flows failed validation: ['example_flow']" in str(
+                e.value
+            )
+        with open("prefect.yaml") as f:
+            data = yaml.load(f, Loader=yaml.SafeLoader)
+
+        test_data = {
+            "deployments": [
+                {
+                    "description": "flow",
+                    "enforce_parameter_schema": False,
+                    "entrypoint": "tests/deployment/worker/test_flows/example_flow.py:flow_1",  # noqa: E501
+                    "name": f"base-{deployment_type}",
+                    "parameters": {"param_name": "param_value"},
+                    "schedule": {"cron": "0 0 * * *", "timezone": "UTC"},
+                    "tags": ["test", deployment_type, "common-utils"],
+                    "version": "1",
+                    "work_pool": {
+                        "job_variables": {
+                            "cpu": "1024",
+                            "memory": "4096",
+                            "task_definition_arn": f"arn:aws:ecs:us-east-1:123456789:task-definition/common-utils-base-v2-{deployment_type}",  # noqa: E501
+                        },
+                        "name": f"mozilla-aws-ecs-fargate-{deployment_type}",
+                        "work_queue_name": "default",
                     },
-                    "name": "mozilla-aws-ecs-fargate-dev",
-                    "work_queue_name": "default",
                 },
-            },
-            {
-                "description": "flow",
-                "enforce_parameter_schema": False,
-                "entrypoint": "tests/deployment/worker/test_flows/single_flow/example_flow.py:flow_1",  # noqa: E501
-                "name": "test-dev",
-                "parameters": {"param_name": "param_value"},
-                "schedule": {"cron": "0 0 * * *", "timezone": "UTC"},
-                "tags": ["test"],
-                "version": "1",
-                "work_pool": {
-                    "job_variables": {
-                        "cpu": "1024",
-                        "memory": "4096",
-                        "task_definition_arn": "arn:aws:ecs:us-east-1:123456789:task-definition/common-utils-base-v2-dev",  # noqa: E501
+                {
+                    "description": "flow",
+                    "enforce_parameter_schema": False,
+                    "entrypoint": "tests/deployment/worker/test_flows/single_flow/example_flow.py:flow_1",  # noqa: E501
+                    "name": f"test-{deployment_type}",
+                    "parameters": {"param_name": "param_value"},
+                    "schedule": {"cron": "0 0 * * *", "timezone": "UTC"},
+                    "tags": ["test", deployment_type, "common-utils"],
+                    "version": "1",
+                    "work_pool": {
+                        "job_variables": {
+                            "cpu": "1024",
+                            "memory": "4096",
+                            "task_definition_arn": f"arn:aws:ecs:us-east-1:123456789:task-definition/common-utils-base-v2-{deployment_type}",  # noqa: E501
+                        },
+                        "name": f"mozilla-aws-ecs-fargate-{deployment_type}",
+                        "work_queue_name": "default",
                     },
-                    "name": "mozilla-aws-ecs-fargate-dev",
-                    "work_queue_name": "default",
                 },
-            },
-        ],
-        "name": "common-utils",
-        "pull": [
-            {
-                "prefect.deployments.steps.run_shell_script": {
-                    "id": "clone_project",
-                    "script": "df-cli clone-project https://github.com/Pocket/data-flows.git dev-v2",  # noqa: E501
-                    "stream_output": True,
-                }
-            },
-            {
-                "prefect.deployments.steps.set_working_directory": {
-                    "directory": "/opt/prefect/common-utils"
-                }
-            },
-        ],
-    }
+            ],
+            "name": "common-utils",
+            "pull": [
+                {
+                    "prefect.deployments.steps.run_shell_script": {
+                        "id": "clone_project",
+                        "script": "df-cli clone-project https://github.com/Pocket/data-flows.git dev-v2",  # noqa: E501
+                        "stream_output": True,
+                    }
+                },
+                {
+                    "prefect.deployments.steps.set_working_directory": {
+                        "directory": "/opt/prefect/common-utils"
+                    }
+                },
+            ],
+        }
+        if deployment_type != "main":
+            for i in test_data["deployments"]:
+                del i["schedule"]
+        assert data == test_data
 
 
 @mock_ecs
