@@ -7,7 +7,7 @@ from common.cloud.gcp_utils import MozGcpCredentials
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings
-from prefect import flow
+from prefect import flow, get_run_logger
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
 from shared.feature_store import FeatureGroupSettings, dataframe_to_feature_group
@@ -177,6 +177,7 @@ async def export_telemetry_by_corpus_item_id(
     df_corpus_item_keys = pd.DataFrame(corpus_item_keys_records)
     # Combine the BigQuery and Snowflake results on TILE_ID.
     df_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
+
     # Drop TILE_ID or CORPUS_RECOMMENDATION_ID after merging,
     # to match the dataframe columns with the feature group.
     return df_telemetry.drop(columns=[join_column_name])
@@ -187,6 +188,7 @@ async def aggregate_engagement():
     """
     Ingests NewTab telemetry joined with Corpus metadata into a Sagemaker Feature Group.
     """
+    logger = get_run_logger()
     # Export telemetry from Glean and Activity Stream aggregated by CORPUS_ITEM_ID.
     all_dataframes = await gather(
         *[
@@ -194,7 +196,7 @@ async def aggregate_engagement():
             for export_sql, join_column in telemetry_sources
         ]
     )
-
+    logger.info(f"Dataframe counts are: {[len(x) for x in all_dataframes]}...")
     # Sum the opens and impressions from Glean and Acitivy Stream.
     df_combined = (
         pd.concat(all_dataframes)
