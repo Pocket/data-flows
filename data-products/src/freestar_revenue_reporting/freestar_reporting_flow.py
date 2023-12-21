@@ -202,7 +202,7 @@ FILE_FORMAT = freestar.{SNOWFLAKE_TABLE}_format;
 
 
 @flow(
-    name="ingest-freestar-data-subflow",
+    name="freestar-report-flow.ingest-freestar-data-subflow",
     flow_run_name="freestar-ingestion-{report_date}",
 )
 async def ingest_freestar_data_subflow(
@@ -314,7 +314,7 @@ class FlowDateInputs(BaseModel):
 
 
 # Define the Prefect flow
-@flow(name="Freestar Report Flow")
+@flow(name="freestar-revenue-reporting.freestar-report-flow")
 async def freestar_report_flow(dates: FlowDateInputs = FlowDateInputs()):
     """Main flow that will bootstrap Snowflake objects as needed.
     This will also do the necessary evaluation of dates to determine
