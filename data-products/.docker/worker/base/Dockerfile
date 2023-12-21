@@ -18,4 +18,4 @@ COPY poetry.lock poetry.lock
 COPY pyproject.toml pyproject.toml
 RUN poetry config virtualenvs.create false
 ARG DEPENDENCY_GROUP
-RUN poetry install --only ${DEPENDENCY_GROUP} --no-root
+RUN poetry install --only ${DEPENDENCY_GROUP}
