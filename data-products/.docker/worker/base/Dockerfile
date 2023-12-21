@@ -12,7 +12,9 @@ RUN apt update && \
     apt clean && apt autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-    
+
+COPY src/shared src/shared
+COPY README.md README.md
 COPY dist ../common-utils
 COPY poetry.lock poetry.lock
 COPY pyproject.toml pyproject.toml
