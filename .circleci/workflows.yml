@@ -236,6 +236,7 @@ jobs:
     environment: 
       POCKET_PREFECT_DEPLOYMENT_TYPE: << parameters.deployment_type >>
       DF_CONFIG_DEPLOYMENT_TYPE: << parameters.deployment_type >>
+      DF_CONFIG_GH_REPO: https://github.com/Pocket/data-flows.git
     docker:
       - image: cimg/python:3.10
     steps:

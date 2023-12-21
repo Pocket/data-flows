@@ -11,11 +11,10 @@ from typing import Any
 
 import toml
 import yaml
+from common import find_pyproject_file, get_script_path
 from prefect import Flow
 from pydantic import BaseModel, PrivateAttr, StrictStr, ValidationError
 from slugify import slugify
-
-from common import find_pyproject_file, get_script_path
 
 # Create logger for module
 LOGGER_NAME = __name__
@@ -408,7 +407,10 @@ class PrefectProject(BaseModel):
         """
         # start building the yaml elements
 
-        gh_repo = run_command(shlex.join(["git", "ls-remote", "--get-url", "origin"]))
+        gh_repo = os.getenv(
+            "DF_CONFIG_GH_REPO",
+            run_command(shlex.join(["git", "ls-remote", "--get-url", "origin"])),
+        )
 
         base_pull = [
             {
