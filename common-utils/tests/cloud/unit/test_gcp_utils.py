@@ -4,11 +4,15 @@ import os
 from pathlib import PosixPath
 
 import common.cloud.gcp_utils as gcpu
+import pytest
 from prefect.blocks.fields import SecretDict
 
 
-def test_moz_gcp():
-    x = gcpu.MozGcpCredentials()
+@pytest.mark.parametrize(
+    "creds_type", [gcpu.MozGcpCredentials, gcpu.MozGcpCredentialsV2]
+)
+def test_moz_gcp(creds_type):
+    x = creds_type()
     compare = x.dict()
     assert compare == {
         "service_account_file": PosixPath("tests/test.json"),
@@ -17,11 +21,19 @@ def test_moz_gcp():
         "_service_account_email": "test@test.iam.gserviceaccount.com",
         "block_type_slug": "gcp-credentials",
     }
-    assert isinstance(x, gcpu.MozGcpCredentials)
+    assert isinstance(x, creds_type)
 
 
-def test_moz_gcp_with_sa_info():
-    os.environ["DF_CONFIG_GCP_CREDENTIALS"] = json.dumps(
+@pytest.mark.parametrize(
+    "creds_type", [gcpu.MozGcpCredentials, gcpu.MozGcpCredentialsV2]
+)
+def test_moz_gcp_with_sa_info(creds_type):
+    envar_map = {
+        "<class 'common.cloud.gcp_utils.MozGcpCredentials'>": "DF_CONFIG_GCP_CREDENTIALS",  # noqa: E501
+        "<class 'common.cloud.gcp_utils.MozGcpCredentialsV2'>": "DF_CONFIG_GCP_CREDENTIALS_V2",  # noqa: E501
+    }
+
+    os.environ[envar_map[str(creds_type)]] = json.dumps(
         {
             "service_account_info": {
                 "type": "service_account",
@@ -39,7 +51,7 @@ def test_moz_gcp_with_sa_info():
         }
     )
     importlib.reload(gcpu)
-    x = gcpu.MozGcpCredentials()
+    x = creds_type()
     compare = x.dict()
     compare["service_account_info"] = compare["service_account_info"].dict()
     assert compare == {
@@ -63,4 +75,4 @@ def test_moz_gcp_with_sa_info():
         "_service_account_email": "test2@test.iam.gserviceaccount.com",
         "block_type_slug": "gcp-credentials",
     }
-    assert isinstance(x, gcpu.MozGcpCredentials)
+    assert isinstance(x, creds_type)
