@@ -3,7 +3,7 @@ from asyncio import gather, run
 from typing import NamedTuple
 
 import pandas as pd
-from common.cloud.gcp_utils import MozGcpCredentials
+from common.cloud.gcp_utils import MozGcpCredentialsV2 as MozGcp
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings
@@ -168,7 +168,7 @@ async def export_telemetry_by_corpus_item_id(
         JOIN_COLUMN_NAME=join_column_name
     )
     df_telemetry = await bigquery_query(
-        gcp_credentials=MozGcpCredentials(),
+        gcp_credentials=MozGcp(),
         query=export_telemetry_sql,
         to_dataframe=True,
     )

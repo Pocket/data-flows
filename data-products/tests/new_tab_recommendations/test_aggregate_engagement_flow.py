@@ -67,7 +67,7 @@ async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
     with (
         async_patch(f"{MODULE}.bigquery_query", return_value=bigquery_data),
         async_patch(f"{MODULE}.snowflake_query", return_value=snowflake_data),
-        patch(f"{MODULE}.MozGcpCredentials", return_value=MagicMock()),
+        patch(f"{MODULE}.MozGcp", return_value=MagicMock()),
     ):
         result = await ntr.export_telemetry_by_corpus_item_id(
             "select foo from bar", join_column_name
@@ -160,6 +160,6 @@ def test_optional_suffix(deployment_type):
     ntr.CS.deployment_type = deployment_type
     x = ntr.optional_suffix()
     if deployment_type == "main":
-        assert x is None
+        assert x == ""
     else:
         assert x == f"_{deployment_type}"
