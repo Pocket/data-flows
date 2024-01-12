@@ -73,5 +73,6 @@ env = [
     'PREFECT_LOGGING_LEVEL=ERROR', # reduce verbosity of logging
     'DASK_DISTRIBUTED__LOGGING__DISTRIBUTED=ERROR', # reduce verbosity of logging
     'NEW_TAB_REC_DATASET=braun',
-    'R:DF_CONFIG_FREESTAR_CREDENTIALS={"api_key": "test"}'
+    'R:DF_CONFIG_FREESTAR_CREDENTIALS={"api_key": "test"}',
+    'R:DF_CONFIG_BRAZE_CREDENTIALS={"api_key":"test","rest_endpoint":"mock://test.com"}'
 ]
