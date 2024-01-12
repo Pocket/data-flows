@@ -1,12 +1,11 @@
-import asyncio
 import datetime
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from common.databases.snowflake_utils import MozSnowflakeConnector
+from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, get_run_logger, task
-from prefect_dask import DaskTaskRunner
 from prefect_snowflake.database import snowflake_query
 from shared.api_clients.braze import models
 from shared.api_clients.braze.client import (
@@ -24,6 +23,7 @@ from shared.api_clients.braze.pocket_config import (
 )
 from shared.api_clients.braze.utils import format_date, is_valid_email
 from shared.iteration_utils import chunks
+from shared.offset_utils import get_last_offset, upsert_new_offset
 from shared.tasks import split_dict_of_lists_in_chunks, split_in_chunks
 from snowflake.connector import DictCursor
 
@@ -385,8 +385,8 @@ async def update_braze(
 ):
     sfc = MozSnowflakeConnector()
 
-    last_offset = user_deltas_dicts = await snowflake_query(
-        query=GET_OFFSET_QUERY,
+    last_offset = await get_last_offset(
+        offset_key=OFFSET_KEY,
         snowflake_connector=sfc,
     )
 
@@ -497,19 +497,30 @@ async def update_braze(
         wait_for=[track_users_task],  # type: ignore
     )
 
-    await snowflake_query(
-        query=UPDATE_OFFSET_SQL,
-        params={"new_offset": new_offset},
+    await upsert_new_offset(
+        offset_key=OFFSET_KEY,
+        new_offset=new_offset,
         snowflake_connector=sfc,
-        wait_for=[  # type: ignore
-            create_email_aliases_task,
-            identify_users_task,
-            subscribe_users_task,
-            track_users_task,
-            delete_users_results,
-        ],
+        **{
+            "wait_for": [
+                create_email_aliases_task,
+                identify_users_task,
+                subscribe_users_task,
+                track_users_task,
+                delete_users_results,
+            ]
+        },
     )
 
 
+FLOW_SPEC = FlowSpec(
+    flow=update_braze,
+    docker_env="base",
+    deployments=[
+        FlowDeployment(name="update_braze"),
+    ],
+)
+
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(update_braze())  # type: ignore

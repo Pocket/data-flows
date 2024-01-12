@@ -43,7 +43,7 @@ topic_distributions AS (
       SUM(IFF(a.topic = 'TRAVEL', 1, 0)) as num_approved_travel,
       SUM(IFF(a.topic = 'SPORTS', 1, 0)) as num_approved_sports,
       SUM(IFF(a.topic IS NOT NULL AND a.topic <> 'CORONAVIRUS', 1, 0)) as num_approved
-    FROM content as c
+    FROM ANALYTICS.DBT.content as c
     JOIN analytics.dbt.approved_corpus_items as a
       ON a.content_id = c.content_id
     WHERE a.topic is not NULL
