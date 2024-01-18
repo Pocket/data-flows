@@ -517,7 +517,7 @@ FLOW_SPEC = FlowSpec(
     flow=update_braze,
     docker_env="base",
     deployments=[
-        FlowDeployment(name="update_braze"),
+        FlowDeployment(name="update-braze"),
     ],
 )
 
