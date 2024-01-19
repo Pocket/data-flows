@@ -10,6 +10,7 @@ DB_MAPPING = {"dev": "development", "staging": "development", "main": "prefect"}
 @pytest.mark.parametrize("deployment_type", ["dev", "staging", "main"])
 def test_pkt_snowflake_connector(deployment_type):
     import common.databases.snowflake_utils as sfu
+
     importlib.reload(sfu)
     sfu.CS.deployment_type = deployment_type
     x = sfu.MozSnowflakeConnector()
