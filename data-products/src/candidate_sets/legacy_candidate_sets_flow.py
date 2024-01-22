@@ -93,7 +93,27 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             name="topics", cron="*/30 * * * *", parameters={"set_params_id": "topics"}
-        )
+        ),
+        FlowDeployment(
+            name="longreads",
+            cron="*/180 * * * *",
+            parameters={"set_params_id": "longreads"},
+        ),
+        FlowDeployment(
+            name="shortreads",
+            cron="*/180 * * * *",
+            parameters={"set_params_id": "shortreads"},
+        ),
+        FlowDeployment(
+            name="curated_feeds",
+            cron="*/60 * * * *",
+            parameters={"set_params_id": "curated_feeds"},
+        ),
+        FlowDeployment(
+            name="syndicated_feed",
+            cron="*/60 * * * *",
+            parameters={"set_params_id": "syndicated_feed"},
+        ),
     ],
 )
 
