@@ -3,15 +3,13 @@ import time
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List
-from typing import Union, Dict
+from typing import Dict, List, Optional, Union
 
 import boto3
-import prefect
-from prefect import task, get_run_logger
+from common.settings import CommonSettings
+from prefect import get_run_logger, task
 from prefect.context import FlowRunContext
 from pydantic import BaseModel, root_validator
-from common.settings import CommonSettings
 
 CS = CommonSettings()  # type: ignore
 
