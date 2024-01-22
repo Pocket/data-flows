@@ -66,8 +66,9 @@ def create_fake_data(with_variation: bool = False, with_results: bool = True):
     return test_data
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("with_backfill_results", [True, False])
-def test_update_flow(with_backfill_results, monkeypatch):
+async def test_update_flow(with_backfill_results, monkeypatch):
     fake_data = create_fake_data(with_backfill_results, with_backfill_results)
     fake_offset = [(TEST_DATETIME,)]
     fake_response = []
@@ -75,23 +76,36 @@ def test_update_flow(with_backfill_results, monkeypatch):
     result_mapping = [fake_offset, fake_data, fake_response]
 
     # state for tracking fake task calls
-    mock_state = {
-        "call_count": 0,
-    }
+    mock_state = {"sf_call_count": 0, "offset_call_count": 0}
 
     @task()
-    async def snowflake_query_task(*args, **kwargs):
-        mock_state["call_count"] += 1
-        result = result_mapping[0]
+    async def fake_offset_task(*args, **kwargs):
+        mock_state["offset_call_count"] += 1
+        results = result_mapping[0]
         result_mapping.pop(0)
-        return result
-        monkeypatch.setattr("braze.update_flow.snowflake_query", snowflake_query_task)
-        mock_client = MagicMock()
-        monkeypatch.setattr("braze.update_flow.BrazeClient", mock_client)
+        return results
 
-        await update_braze(with_backfill_results)
-        assert mock_client.call_count == 8 if with_backfill_results else 6
-        assert mock_state["call_count"] == 3 if with_backfill_results else 2
+    @task()
+    async def fake_sf_task(*args, **kwargs):
+        mock_state["sf_call_count"] += 1
+        return fake_data
+
+    monkeypatch.setattr("braze.update_flow.snowflake_query", fake_sf_task)
+    monkeypatch.setattr("braze.update_flow.get_last_offset", fake_offset_task)
+    monkeypatch.setattr("braze.update_flow.upsert_new_offset", fake_offset_task)
+    mock_client = MagicMock()
+    monkeypatch.setattr("braze.update_flow.BrazeClient", mock_client)
+
+    mock_client_count = 8
+    mock_offset_count = 2
+    if not with_backfill_results:
+        mock_client_count = 0
+        mock_offset_count = 1
+
+    await update_braze(with_backfill_results)
+    assert mock_client.call_count == mock_client_count
+    assert mock_state["sf_call_count"] == 1
+    assert mock_state["offset_call_count"] == mock_offset_count
 
 
 @pytest.mark.parametrize("with_variation", [True, False])
