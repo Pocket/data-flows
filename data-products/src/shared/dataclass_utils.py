@@ -8,11 +8,12 @@ class DataClassJSONEncoderWithoutNoneValues(json.JSONEncoder):
     Allows a dataclass to be encoded as json using json.dumps(foo, cls=DataClassJSONEncoder)
     Fields set to `Missing()` will not be present in the output.
     """
+
     def default(self, o):
         if dataclasses.is_dataclass(o):
             d = dataclasses.asdict(o)
             return _without_none_values(d)
-        return super().default(o) # pragma: no cover
+        return super().default(o)  # pragma: no cover
 
 
 def _without_none_values(obj: Any):

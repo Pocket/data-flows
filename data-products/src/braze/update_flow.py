@@ -523,4 +523,5 @@ FLOW_SPEC = FlowSpec(
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(update_braze())  # type: ignore
