@@ -1,11 +1,10 @@
 import asyncio
 from typing import Any, Optional, Union
 
+from common.settings import CS, NestedSettings, SecretSettings, get_cached_settings
 from prefect import task
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
 from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
-
-from common.settings import CS, NestedSettings, SecretSettings, get_cached_settings
 
 
 class SnowflakeCredSettings(NestedSettings):
