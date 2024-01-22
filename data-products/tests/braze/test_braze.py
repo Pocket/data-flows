@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from unittest.mock import MagicMock
 
@@ -86,14 +85,13 @@ def test_update_flow(with_backfill_results, monkeypatch):
         result = result_mapping[0]
         result_mapping.pop(0)
         return result
+        monkeypatch.setattr("braze.update_flow.snowflake_query", snowflake_query_task)
+        mock_client = MagicMock()
+        monkeypatch.setattr("braze.update_flow.BrazeClient", mock_client)
 
-    monkeypatch.setattr("braze.update_flow.snowflake_query", snowflake_query_task)
-    mock_client = MagicMock()
-    monkeypatch.setattr("braze.update_flow.BrazeClient", mock_client)
-
-    asyncio.run(update_braze(with_backfill_results))
-    assert mock_client.call_count == 8 if with_backfill_results else 6
-    assert mock_state["call_count"] == 3 if with_backfill_results else 2
+        await update_braze(with_backfill_results)
+        assert mock_client.call_count == 8 if with_backfill_results else 6
+        assert mock_state["call_count"] == 3 if with_backfill_results else 2
 
 
 @pytest.mark.parametrize("with_variation", [True, False])
