@@ -85,6 +85,9 @@ class SnowflakeCursor:
 
 
 class SnowflakeConnection:
+    def __init__(self):
+        self.while_count = 0
+
     def __enter__(self):
         return self
 
@@ -95,17 +98,13 @@ class SnowflakeConnection:
         return SnowflakeCursor()
 
     def is_still_running(self, state):
+        if self.while_count > 0:
+            state = False
+        self.while_count += 1
         return state
 
     def get_query_status_throw_if_error(self, query_id):
-        return False
-
-
-@pytest.fixture()
-def snowflake_connector(snowflake_connect_mock):
-    snowflake_connector_mock = MagicMock()
-    snowflake_connector_mock.get_connection.return_value = SnowflakeConnection()
-    return snowflake_connector_mock
+        return True
 
 
 @pytest.mark.asyncio
