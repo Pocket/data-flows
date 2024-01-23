@@ -400,15 +400,15 @@ async def update_braze(
             table_name = f"BACKFILLS_{CS.deployment_type}.STG_BRAZE_USER_DELTAS"
         return table_name
 
-    def get_dev_expressions() -> tuple[str, str]:
-        email_expression = "EMAIL"
-        limit = ""
-        if not CS.is_production:
-            email_expression = "CASE WHEN (EMAIL IS NOT NULL AND EMAIL != '') THEN (split_part(EMAIL, '@',  0) || '@example.com') ELSE NULL END as EMAIL"  # noqa: E501
-            limit = "LIMIT 1000"
-        return email_expression, limit
+    expression_data = {
+        "dev": ("EMAIL", ""),
+        "production": (
+            "CASE WHEN (EMAIL IS NOT NULL AND EMAIL != '') THEN (split_part(EMAIL, '@',  0) || '@example.com') ELSE NULL END as EMAIL",  # noqa: E501
+            "LIMIT 1000",
+        ),
+    }
 
-    email_expression, limit = get_dev_expressions()
+    email_expression, limit = expression_data[CS.dev_or_production]
 
     user_deltas_dicts = await snowflake_query(
         query=EXTRACT_QUERY.format(
