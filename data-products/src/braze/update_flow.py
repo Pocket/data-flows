@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, get_run_logger, task
+from prefect_dask import DaskTaskRunner
 from prefect_snowflake.database import snowflake_query
 from shared.api_clients.braze import models
 from shared.api_clients.braze.client import (
@@ -377,9 +378,7 @@ def get_event_properties_for_user_delta(
         return {}
 
 
-@flow(
-    # task_runner=DaskTaskRunner(cluster_kwargs={"n_workers": 4, "threads_per_worker": 1})
-)
+@flow(task_runner=DaskTaskRunner())
 async def update_braze(
     is_backfill: bool = False, max_operations_per_task_run: int = 100000
 ):
@@ -517,7 +516,9 @@ FLOW_SPEC = FlowSpec(
     flow=update_braze,
     docker_env="base",
     deployments=[
-        FlowDeployment(name="update-braze"),
+        FlowDeployment(
+            name="update-braze", job_variables={"cpu": 4096, "memory": 30720}
+        ),
     ],
 )
 

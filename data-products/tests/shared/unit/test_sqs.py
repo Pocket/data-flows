@@ -2,7 +2,7 @@ import boto3
 import pytest
 from moto import mock_sqs
 from prefect import flow
-from shared.api_clients.sqs import RecommendationCandidate, put_results
+from shared.api_clients.sqs import CS, RecommendationCandidate, put_results
 
 TEST_DATA = [RecommendationCandidate(feed_id=1, publisher="test", item_id=1)]
 
@@ -12,9 +12,11 @@ TEST_DATA = [RecommendationCandidate(feed_id=1, publisher="test", item_id=1)]
 def test_sqs(test_config):
     curated, expiration = test_config
 
+    env_mapping = {"dev": "Dev", "production": "Prod"}
+
     sqs = boto3.client("sqs")
     sqs.create_queue(
-        QueueName="RecommendationAPI-Dev-Sqs-Translation-Queue",
+        QueueName=f"RecommendationAPI-{env_mapping[CS.dev_or_production]}-Sqs-Translation-Queue",
     )
 
     @flow()
