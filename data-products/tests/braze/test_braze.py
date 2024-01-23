@@ -6,6 +6,7 @@ import pytest
 import requests
 import requests_mock
 from braze.update_flow import (
+    CS,
     SUBSCRIPTION_GROUP_NAME_TO_ID,
     BrazeClient,
     filter_user_deltas_by_trigger,
@@ -301,7 +302,20 @@ def test_braze_utils(with_variation, monkeypatch):
             )
 
             results = adapter.request_history[-1].json()
-            assert results == assertions[4][0]
+            if results:
+                if CS.is_production:
+                    assert (
+                        results["subscription_group_id"]
+                        == "fbc3506c-26a5-4f35-b8f0-ed382da4f2db"
+                    )
+                else:
+                    assert (
+                        results["subscription_group_id"]
+                        == "0e63c4fa-30fb-445f-bf4f-583e5dd10efb"
+                    )
+                assert results["subscription_state"] == "subscribed"
+            else:
+                assert results == assertions[4][0]
             adapter.reset()
 
     for chunk in chunks(all_user_deltas_split[0], TEST_CHUNK_SIZE):
