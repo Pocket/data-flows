@@ -55,7 +55,7 @@ SELECT
     USER_EVENT_TRIGGER,
     EXTERNAL_ID,
     {email_expression},
-    IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER AS HAS_EMAIL,
+    CASE WHEN (EMAIL = '' and IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER) THEN false ELSE IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER END AS HAS_EMAIL,
     IS_PREMIUM,
     TIME_ZONE,
     COUNTRY,
@@ -69,7 +69,7 @@ FROM {table_name}
 WHERE LOADED_AT > %(loaded_at_start)s
 ORDER BY LOADED_AT ASC
 {limit}
-"""
+"""  # noqa: E501
 
 
 @dataclass
