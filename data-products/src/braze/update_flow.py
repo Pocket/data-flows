@@ -401,8 +401,8 @@ async def update_braze(
         return table_name
 
     expression_data = {
-        "dev": ("EMAIL", ""),
-        "production": (
+        "production": ("EMAIL", ""),
+        "dev": (
             "CASE WHEN (EMAIL IS NOT NULL AND EMAIL != '') THEN (split_part(EMAIL, '@',  0) || '@example.com') ELSE NULL END as EMAIL",  # noqa: E501
             "LIMIT 1000",
         ),
