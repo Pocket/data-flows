@@ -415,6 +415,11 @@ FLOW_SPEC = FlowSpec(
             # Running at 10 a.m. UTC to ensure it runs after midnight
             # since we are pulling from Freestar's "Yesterday"
             cron="0 10 * * *",
+            job_variables={
+                "ephemeralStorage": {"sizeInGiB": 200},
+                "cpu": 4096,
+                "memory": 30720,
+            },
         ),
     ],
 )
