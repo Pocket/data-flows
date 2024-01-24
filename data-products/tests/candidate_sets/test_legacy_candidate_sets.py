@@ -1,6 +1,8 @@
 import pytest
-from candidate_sets.candidate_config import GET_TOPICS_SQL
-from candidate_sets.legacy_candidate_sets_flow import create_legacy_candidate_set
+from candidate_sets.legacy_candidate_sets_flow import (
+    GET_TOPICS_SQL,
+    create_legacy_candidate_set,
+)
 from prefect import task
 
 TEST_DATA = {
