@@ -53,7 +53,7 @@ SELECT
     LOADED_AT,
     HAPPENED_AT,
     USER_EVENT_TRIGGER,
-    EXTERNAL_ID,
+    CASE WHEN EXTERNAL_ID = '' THEN null ELSE EXTERNAL_ID END as EXTERNAL_ID,
     {email_expression},
     CASE WHEN (EMAIL = '' and IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER) THEN false ELSE IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER END AS HAS_EMAIL,
     IS_PREMIUM,
@@ -400,7 +400,7 @@ async def update_braze(
         return table_name
 
     expression_data = {
-        "production": ("EMAIL", ""),
+        "production": ("CASE WHEN EMAIL = '' THEN null ELSE EMAIL END as EMAIL", ""),
         "dev": (
             "CASE WHEN (EMAIL IS NOT NULL AND EMAIL != '') THEN (split_part(EMAIL, '@',  0) || '@example.com') ELSE NULL END as EMAIL",  # noqa: E501
             "LIMIT 1000",
