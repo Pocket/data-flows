@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, get_run_logger, task
+from prefect_dask import DaskTaskRunner
 from prefect_snowflake.database import snowflake_query
 from shared.api_clients.braze import models
 from shared.api_clients.braze.client import (
@@ -29,32 +30,16 @@ from snowflake.connector import DictCursor
 
 OFFSET_KEY = "update_braze"
 
-GET_OFFSET_QUERY = f"""select coalesce(any_value(last_offset), '2022-03-22') as last_offset
-    from sql_offset_state
-    where sql_folder_name = '{OFFSET_KEY}'"""
-
-UPDATE_OFFSET_SQL = f"""
-    merge into sql_offset_state dt using (
-    select '{OFFSET_KEY}' as sql_folder_name, 
-    current_timestamp as created_at, 
-    current_timestamp as updated_at,
-    %(new_offset)s as last_offset
-    ) st on st.sql_folder_name = dt.sql_folder_name
-    when matched then update 
-    set updated_at = st.updated_at,
-        last_offset = st.last_offset
-    when not matched then insert (sql_folder_name, created_at, updated_at, last_offset) 
-    values (st.sql_folder_name, st.created_at, st.updated_at, st.last_offset)"""
-
 EXTRACT_QUERY = """
+with initial_data as (
 SELECT
     EVENT_ID,
     LOADED_AT,
     HAPPENED_AT,
     USER_EVENT_TRIGGER,
-    EXTERNAL_ID,
+    CASE WHEN EXTERNAL_ID = '' THEN null ELSE EXTERNAL_ID END as EXTERNAL_ID,
     {email_expression},
-    IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER AS HAS_EMAIL,
+    CASE WHEN (EMAIL = '' and IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER) THEN false ELSE IS_NEW_EMAIL_ALIAS_FOR_POCKET_USER END AS HAS_EMAIL,
     IS_PREMIUM,
     TIME_ZONE,
     COUNTRY,
@@ -65,10 +50,13 @@ SELECT
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
 FROM {table_name}
-WHERE LOADED_AT > %(loaded_at_start)s
+WHERE LOADED_AT > %(loaded_at_start)s)
+select *
+from initial_data
+where not (email is null and external_id is null)
 ORDER BY LOADED_AT ASC
 {limit}
-"""
+"""  # noqa: E501
 
 
 @dataclass
@@ -377,9 +365,7 @@ def get_event_properties_for_user_delta(
         return {}
 
 
-@flow(
-    # task_runner=DaskTaskRunner(cluster_kwargs={"n_workers": 4, "threads_per_worker": 1})
-)
+@flow(task_runner=DaskTaskRunner())
 async def update_braze(
     is_backfill: bool = False, max_operations_per_task_run: int = 100000
 ):
@@ -401,7 +387,7 @@ async def update_braze(
         return table_name
 
     expression_data = {
-        "production": ("EMAIL", ""),
+        "production": ("CASE WHEN EMAIL = '' THEN null ELSE EMAIL END as EMAIL", ""),
         "dev": (
             "CASE WHEN (EMAIL IS NOT NULL AND EMAIL != '') THEN (split_part(EMAIL, '@',  0) || '@example.com') ELSE NULL END as EMAIL",  # noqa: E501
             "LIMIT 1000",
@@ -517,7 +503,9 @@ FLOW_SPEC = FlowSpec(
     flow=update_braze,
     docker_env="base",
     deployments=[
-        FlowDeployment(name="update-braze"),
+        FlowDeployment(
+            name="update-braze", job_variables={"cpu": 4096, "memory": 30720}
+        ),
     ],
 )
 
