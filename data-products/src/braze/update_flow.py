@@ -30,23 +30,6 @@ from snowflake.connector import DictCursor
 
 OFFSET_KEY = "update_braze"
 
-GET_OFFSET_QUERY = f"""select coalesce(any_value(last_offset), '2022-03-22') as last_offset
-    from sql_offset_state
-    where sql_folder_name = '{OFFSET_KEY}'"""
-
-UPDATE_OFFSET_SQL = f"""
-    merge into sql_offset_state dt using (
-    select '{OFFSET_KEY}' as sql_folder_name, 
-    current_timestamp as created_at, 
-    current_timestamp as updated_at,
-    %(new_offset)s as last_offset
-    ) st on st.sql_folder_name = dt.sql_folder_name
-    when matched then update 
-    set updated_at = st.updated_at,
-        last_offset = st.last_offset
-    when not matched then insert (sql_folder_name, created_at, updated_at, last_offset) 
-    values (st.sql_folder_name, st.created_at, st.updated_at, st.last_offset)"""
-
 EXTRACT_QUERY = """
 SELECT
     EVENT_ID,
