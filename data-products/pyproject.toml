@@ -1,7 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.10.4"
-
+version = "0.11.2"
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -38,7 +37,7 @@ pytest-asyncio = "^0.21.0"
 pytest-env = "^0.8.1"
 ruff = "^0.0.280"
 bokeh = ">=2.4.2,<3"
-moto = {extras = ["s3"], version = "^4.2.5"}
+moto = {extras = ["s3", "sqs"], version = "^4.2.5"}
 requests-mock = "^1.11.0"
 
 

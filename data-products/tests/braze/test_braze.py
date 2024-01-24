@@ -22,6 +22,7 @@ from braze.update_flow import (
     update_braze,
 )
 from prefect import task
+from prefect.task_runners import ConcurrentTaskRunner
 from shared.iteration_utils import chunks
 
 TEST_DATETIME = pendulum.from_format("2024-01-11 12:35", "YYYY-MM-DD HH:mm")
@@ -102,8 +103,9 @@ async def test_update_flow(with_backfill_results, monkeypatch):
     if not with_backfill_results:
         mock_client_count = 0
         mock_offset_count = 1
-
-    await update_braze(with_backfill_results)
+    await update_braze.with_options(task_runner=ConcurrentTaskRunner)(
+        with_backfill_results
+    )
     assert mock_client.call_count == mock_client_count
     assert mock_state["sf_call_count"] == 1
     assert mock_state["offset_call_count"] == mock_offset_count
