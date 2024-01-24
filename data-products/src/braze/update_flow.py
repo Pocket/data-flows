@@ -31,6 +31,7 @@ from snowflake.connector import DictCursor
 OFFSET_KEY = "update_braze"
 
 EXTRACT_QUERY = """
+with initial_data as (
 SELECT
     EVENT_ID,
     LOADED_AT,
@@ -49,7 +50,10 @@ SELECT
     NEWSLETTER_SIGNUP_EVENT_NEWSLETTER,
     NEWSLETTER_SIGNUP_EVENT_FREQUENCY
 FROM {table_name}
-WHERE LOADED_AT > %(loaded_at_start)s
+WHERE LOADED_AT > %(loaded_at_start)s)
+select *
+from initial_data
+where not (email is null and external_id is null)
 ORDER BY LOADED_AT ASC
 {limit}
 """  # noqa: E501
