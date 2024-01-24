@@ -45,7 +45,9 @@ def make_file_path(report_date: str) -> str:
 
 
 @task(retries=5, retry_delay_seconds=5, task_run_name="extract-api-data-{report_date}")
-def extract_freestar_data(report_date: str, api_key: str, record_limit: int, is_archived: bool):
+def extract_freestar_data(
+    report_date: str, api_key: str, record_limit: int, is_archived: bool
+):
     """Task for extracting data and loading to file.
 
     Args:
@@ -73,7 +75,7 @@ def extract_freestar_data(report_date: str, api_key: str, record_limit: int, is_
         "site_domain",
         "ad_unit",
         "country_code",
-        "device_type"
+        "device_type",
     ]
 
     # Prefix and unique dimensions based on is_archived flag
@@ -225,7 +227,7 @@ async def ingest_freestar_data_subflow(
     sf_connector: MozSnowflakeConnector,
     api_key: str,
     record_limit: int,
-    is_archived: bool
+    is_archived: bool,
 ):
     """Subflow for loading parquet files into Snowflake.
 
