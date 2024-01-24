@@ -25,3 +25,23 @@ def split_in_chunks(sequence: Sequence[T], chunk_size: int) -> List[Sequence[T]]
     :return: List of list, where the inner list is a chunk of user deltas of at most _chunk_size_ items.
     """
     return list(chunks(sequence, n=chunk_size))
+
+
+@task()
+def validate_corpus_items(corpus_items: List[Dict], min_item_count: int = 1):
+    expected_keys = ["ID", "TOPIC", "PUBLISHER"]
+
+    assert len(corpus_items) >= min_item_count
+    assert all(
+        list(corpus_item.keys()) == expected_keys for corpus_item in corpus_items
+    )
+    assert all(
+        isinstance(corpus_item["ID"], str) and corpus_item["ID"] != ""
+        for corpus_item in corpus_items
+    )
+    assert all(
+        isinstance(corpus_item["TOPIC"], str) and corpus_item["TOPIC"] != ""
+        for corpus_item in corpus_items
+    )
+
+    return corpus_items
