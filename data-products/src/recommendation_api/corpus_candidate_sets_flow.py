@@ -1,11 +1,14 @@
+import datetime
+import json
 import os
 from pathlib import Path
 
+import dask.distributed
 import pandas as pd
 from common.databases.snowflake_utils import CS, MozSnowflakeConnector
-from prefect import flow, get_run_logger
-
-# from prefect_dask.task_runners import DaskTaskRunner
+from common.deployment.worker import FlowDeployment, FlowSpec
+from prefect import flow, get_run_logger, task
+from prefect_dask import DaskTaskRunner
 from prefect_snowflake.database import snowflake_query
 from shared.async_utils import process_parallel_subflows_task
 from shared.feature_store import dataframe_to_feature_group
@@ -35,6 +38,19 @@ FROM analytics.dbt.static_corpus_candidate_set_topics
 """
 
 
+@task()
+def prep_dataframe(candidate_set_config: CorpusCandidateSetConfig, corpus_items: list):
+    record = [
+        {
+            "id": candidate_set_config.id,
+            "unloaded_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "corpus_items": json.dumps(corpus_items),
+        }
+    ]
+    df = pd.DataFrame.from_dict(record)  # type: ignore
+    return df
+
+
 @flow()
 async def create_all_candidate_set_configs(
     static_candidate_set_configs: list[CorpusCandidateSetConfig],
@@ -48,12 +64,12 @@ async def create_all_candidate_set_configs(
 
     topic_candidate_set_configs = [
         CorpusCandidateSetConfig(
-            id=t["CORPUS_CANDIDATE_SET_ID"],
-            name=t["NAME"],
+            id=t["CORPUS_CANDIDATE_SET_ID"],  # type: ignore
+            name=t["NAME"],  # type: ignore
             query_filename="topic.sql",
             query_params={
-                "CORPUS_TOPIC_ID": t["CORPUS_TOPIC_ID"],
-                "SCHEDULED_SURFACE_ID": t["SCHEDULED_SURFACE_ID"],
+                "CORPUS_TOPIC_ID": t["CORPUS_TOPIC_ID"],  # type: ignore
+                "SCHEDULED_SURFACE_ID": t["SCHEDULED_SURFACE_ID"],  # type: ignore
             },
         )
         for t in topic_candidate_set_config_data
@@ -66,6 +82,7 @@ async def create_all_candidate_set_configs(
 async def load_corpus_candidate_set_records(
     candidate_set_config: CorpusCandidateSetConfig,
     snowflake_connector: MozSnowflakeConnector,
+    dask_client: dask.distributed.Client,
 ):
     logger = get_run_logger()
     logger.info(f"Querying candidate set {candidate_set_config}")
@@ -83,18 +100,22 @@ async def load_corpus_candidate_set_records(
         cursor_type=DictCursor,  # type: ignore
     )
 
-    validate_corpus_items(
+    validate = validate_corpus_items(
         corpus_items,  # type: ignore
         min_item_count=0 if "coronavirus" in candidate_set_config.name else 1,
     )
 
-    df = pd.DataFrame.from_dict(corpus_items)  # type: ignore
+    df_prep = prep_dataframe(
+        candidate_set_config, corpus_items=corpus_items, wait_for=[validate]  # type: ignore  # noqa: E501
+    )
 
     environment_map = {"dev": "development", "production": "production"}
 
     feature_group = f"{environment_map[CS.dev_or_production]}-corpus-candidate-sets-v1"
 
-    await dataframe_to_feature_group(dataframe=df, feature_group_name=feature_group)
+    await dataframe_to_feature_group.with_options(
+        task_runner=DaskTaskRunner(address=dask_client.scheduler.address)  # type: ignore
+    )(dataframe=df_prep, feature_group_name=feature_group)
 
 
 @flow()
@@ -106,15 +127,32 @@ async def corpus_candidate_sets():
         snowflake_connector=sfc,
     )
 
+    client = dask.distributed.Client()
+
     load_flows = [
         load_corpus_candidate_set_records(
-            candidate_set_config=c, snowflake_connector=sfc
+            candidate_set_config=c, snowflake_connector=sfc, dask_client=client
         )
         for c in configs
     ]
 
     await process_parallel_subflows_task(load_flows)
 
+
+FLOW_SPEC = FlowSpec(
+    flow=corpus_candidate_sets,
+    docker_env="base",
+    deployments=[
+        FlowDeployment(
+            name="deployment",
+            cron="*/60 * * * *",
+            job_variables={
+                "cpu": 4096,
+                "memory": 8192,
+            },
+        ),
+    ],
+)
 
 if __name__ == "__main__":
     import asyncio

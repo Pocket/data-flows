@@ -1,5 +1,5 @@
 import pytest
-from candidate_sets.legacy_candidate_sets_flow import (
+from recommendation_api.legacy_candidate_sets_flow import (
     GET_TOPICS_SQL,
     create_legacy_candidate_set,
 )
