@@ -67,6 +67,8 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             name="deployment",
+            cron="0 18 * * *",
+            timezone="America/Chicago",
             job_variables={
                 "cpu": 4096,
                 "memory": 8192,
