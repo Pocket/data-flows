@@ -14,7 +14,7 @@ async def test_user_impressions(monkeypatch):
     async def fake_task(*args, **kwargs):
         state["sf_call_count"] += 1
         assert kwargs["query"] == BASE_QUERY
-        return pd.DataFrame().from_dict([{"UPDATED_AT": datetime.now()}])  # type: ignore
+        yield pd.DataFrame().from_dict([{"UPDATED_AT": datetime.now()}])  # type: ignore
 
     @flow()
     async def fake_flow(*args, **kwargs):
@@ -28,7 +28,8 @@ async def test_user_impressions(monkeypatch):
         return True
 
     monkeypatch.setattr(
-        "recommendation_api.user_impressions_flow.query_to_dataframe", fake_task
+        "recommendation_api.user_impressions_flow.query_to_dataframe_batches",
+        fake_task,
     )
 
     monkeypatch.setattr(

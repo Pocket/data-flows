@@ -5,6 +5,8 @@ from common.settings import CS, NestedSettings, SecretSettings, get_cached_setti
 from prefect import task
 from prefect_snowflake import SnowflakeConnector, SnowflakeCredentials
 from pydantic import BaseModel, PrivateAttr, SecretBytes, SecretStr, constr
+from snowflake.connector import SnowflakeConnection
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class SnowflakeCredSettings(NestedSettings):
@@ -140,4 +142,24 @@ async def query_to_dataframe(
                 await asyncio.sleep(poll_frequency_seconds)
             cur.get_results_from_sfqid(query_id)
             df = cur.fetch_pandas_all()
-    return df
+            return df
+
+
+@task()
+async def query_to_dataframe_batches(
+    snowflake_connector: SnowflakeConnector,
+    query: str,
+    params: Union[tuple[Any], dict[str, Any]] = {},
+    poll_frequency_seconds: int = 1,
+):
+    with snowflake_connector.get_connection() as connection:
+        with connection.cursor() as cur:
+            response = cur.execute_async(query, params=params)
+            query_id = response["queryId"]
+            while connection.is_still_running(
+                connection.get_query_status_throw_if_error(query_id)
+            ):
+                await asyncio.sleep(poll_frequency_seconds)
+            cur.get_results_from_sfqid(query_id)
+            for df in cur.fetch_pandas_batches():
+                yield df
