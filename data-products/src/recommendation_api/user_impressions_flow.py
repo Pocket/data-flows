@@ -1,10 +1,12 @@
 from common.databases.snowflake_utils import (
     CS,
     MozSnowflakeConnector,
-    query_to_dataframe,
+    query_to_dataframe_batches,
 )
 from common.deployment.worker import FlowDeployment, FlowSpec
+from dask.distributed import Client
 from prefect import flow
+from prefect_dask import DaskTaskRunner
 from shared.feature_store import dataframe_to_feature_group
 
 BASE_QUERY = """
@@ -36,9 +38,11 @@ GROUP BY 1,2
 
 @flow()
 async def user_impressions(max_impr_age: int = 14, max_impr_count: int = 9):
-    sfc = MozSnowflakeConnector()
+    sfc = MozSnowflakeConnector(
+        warehouse=f"PREFECT_WH_{CS.dev_or_production.upper()}_XLARGE"
+    )
 
-    impression_data = await query_to_dataframe(
+    impression_data = query_to_dataframe_batches(
         snowflake_connector=sfc,
         query=BASE_QUERY,
         params={
@@ -48,17 +52,22 @@ async def user_impressions(max_impr_age: int = 14, max_impr_count: int = 9):
         },
     )
 
-    impression_data["UPDATED_AT"] = impression_data.UPDATED_AT.apply(
-        lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ")
-    )
-
     environment_map = {"dev": "development", "production": "production"}
 
     feature_group = f"{environment_map[CS.dev_or_production]}-user-impressions-v2"
 
-    await dataframe_to_feature_group(
-        dataframe=impression_data, feature_group_name=feature_group
-    )
+    client = Client()
+
+    async for df in impression_data:  # type: ignore
+        df["UPDATED_AT"] = df.UPDATED_AT.apply(  # type: ignore
+            lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
+
+        await dataframe_to_feature_group.with_options(
+            task_runner=DaskTaskRunner(address=client.scheduler.address)  # type: ignore
+        )(
+            dataframe=df, feature_group_name=feature_group  # type: ignore
+        )
 
 
 FLOW_SPEC = FlowSpec(
