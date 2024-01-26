@@ -60,7 +60,7 @@ def test_extract_freestar_data(test_config, monkeypatch):
             "end_date": "2023-12-17",
             "overwrite": True,
             "record_limit": 2,
-            "is_archived": False
+            "is_archived": False,
         },
     }
 
