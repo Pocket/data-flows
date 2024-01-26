@@ -6,6 +6,7 @@ from common.databases.snowflake_utils import (
 from common.deployment.worker import FlowDeployment, FlowSpec
 from dask.distributed import Client
 from prefect import flow
+from prefect.utilities.annotations import quote
 from prefect_dask import DaskTaskRunner
 from shared.feature_store import dataframe_to_feature_group
 
@@ -62,11 +63,11 @@ async def user_impressions(max_impr_age: int = 14, max_impr_count: int = 9):
         df["UPDATED_AT"] = df.UPDATED_AT.apply(  # type: ignore
             lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ")
         )
-
+        # wrapping large dataframes in quote
         await dataframe_to_feature_group.with_options(
             task_runner=DaskTaskRunner(address=client.scheduler.address)  # type: ignore
         )(
-            dataframe=df, feature_group_name=feature_group  # type: ignore
+            dataframe=quote(df), feature_group_name=feature_group  # type: ignore
         )
 
 
