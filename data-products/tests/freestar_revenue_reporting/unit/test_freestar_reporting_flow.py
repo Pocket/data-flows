@@ -52,7 +52,7 @@ def test_extract_freestar_data(test_config, is_archived, monkeypatch):
                 "data": [{f"{result_prefix_mapping[is_archived]}.test": "test"}]
             },
             "sql_results": create_base_data,
-            "mock_assertion_count": 19,
+            "mock_assertion_count": 5,
             "is_archived": is_archived,
         },
         "ndrprebid": {
@@ -60,7 +60,7 @@ def test_extract_freestar_data(test_config, is_archived, monkeypatch):
                 "data": [{f"{result_prefix_mapping[is_archived]}.test": "test"}]
             },
             "sql_results": create_base_data,
-            "mock_assertion_count": 19,
+            "mock_assertion_count": 5,
             "is_archived": is_archived,
         },
         "force_paging": {
@@ -123,7 +123,8 @@ def test_extract_freestar_data(test_config, is_archived, monkeypatch):
             headers={"test_config": test_config},
         )
         # run flow and assert
-        with pytest.raises(Exception):
+
+        def run_and_test():
             asyncio.run(freestar_report_flow(dates=dates))  # type: ignore
             assert (
                 mock_state["call_count"]
@@ -137,3 +138,9 @@ def test_extract_freestar_data(test_config, is_archived, monkeypatch):
                 mock_state["call_count"]
                 == test_result_sets[test_config]["mock_assertion_count"]
             )
+
+        if test_config == "force_paging":
+            with pytest.raises(ValueError):
+                run_and_test()
+        else:
+            run_and_test()
