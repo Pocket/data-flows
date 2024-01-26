@@ -44,11 +44,13 @@ def test_extract_freestar_data(test_config, monkeypatch):
             "api_results": {"data": [{}]},
             "sql_results": create_base_data,
             "mock_assertion_count": 19,
+            "is_archived": False,
         },
         "ndrprebid": {
             "api_results": {"data": [{"NdrPrebid.test": "test"}]},
             "sql_results": create_base_data,
             "mock_assertion_count": 19,
+            "is_archived": False,
         },
         "force_paging": {
             "api_results": {"data": [{"test": 1}, {"test": 2}, {"test": 3}]},
@@ -58,6 +60,7 @@ def test_extract_freestar_data(test_config, monkeypatch):
             "end_date": "2023-12-17",
             "overwrite": True,
             "record_limit": 2,
+            "is_archived": False
         },
     }
 
