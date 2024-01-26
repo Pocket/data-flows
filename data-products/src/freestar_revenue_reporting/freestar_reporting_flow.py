@@ -44,16 +44,47 @@ def make_file_path(report_date: str) -> str:
     return os.path.join(OUTPUT_PARQUET_PATH, report_date, "data_{0}.parquet")
 
 
+common_dimensions = [
+    "record_date",
+    "network",
+    "url",
+    "utm_campaign",
+    "utm_content",
+    "utm_medium",
+    "utm_source",
+    "utm_term",
+    "site_domain",
+    "ad_unit",
+    "country_code",
+    "device_type",
+]
+# These dimensions are not included in archived data
+unique_dimensions = ["size", "device_os", "browser", "integration_partner"]
+
+
 @task(retries=5, retry_delay_seconds=5, task_run_name="extract-api-data-{report_date}")
-def extract_freestar_data(report_date: str, api_key: str, record_limit: int):
+def extract_freestar_data(
+    report_date: str, api_key: str, record_limit: int, is_archived: bool = False
+):
     """Task for extracting data and loading to file.
 
     Args:
         report_date (str): Report date to run for.
         api_key (str): API key from settings.
         record_limit (int): Record limit to use.
+        is_archived (bool): Whether the data is historical (archived)
     """
     logger = get_run_logger()
+
+    # Define prefixes and dimensions for API call
+    if is_archived:
+        prefix = "NdrGcr"
+        api_dimensions = [f"{prefix}.{dim}" for dim in common_dimensions]
+    else:
+        prefix = "NdrPrebid"
+        api_dimensions = [
+            f"{prefix}.{dim}" for dim in common_dimensions + unique_dimensions
+        ]
 
     # Define the API base URL and endpoint
     api_base_url = "https://analytics.pub.network"
@@ -64,31 +95,14 @@ def extract_freestar_data(report_date: str, api_key: str, record_limit: int):
         "query": {
             "total": True,
             "measures": [
-                "NdrPrebid.impressions",
-                "NdrPrebid.net_revenue",
-                "NdrPrebid.net_cpm",
+                f"{prefix}.impressions",
+                f"{prefix}.net_revenue",
+                f"{prefix}.net_cpm",
             ],
-            "dimensions": [
-                "NdrPrebid.record_date",
-                "NdrPrebid.network",
-                "NdrPrebid.url",
-                "NdrPrebid.utm_campaign",
-                "NdrPrebid.utm_content",
-                "NdrPrebid.utm_medium",
-                "NdrPrebid.utm_source",
-                "NdrPrebid.utm_term",
-                "NdrPrebid.site_domain",
-                "NdrPrebid.ad_unit",
-                "NdrPrebid.size",
-                "NdrPrebid.country_code",
-                "NdrPrebid.device_type",
-                "NdrPrebid.device_os",
-                "NdrPrebid.browser",
-                "NdrPrebid.integration_partner",
-            ],
+            "dimensions": api_dimensions,
             "timeDimensions": [
                 {
-                    "dimension": "NdrPrebid.record_date",
+                    "dimension": f"{prefix}.record_date",
                     "dateRange": [report_date, report_date],
                 }
             ],
@@ -123,27 +137,44 @@ def extract_freestar_data(report_date: str, api_key: str, record_limit: int):
             f"Retrieved {len(response_json['data'])} records for page {page_number}."
         )
 
-        # Remove the 'NdrPrebid' prefix from keys in the JSON response
-        for item in response_json["data"]:
-            for key in list(item.keys()):
-                if key.startswith("NdrPrebid."):
-                    new_key = key[len("NdrPrebid.") :]
-                    item[new_key] = item.pop(key)
-
         # Write to file
         data = response_json["data"]
+
         record_count = len(data)
-        df = pd.DataFrame(data)
-        df.to_parquet(file_path.format(page_number))
-        total_count += record_count
 
         # Check if there are more records to retrieve
         if record_count < record_limit:
             break  # Stop if there are no more records
 
+        # Standardize the column names by removing the prefix
+        standardized_data = []
+        for item in data:
+            standardized_item = {
+                key.split(".")[1]: value for key, value in item.items()
+            }
+            standardized_data.append(standardized_item)
+
+        df = pd.DataFrame(standardized_data)
+
+        # Ensure both common and unique dimensions are in the DataFrame
+        all_dimensions = common_dimensions + unique_dimensions
+        for col in all_dimensions:
+            if col not in df.columns:
+                df[col] = None  # Add the column with None values
+
+        df.to_parquet(file_path.format(page_number))
+        total_count += record_count
+
         # Increment the offset for the next page
         request_payload["query"]["offset"] += record_limit
         page_number += 1
+
+    # Check if no records were retrieved
+    if total_count == 0:
+        logger.error(f"No records retrieved for {report_date}. Failing the task.")
+        raise ValueError(
+            "No records were retrieved. If this data is archived, set is_archived: True in flow inputs."
+        )
 
     logger.info(f"Total records retrieved: {total_count}")
 
@@ -210,6 +241,7 @@ async def ingest_freestar_data_subflow(
     sf_connector: MozSnowflakeConnector,
     api_key: str,
     record_limit: int,
+    is_archived: bool = False,
 ):
     """Subflow for loading parquet files into Snowflake.
 
@@ -245,12 +277,12 @@ async def ingest_freestar_data_subflow(
                     $1:utm_term::STRING,
                     $1:site_domain::STRING,
                     $1:ad_unit::STRING,
-                    $1:size::STRING,
+                    COALESCE($1:size::STRING, NULL),
                     $1:country_code::STRING,
                     $1:device_type::STRING,
-                    $1:device_os::STRING,
-                    $1:browser::STRING,
-                    $1:integration_partner::STRING,
+                    COALESCE($1:device_os::STRING, NULL),
+                    COALESCE($1:browser::STRING, NULL),
+                    COALESCE($1:integration_partner::STRING, NULL),
                     $1:impressions::INTEGER,
                     $1:net_revenue::INTEGER,
                     $1:net_cpm::FLOAT
@@ -279,7 +311,7 @@ async def ingest_freestar_data_subflow(
     sfc = sf_connector
     eft = extract_freestar_data.with_options(
         task_run_name=f"load-api-data-files-{report_date}"
-    )(report_date, api_key, record_limit)
+    )(report_date, api_key, record_limit, is_archived)
     put_parquet = await snowflake_query_sync(
         query=put_parquet_sql,
         snowflake_connector=sfc,
@@ -311,6 +343,7 @@ class FlowDateInputs(BaseModel):
     end_date: date | None = None
     overwrite: bool = False
     record_limit: int = 50000
+    is_archived: bool = False
 
 
 # Define the Prefect flow
@@ -399,7 +432,11 @@ async def freestar_report_flow(dates: FlowDateInputs = FlowDateInputs()):
     # create and submit subflows
     jobs = [
         ingest_freestar_data_subflow(
-            j, sfc, freestar_creds.freestar_credentials.api_key, dates.record_limit
+            j,
+            sfc,
+            freestar_creds.freestar_credentials.api_key,
+            dates.record_limit,
+            dates.is_archived,
         )
         for j in await get_dates(start_date=dates.start_date, end_date=dates.end_date)
     ]
