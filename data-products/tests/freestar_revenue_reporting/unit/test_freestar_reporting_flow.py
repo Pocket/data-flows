@@ -11,7 +11,11 @@ from prefect import task
 
 
 @pytest.mark.parametrize("test_config", ["base", "ndrprebid", "force_paging"])
-def test_extract_freestar_data(test_config, monkeypatch):
+@pytest.mark.parametrize(
+    "is_archived",
+    [True, False],
+)
+def test_extract_freestar_data(test_config, is_archived, monkeypatch):
     """Paramatized test to get coverage and validate different scenarios."""
 
     def create_base_data():
@@ -19,57 +23,70 @@ def test_extract_freestar_data(test_config, monkeypatch):
         Creates a return result of 7 days to trigger
         diffing logic.
         """
-        start_date = pendulum.now().subtract(days=7)
+        start_date = pendulum.now().subtract(days=14)
         end_date = pendulum.now().subtract(days=1)
         dt_period = end_date - start_date
         dt_period.in_days()  # type: ignore
         return [(d.date(),) for d in dt_period]  # type: ignore
 
-    # state dict to make sure paging ends after second page
-    run_state = {}
+    # state dict to make sure paging ends after first page for force_paging
+    run_state = {"date_count": 0}
 
     def create_api_data(request, context):
         """Callback to return config based results with
         logic for handling paging.
         """
         data = test_result_sets[context.headers["test_config"]]["api_results"]
-        if run_state.get("second_run"):
-            data = {"data": [{}]}
-        run_state["second_run"] = True
+        print(run_state["date_count"])
+        if run_state["date_count"] > 1 and test_config == "force_paging":
+            return {"data": []}
+        run_state["date_count"] += 1
         return data
+
+    result_prefix_mapping = {True: "NdrGcr", False: "NdrPrebid"}
 
     # config for each run type
     test_result_sets = {
         "base": {
-            "api_results": {"data": [{}]},
+            "api_results": {
+                "data": [{f"{result_prefix_mapping[is_archived]}.test": "test"}]
+            },
             "sql_results": create_base_data,
             "mock_assertion_count": 19,
-            "is_archived": False,
+            "is_archived": is_archived,
         },
         "ndrprebid": {
-            "api_results": {"data": [{"NdrPrebid.test": "test"}]},
+            "api_results": {
+                "data": [{f"{result_prefix_mapping[is_archived]}.test": "test"}]
+            },
             "sql_results": create_base_data,
             "mock_assertion_count": 19,
-            "is_archived": False,
+            "is_archived": is_archived,
         },
         "force_paging": {
-            "api_results": {"data": [{"test": 1}, {"test": 2}, {"test": 3}]},
+            "api_results": {
+                "data": [
+                    {f"{result_prefix_mapping[is_archived]}.test": 1},
+                    {f"{result_prefix_mapping[is_archived]}.test": 2},
+                    {f"{result_prefix_mapping[is_archived]}.test": 3},
+                ]
+            },
             "sql_results": create_base_data,
             "mock_assertion_count": 8,
             "start_date": "2023-12-16",
             "end_date": "2023-12-17",
             "overwrite": True,
             "record_limit": 2,
-            "is_archived": False,
+            "is_archived": is_archived,
         },
     }
-
     # create input based on config
     dates = FlowDateInputs(
         start_date=test_result_sets[test_config].get("start_date"),
         end_date=test_result_sets[test_config].get("end_date"),
         overwrite=test_result_sets[test_config].get("overwrite", False),
         record_limit=test_result_sets[test_config].get("record_limit", 50000),
+        is_archived=is_archived,
     )
 
     # state for tracking fake task calls
@@ -106,16 +123,17 @@ def test_extract_freestar_data(test_config, monkeypatch):
             headers={"test_config": test_config},
         )
         # run flow and assert
-        asyncio.run(freestar_report_flow(dates=dates))  # type: ignore
-        assert (
-            mock_state["call_count"]
-            == test_result_sets[test_config]["mock_assertion_count"]
-        )
-        assert (
-            mock_state["call_count"]
-            == test_result_sets[test_config]["mock_assertion_count"]
-        )
-        assert (
-            mock_state["call_count"]
-            == test_result_sets[test_config]["mock_assertion_count"]
-        )
+        with pytest.raises(Exception):
+            asyncio.run(freestar_report_flow(dates=dates))  # type: ignore
+            assert (
+                mock_state["call_count"]
+                == test_result_sets[test_config]["mock_assertion_count"]
+            )
+            assert (
+                mock_state["call_count"]
+                == test_result_sets[test_config]["mock_assertion_count"]
+            )
+            assert (
+                mock_state["call_count"]
+                == test_result_sets[test_config]["mock_assertion_count"]
+            )
