@@ -140,12 +140,6 @@ def extract_freestar_data(
         # Write to file
         data = response_json["data"]
 
-        record_count = len(data)
-
-        # Check if there are more records to retrieve
-        if record_count < record_limit:
-            break  # Stop if there are no more records
-
         # Standardize the column names by removing the prefix
         standardized_data = []
         for item in data:
@@ -162,8 +156,14 @@ def extract_freestar_data(
             if col not in df.columns:
                 df[col] = None  # Add the column with None values
 
+        record_count = len(data)
+
         df.to_parquet(file_path.format(page_number))
         total_count += record_count
+
+        # Check if there are more records to retrieve
+        if record_count < record_limit:
+            break  # Stop if there are no more records
 
         # Increment the offset for the next page
         request_payload["query"]["offset"] += record_limit
