@@ -59,16 +59,20 @@ async def user_impressions(max_impr_age: int = 14, max_impr_count: int = 9):
 
     client = Client()
 
+    idx = 0
+
     async for df in impression_data:  # type: ignore
         df["UPDATED_AT"] = df.UPDATED_AT.apply(  # type: ignore
             lambda x: x.strftime("%Y-%m-%dT%H:%M:%SZ")
         )
-        # wrapping large dataframes in quote
+        df_file = f"/tmp/user_impressions_df_{idx}.pkl"
+        df.to_pickle(df_file)
         await dataframe_to_feature_group.with_options(
             task_runner=DaskTaskRunner(address=client.scheduler.address)  # type: ignore
         )(
-            dataframe=quote(df), feature_group_name=feature_group  # type: ignore
+            dataframe=df_file, feature_group_name=feature_group  # type: ignore
         )
+        idx += 1
 
 
 FLOW_SPEC = FlowSpec(

@@ -77,7 +77,7 @@ class SnowflakeCursor:
     def get_results_from_sfqid(self, query_id):
         self.query_result = self.result[query_id]
 
-    def fetchall(self):
+    def fetchmany(self):
         return self.query_result
 
     def execute(self, query, params=None):
@@ -101,7 +101,7 @@ class SnowflakeConnection:
     def __exit__(self, *exc):
         return False
 
-    def cursor(self):
+    def cursor(self, **kwargs):
         return SnowflakeCursor()
 
     def is_still_running(self, state):
