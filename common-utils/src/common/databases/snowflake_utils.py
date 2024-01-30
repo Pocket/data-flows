@@ -164,6 +164,5 @@ async def query_to_dataframe_batches(
             cur.get_results_from_sfqid(query_id)
             result_batch = cur.fetchmany(size=batch_size)
             while len(result_batch) > 0:
-                yield pd.DataFrame().from_dict(result_batch) # type: ignore
+                yield pd.DataFrame().from_dict(result_batch)  # type: ignore
                 result_batch = cur.fetchmany(size=batch_size)
-
