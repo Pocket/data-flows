@@ -1,5 +1,5 @@
 import pytest
-from candidate_sets.legacy_candidate_sets_flow import (
+from recommendation_api.legacy_candidate_sets_flow import (
     GET_TOPICS_SQL,
     create_legacy_candidate_set,
 )
@@ -48,10 +48,10 @@ async def test_flow(param_id, monkeypatch):
         state["sqs_call_count"] += 1
 
     monkeypatch.setattr(
-        "candidate_sets.legacy_candidate_sets_flow.snowflake_query", fake_task
+        "recommendation_api.legacy_candidate_sets_flow.snowflake_query", fake_task
     )
     monkeypatch.setattr(
-        "candidate_sets.legacy_candidate_sets_flow.put_results", fake_sqs
+        "recommendation_api.legacy_candidate_sets_flow.put_results", fake_sqs
     )
     await create_legacy_candidate_set(param_id)
     assert state["sf_call_count"] == sf_call_count

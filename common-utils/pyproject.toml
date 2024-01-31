@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.8.1"
+version = "0.8.2"
 description = "Shared modules for prefect flow development and deployment"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -28,6 +28,7 @@ prefect-gcp = {extras = ["bigquery"], version = "^0.4.1"}
 pytest-asyncio = "^0.21.0"
 ruff = "^0.0.280"
 prefect-sqlalchemy = "^0.2.4"
+pandas = "^2.2.0"
 
 [build-system]
 requires = ["poetry-core"]
