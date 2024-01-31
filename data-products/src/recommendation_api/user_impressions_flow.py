@@ -6,7 +6,6 @@ from common.databases.snowflake_utils import (
 from common.deployment.worker import FlowDeployment, FlowSpec
 from dask.distributed import Client
 from prefect import flow
-from prefect.utilities.annotations import quote
 from prefect_dask import DaskTaskRunner
 from shared.feature_store import dataframe_to_feature_group
 
@@ -81,8 +80,7 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             name="deployment",
-            cron="0 18 * * *",
-            timezone="America/Chicago",
+            cron="0 0 * * *",
             job_variables={
                 "cpu": 4096,
                 "memory": 8192,

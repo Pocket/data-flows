@@ -63,6 +63,10 @@ def test_get_gcs_stage_id():
 
 
 class SnowflakeCursor:
+
+    def __init__(self):
+        self.while_count = 0
+
     def __enter__(self):
         return self
 
@@ -77,8 +81,11 @@ class SnowflakeCursor:
     def get_results_from_sfqid(self, query_id):
         self.query_result = self.result[query_id]
 
-    def fetchmany(self):
-        return self.query_result
+    def fetchmany(self, *args, **kwargs):
+        if self.while_count > 0:
+            return []
+        self.while_count += 1
+        return [{"test": "test"}]
 
     def execute(self, query, params=None):
         self.query_result = [(query, params, "sync")]
@@ -87,8 +94,6 @@ class SnowflakeCursor:
     def fetch_pandas_all(self):
         return pd.DataFrame().from_dict([{"test": "test"}])  # type: ignore
 
-    def fetch_pandas_batches(self):
-        yield pd.DataFrame().from_dict([{"test": "test"}])  # type: ignore
 
 
 class SnowflakeConnection:
