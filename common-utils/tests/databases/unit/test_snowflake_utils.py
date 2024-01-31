@@ -63,7 +63,6 @@ def test_get_gcs_stage_id():
 
 
 class SnowflakeCursor:
-
     def __init__(self):
         self.while_count = 0
 
@@ -93,7 +92,6 @@ class SnowflakeCursor:
 
     def fetch_pandas_all(self):
         return pd.DataFrame().from_dict([{"test": "test"}])  # type: ignore
-
 
 
 class SnowflakeConnection:
