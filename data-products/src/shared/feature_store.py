@@ -4,8 +4,8 @@ from typing import NamedTuple
 
 import aioboto3
 import pandas as pd
-from common.settings import Settings, CommonSettings
-from prefect import get_run_logger, flow, task
+from common.settings import CommonSettings, Settings
+from prefect import flow, get_run_logger, task
 from prefect_dask import DaskTaskRunner
 
 CS = CommonSettings()
@@ -27,15 +27,21 @@ class FeatureGroupSettings(Settings):
     ),
 )
 async def dataframe_to_feature_group(
-    dataframe: pd.DataFrame, feature_group_name: str, concurrency_limit: int = 100
+    dataframe: pd.DataFrame | str,
+    feature_group_name: str,
+    concurrency_limit: int = 100,
 ):
     """
     Update SageMaker feature group.
 
-    :param dataframe: the data in a dataframe to upload to the feature group
+    :param dataframe: the data in a dataframe to upload to the feature group, can also be path
+    to pickle file.
     :param feature_group_name: the name of the feature group to upload the data to
     :param concurrency_limit: Maximum number of concurrent HTTP requests to make to the FeatureGroup.
     """
+    if not isinstance(dataframe, pd.DataFrame):
+        dataframe = pd.read_pickle(dataframe)
+
     # Split dataframe into chunks with at most concurrency_limit rows.
     tasks = [
         ingest_dataframe(

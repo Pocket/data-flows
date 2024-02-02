@@ -2,8 +2,12 @@ import importlib
 from pathlib import PosixPath
 from unittest.mock import MagicMock
 
+import pandas as pd
 import pytest
-from common.databases.snowflake_utils import query_to_dataframe
+from common.databases.snowflake_utils import (
+    query_to_dataframe,
+    query_to_dataframe_batches,
+)
 from pydantic import SecretStr
 
 DB_MAPPING = {"dev": "development", "staging": "development", "main": "prefect"}
@@ -59,6 +63,9 @@ def test_get_gcs_stage_id():
 
 
 class SnowflakeCursor:
+    def __init__(self):
+        self.while_count = 0
+
     def __enter__(self):
         return self
 
@@ -73,15 +80,18 @@ class SnowflakeCursor:
     def get_results_from_sfqid(self, query_id):
         self.query_result = self.result[query_id]
 
-    def fetchall(self):
-        return self.query_result
+    def fetchmany(self, *args, **kwargs):
+        if self.while_count > 0:
+            return []
+        self.while_count += 1
+        return [{"test": "test"}]
 
     def execute(self, query, params=None):
         self.query_result = [(query, params, "sync")]
         return self
 
     def fetch_pandas_all(self):
-        return None
+        return pd.DataFrame().from_dict([{"test": "test"}])  # type: ignore
 
 
 class SnowflakeConnection:
@@ -94,7 +104,7 @@ class SnowflakeConnection:
     def __exit__(self, *exc):
         return False
 
-    def cursor(self):
+    def cursor(self, **kwargs):
         return SnowflakeCursor()
 
     def is_still_running(self, state):
@@ -111,5 +121,14 @@ class SnowflakeConnection:
 async def test_query_to_dataframe():
     snowflake_connector_mock = MagicMock()
     snowflake_connector_mock.get_connection.return_value = SnowflakeConnection()
-    await query_to_dataframe.fn(snowflake_connector_mock, "select 1")
-    assert snowflake_connector_mock.call_count == 0
+    x = await query_to_dataframe.fn(snowflake_connector_mock, "select 1")
+    assert x.to_dict() == {"test": {0: "test"}}
+
+
+@pytest.mark.asyncio
+async def test_query_to_dataframe_batches():
+    snowflake_connector_mock = MagicMock()
+    snowflake_connector_mock.get_connection.return_value = SnowflakeConnection()
+    x = query_to_dataframe_batches.fn(snowflake_connector_mock, "select 1")
+    async for df in x:
+        assert df.to_dict() == {"test": {0: "test"}}

@@ -7,10 +7,9 @@ import pytest_asyncio
 from botocore.stub import Stubber
 from common.settings import CommonSettings
 from prefect.testing.utilities import prefect_test_harness
-
 from shared.feature_store import (
-    dataframe_to_feature_group,
     INGEST_ROWS_RETRIES,
+    dataframe_to_feature_group,
     ingest_row,
 )
 
@@ -124,3 +123,21 @@ async def test_dataframe_to_feature_group_exception(df_features, caplog):
             assert mock_ingest_row.call_count == (INGEST_ROWS_RETRIES + 1) * len(
                 df_features
             )
+
+
+@pytest.mark.asyncio
+async def test_dataframe_file_to_feature_group_(df_features, caplog):
+    with prefect_test_harness():
+        with mock.patch(
+            "shared.feature_store.ingest_row",
+            new_callable=mock.AsyncMock,
+            return_value=None,
+        ) as mock_ingest_row:
+            df_file = "/tmp/test+df_features.pkl"
+            df_features.to_pickle(df_file)
+            await dataframe_to_feature_group(
+                df_file,
+                feature_group_name="my_feature_group",
+            )
+
+            assert mock_ingest_row.call_count == len(df_features)
