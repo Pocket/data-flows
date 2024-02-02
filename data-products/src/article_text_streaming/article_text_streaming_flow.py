@@ -153,9 +153,7 @@ from {DB}.{SCHEMA}.ARTICLE_CONTENT_V2
     order by resolved_id;
 """
 
-REORDERING_SQL = f"""use warehouse dpt_wh_3xl;
-
-create or replace table {DB}.{SCHEMA}.article_content_ordered_new as (
+REORDERING_SQL = f"""create or replace table {DB}.{SCHEMA}.article_content_ordered_new as (
 select RESOLVED_ID, 
 HTML, 
 TEXT, 
@@ -439,7 +437,8 @@ async def main():
         logger.info("Running weekly reorder...")
         for q in list(filter(bool, REORDERING_SQL.split(";"))):
             await snowflake_query_sync(
-                query=q, snowflake_connector=MozSnowflakeConnector()
+                query=q,
+                snowflake_connector=MozSnowflakeConnector(warehouse="DPT_WH_3XL"),
             )
     # create failures table if needed
     create_failures_table = await snowflake_query(
