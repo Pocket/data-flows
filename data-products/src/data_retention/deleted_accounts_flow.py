@@ -16,7 +16,7 @@ def read_sql_file(file_name: str) -> str:
 
 @flow()
 async def delete_deleted_account_data():
-    sfc = MozSnowflakeConnector()
+    sfc = MozSnowflakeConnector(warehouse="USER_DATA_DELETION_WH")
 
     # Maintain a list of deleted accounts in a protected DB/Schema tables
     add_deleted_users_result = await snowflake_query.with_options(
