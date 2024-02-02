@@ -438,9 +438,7 @@ async def main():
         for q in list(filter(bool, REORDERING_SQL.split(";"))):
             await snowflake_query_sync(
                 query=q,
-                snowflake_connector=MozSnowflakeConnector(
-                    warehouse="DPT_WH_3XL"
-                ),
+                snowflake_connector=MozSnowflakeConnector(warehouse="DPT_WH_3XL"),
             )
     # create failures table if needed
     create_failures_table = await snowflake_query(
