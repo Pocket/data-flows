@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.11.4"
+version = "0.12.0"
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -25,6 +25,7 @@ prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-pr
 html2text = "^2020.1.16"
 oscrypto = {git = "https://github.com/wbond/oscrypto.git", rev = "d5f3437ed24257895ae1edd9e503cfb352e635a8"} # https://github.com/DataDog/datadog-agent/pull/19899/files
 common-utils = {path = "../common-utils", develop = true}
+scipy = "^1.12.0"
 
 
 [tool.poetry.group.dev.dependencies]
