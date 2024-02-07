@@ -2,6 +2,7 @@
 
 Reference: https://getpocket.atlassian.net/wiki/spaces/CP/pages/2703949851/Snowflake+Data+Deletion+and+Retention
 """
+
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, unmapped
@@ -9,7 +10,7 @@ from prefect_snowflake.database import snowflake_query
 
 GET_SCHEMAS_SQL = """
 SELECT catalog_name || '.' || schema_name as schema_name
-FROM information_schema.schemata
+FROM development.information_schema.schemata
 WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP())
 AND schema_name not in ('PUBLIC');
 """
@@ -17,7 +18,7 @@ AND schema_name not in ('PUBLIC');
 
 @flow()
 async def delete_old_dev_schemas():
-    sfc = MozSnowflakeConnector()
+    sfc = MozSnowflakeConnector(warehouse="development")
 
     schemas = await snowflake_query(query=GET_SCHEMAS_SQL, snowflake_connector=sfc)
     statements = [f"DROP SCHEMA {s[0]}" for s in schemas]
