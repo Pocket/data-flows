@@ -1,4 +1,4 @@
-"""DELETE all DEVELOPMENT DB schemas older than 89 days
+"""DELETE all DEVELOPMENT DB tables older than 89 days
 
 Reference: https://getpocket.atlassian.net/wiki/spaces/CP/pages/2703949851/Snowflake+Data+Deletion+and+Retention
 """
@@ -8,25 +8,27 @@ from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, unmapped
 from prefect_snowflake.database import snowflake_query
 
-GET_SCHEMAS_SQL = """
-SELECT catalog_name || '.' || schema_name as schema_name
-FROM development.information_schema.schemata
+GET_TABLES_SQL = """
+SELECT table_catalog || '.' || table_schema || '.' || table_name as table_name
+FROM development.information_schema.tables
 WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP())
-AND schema_name not in ('PUBLIC');
+AND table_schema not in ('PUBLIC')
+AND table_catalog = 'DEVELOPMENT';
 """
 
 
 @flow()
-async def delete_old_dev_schemas():
+async def delete_old_dev_tables():
     sfc = MozSnowflakeConnector(warehouse="development")
 
-    schemas = await snowflake_query(query=GET_SCHEMAS_SQL, snowflake_connector=sfc)
-    statements = [f"DROP SCHEMA {s[0]}" for s in schemas]
+    tables = await snowflake_query(query=GET_TABLES_SQL, snowflake_connector=sfc)
+    statements = [f"DROP TABLE {t[0]}" for t in tables]
+
     await snowflake_query.map(query=statements, snowflake_connector=unmapped(sfc))  # type: ignore  # noqa: E501
 
 
 FLOW_SPEC = FlowSpec(
-    flow=delete_old_dev_schemas,
+    flow=delete_old_dev_tables,
     docker_env="base",
     deployments=[
         FlowDeployment(name="deployment", cron="0 0 * * *"),
