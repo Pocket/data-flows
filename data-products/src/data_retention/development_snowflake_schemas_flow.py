@@ -19,7 +19,7 @@ AND table_catalog = 'DEVELOPMENT';
 
 @flow()
 async def delete_old_dev_tables():
-    sfc = MozSnowflakeConnector(warehouse="development")
+    sfc = MozSnowflakeConnector()
 
     tables = await snowflake_query(query=GET_TABLES_SQL, snowflake_connector=sfc)
     statements = [f"DROP TABLE {t[0]}" for t in tables]
@@ -36,4 +36,6 @@ FLOW_SPEC = FlowSpec(
 )
 
 if __name__ == "__main__":
-    flow.run()
+    import asyncio
+
+    asyncio.run(delete_old_dev_tables())
