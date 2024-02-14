@@ -1,7 +1,7 @@
 import pytest
 from prefect import task
 
-from data_retention.development_snowflake_schemas_flow import delete_old_dev_tables
+from data_retention.snowflake_development_table_clean_up_flow import delete_old_dev_tables
 
 
 @pytest.mark.asyncio
@@ -16,7 +16,7 @@ async def test_delete_dev_tables(monkeypatch):
         return [("TEST.TEST.TEST",)]
 
     monkeypatch.setattr(
-        "data_retention.development_snowflake_schemas_flow.snowflake_query", fake_task
+        "data_retention.snowflake_development_table_clean_up_flow.snowflake_query", fake_task
     )
     await delete_old_dev_tables()
     assert state["sf_call_count"] == 2

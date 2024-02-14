@@ -13,6 +13,7 @@ SELECT table_catalog || '.' || table_schema || '.' || table_name as table_name
 FROM development.information_schema.tables
 WHERE created < DATEADD("day", -89, CURRENT_TIMESTAMP())
 AND table_schema not in ('PUBLIC')
+AND table_type = 'BASE TABLE'
 AND table_catalog = 'DEVELOPMENT';
 """
 
@@ -38,4 +39,4 @@ FLOW_SPEC = FlowSpec(
 if __name__ == "__main__":
     import asyncio
 
-    asyncio.run(delete_old_dev_tables())
+    asyncio.run(delete_old_dev_tables()) # type: ignore
