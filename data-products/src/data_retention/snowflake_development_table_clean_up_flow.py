@@ -39,4 +39,4 @@ FLOW_SPEC = FlowSpec(
 if __name__ == "__main__":
     import asyncio
 
-    asyncio.run(delete_old_dev_tables()) # type: ignore
+    asyncio.run(delete_old_dev_tables())  # type: ignore
