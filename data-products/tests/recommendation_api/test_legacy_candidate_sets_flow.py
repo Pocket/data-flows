@@ -1,9 +1,9 @@
 import pytest
+from prefect import task
 from recommendation_api.legacy_candidate_sets_flow import (
     GET_TOPICS_SQL,
     create_legacy_candidate_set,
 )
-from prefect import task
 
 TEST_DATA = {
     "longreads": [{"ID": 0, "PUBLISHER": "test.com"}],
@@ -26,7 +26,7 @@ async def test_flow(param_id, monkeypatch):
 
     sf_call_count = 1
     sqs_call_count = 2
-    if param_id in ["topics", "longreads", "shortreads"]:
+    if param_id in ["topics", "shortreads"]:
         sf_call_count = 2
     if param_id == "curated_feeds":
         sf_call_count = 4
