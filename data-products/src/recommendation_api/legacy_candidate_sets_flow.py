@@ -258,27 +258,34 @@ FLOW_SPEC = FlowSpec(
     docker_env="base",
     deployments=[
         FlowDeployment(
-            name="topics", cron="*/30 * * * *", parameters={"set_params_id": "topics"}
+            name="topics",
+            cron="*/30 * * * *",
+            parameters={"set_params_id": "topics"},
+            tags=["hourly-sla"],
         ),
         FlowDeployment(
             name="longreads",
             cron="*/180 * * * *",
             parameters={"set_params_id": "longreads"},
+            tags=["3-hour-sla"],
         ),
         FlowDeployment(
             name="shortreads",
             cron="*/180 * * * *",
             parameters={"set_params_id": "shortreads"},
+            tags=["3-hour-sla"],
         ),
         FlowDeployment(
             name="curated_feeds",
             cron="*/60 * * * *",
             parameters={"set_params_id": "curated_feeds"},
+            tags=["hourly-sla"],
         ),
         FlowDeployment(
             name="syndicated_feed",
             cron="*/60 * * * *",
             parameters={"set_params_id": "syndicated_feed"},
+            tags=["hourly-sla"],
         ),
     ],
 )

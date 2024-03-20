@@ -85,6 +85,7 @@ FLOW_SPEC = FlowSpec(
                 "cpu": 4096,
                 "memory": 8192,
             },
+            tags=["daily-sla"],
         ),
     ],
 )

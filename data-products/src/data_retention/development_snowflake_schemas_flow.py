@@ -2,6 +2,7 @@
 
 Reference: https://getpocket.atlassian.net/wiki/spaces/CP/pages/2703949851/Snowflake+Data+Deletion+and+Retention
 """
+
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, unmapped
@@ -28,7 +29,11 @@ FLOW_SPEC = FlowSpec(
     flow=delete_old_dev_schemas,
     docker_env="base",
     deployments=[
-        FlowDeployment(name="deployment", cron="0 0 * * *"),
+        FlowDeployment(
+            name="deployment",
+            cron="0 0 * * *",
+            tags=["daily-sla"],
+        ),
     ],
 )
 

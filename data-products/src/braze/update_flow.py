@@ -309,9 +309,11 @@ def get_attributes_for_user_deltas(
     return [
         models.UserAttributes(
             external_id=user_delta.external_id,
-            user_alias=models.UserAlias(EMAIL_ALIAS_LABEL, user_delta.email)
-            if not user_delta.external_id
-            else None,
+            user_alias=(
+                models.UserAlias(EMAIL_ALIAS_LABEL, user_delta.email)
+                if not user_delta.external_id
+                else None
+            ),
             _update_existing_only=True,  # Do not create new profiles if one does not exist.
             email=user_delta.email,
             is_premium=user_delta.is_premium,
@@ -334,9 +336,11 @@ def get_events_for_user_deltas(
     return [
         models.UserEvent(
             external_id=user_delta.external_id,
-            user_alias=models.UserAlias("email", user_delta.email)
-            if not user_delta.external_id
-            else None,
+            user_alias=(
+                models.UserAlias("email", user_delta.email)
+                if not user_delta.external_id
+                else None
+            ),
             name=user_delta.braze_event_name,
             properties=get_event_properties_for_user_delta(user_delta),
             time=format_date(user_delta.happened_at),
@@ -504,7 +508,9 @@ FLOW_SPEC = FlowSpec(
     docker_env="base",
     deployments=[
         FlowDeployment(
-            name="update-braze", job_variables={"cpu": 4096, "memory": 30720}
+            name="update-braze",
+            job_variables={"cpu": 4096, "memory": 30720},
+            tags=["hourly-sla"],
         ),
     ],
 )

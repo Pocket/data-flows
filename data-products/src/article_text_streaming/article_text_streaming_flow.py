@@ -20,6 +20,7 @@ DISCLAIMER:  This version was written as a direct migration to Prefect v2.
              Not much was changed, other than making it v2 compatible.
 
 """
+
 import gzip
 import hashlib
 import json
@@ -31,11 +32,10 @@ from typing import Any
 import pandas as pd
 import pendulum as pdm
 from common.databases.snowflake_utils import MozSnowflakeConnector
-from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
+from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings
 from prefect import flow, get_run_logger, task
 from prefect.runtime import flow_run
-from prefect.server.schemas.schedules import CronSchedule
 from prefect_aws import AwsCredentials
 from prefect_aws.s3 import s3_download, s3_list_objects, s3_upload
 from prefect_dask.task_runners import DaskTaskRunner
@@ -467,51 +467,39 @@ async def main():
 FLOW_SPEC = FlowSpec(
     flow=main,
     docker_env="base",
-    secrets=[
-        FlowEnvar(
-            envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake-credentials",
-        ),
-    ],
     deployments=[
         FlowDeployment(
-            deployment_name="deployment",
-            cpu="4096",
-            memory="8192",
-            schedule=CronSchedule(cron="0 * * * *", timezone="America/Los_Angeles"),
-            envars=[
-                FlowEnvar(
-                    envar_name="ARTICLE_DB",
-                    envar_value=CS.deployment_type_value(
+            tags=["hourly-sla"],
+            name="deployment",
+            cron="0 * * * *",
+            timezone="America/Los_Angeles",
+            job_variables={
+                "ephemeralStorage": {"sizeInGiB": 200},
+                "cpu": 4096,
+                "memory": 8192,
+                "env": {
+                    "ARTICLE_DB": CS.deployment_type_value(
                         dev="development", staging="development", main="raw"
-                    ),  # type: ignore
-                ),
-                FlowEnvar(
-                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
-                    envar_value=CS.deployment_type_value(
+                    ),
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
                         dev="braun", staging="staging", main="item"
-                    ),  # type: ignore
-                ),
-                FlowEnvar(
-                    envar_name="ARTICLE_S3_BUCKET",
-                    envar_value=CS.deployment_type_value(
+                    ),
+                    "ARTICLE_S3_BUCKET": CS.deployment_type_value(
                         dev="pocket-snowflake-dev",
                         staging="pocket-snowflake-dev",
                         main="pocket-data-items",
-                    ),  # type: ignore
-                ),
-                FlowEnvar(
-                    envar_name="ARTICLE_STORAGE_INTEGRATION",
-                    envar_value=CS.deployment_type_value(
+                    ),
+                    "ARTICLE_STORAGE_INTEGRATION": CS.deployment_type_value(
                         dev="AWSDEV_ACCOUNT_INTEGRATION",
                         staging="AWSDEV_ACCOUNT_INTEGRATION",
                         main="aws_integration_readonly_prod",
-                    ),  # type: ignore
-                ),
-            ],
+                    ),
+                },
+            },
         ),
     ],
 )
+
 
 if __name__ == "__main__":
     from asyncio import run
