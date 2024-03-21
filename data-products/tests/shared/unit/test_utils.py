@@ -1,5 +1,5 @@
-import os
 import json
+import os
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
@@ -543,7 +543,10 @@ async def test_sql_stmt_snowflake_mulit():
 @pytest.mark.parametrize("sql_engine", ["mysql", "postgres"])
 async def test_sql_stmt_sqlalchemy(sql_engine):
     os.environ["DF_CONFIG_SQLALCHEMY_CREDENTIALS"] = json.dumps(
-        {"url": f"{sql_engine}://scott:tiger@localhost:5432"}
+        {
+            "url": f"{sql_engine}://scott:tiger@localhost:5432",
+            "read_url": f"{sql_engine}://scott:tiger@localhost:5432",
+        }
     )
     sql = SqlStmt(
         sql_engine="mysql",
