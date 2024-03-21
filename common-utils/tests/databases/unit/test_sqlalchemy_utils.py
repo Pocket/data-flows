@@ -11,4 +11,4 @@ def test_pkt_sqlalchemy_credentials():
 
 def test_pkt_sqlalchemy_credentials_read():
     x = MozSqlalchemyCredentialsRead()
-    assert x.read_url == "mysql://scott:tiger@localhost:5432"
+    assert x.url == "mysql://scott:tiger@localhost:5432"
