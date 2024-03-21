@@ -50,6 +50,7 @@ FLOW_SPEC = FlowSpec(
     docker_env="base",
     deployments=[
         FlowDeployment(
+            tags=["daily-sla"],
             name="deployment",
             job_variables={
                 "cpu": 4096,

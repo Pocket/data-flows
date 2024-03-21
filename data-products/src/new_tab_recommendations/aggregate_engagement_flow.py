@@ -241,6 +241,7 @@ FLOW_SPEC = FlowSpec(
     deployments=[
         FlowDeployment(
             name="deployment",
+            tags=["hourly-sla"],
             cron="*/15 * * * *",
             job_variables={
                 "cpu": 4096,

@@ -295,6 +295,7 @@ FLOW_SPEC = FlowSpec(
                 "cpu": 2048,
                 "memory": 4096,
             },
+            tags=["hourly-sla"],
         ),
     ],
 )

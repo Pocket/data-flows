@@ -9,10 +9,9 @@ from common.databases.snowflake_utils import (
     SnowflakeGcsStageSettings,
     get_gcs_stage,
 )
-from common.deployment import FlowDeployment, FlowEnvar, FlowSpec
+from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings, get_cached_settings
 from prefect import flow, get_run_logger
-from prefect.server.schemas.schedules import CronSchedule
 from shared.async_utils import process_parallel_subflows
 from shared.utils import (
     IntervalSet,
@@ -369,7 +368,10 @@ async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
             logger.info(persist_offset)
 
 
-@flow(description="Interval flow for query based extractions from Snowflake.")
+@flow(
+    description="Interval flow for query based extractions from Snowflake.",
+    name="sql-etl.main",
+)
 async def main(etl_input: SqlEtlJob):
     """Main flow for iterating through etl intervals.
 
@@ -434,28 +436,11 @@ SF_GCP_STAGE_ID = CS.deployment_type_value(
 FLOW_SPEC = FlowSpec(
     flow=main,
     docker_env="base",
-    secrets=[
-        FlowEnvar(
-            envar_name="DF_CONFIG_SNOWFLAKE_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake-credentials",
-        ),
-        FlowEnvar(
-            envar_name="DF_CONFIG_GCP_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/gcp-credentials",
-        ),
-        FlowEnvar(
-            envar_name="DF_CONFIG_SNOWFLAKE_GCP_STAGES",
-            envar_value=f"data-flows/{CS.deployment_type}/snowflake-gcp-stage-data",
-        ),
-        FlowEnvar(
-            envar_name="DF_CONFIG_SQLALCHEMY_CREDENTIALS",
-            envar_value=f"data-flows/{CS.deployment_type}/aurora-rds",
-        ),
-    ],
     deployments=[
         FlowDeployment(
-            deployment_name="backend_events_for_mozilla",
-            schedule=CronSchedule(cron="0 1 * * *", timezone="America/Los_Angeles"),
+            name="backend_events_for_mozilla",
+            cron="0 1 * * *",
+            timezone="America/Los_Angeles",
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="backend_events_for_mozilla",
@@ -469,18 +454,18 @@ FLOW_SPEC = FlowSpec(
                     snowflake_stage_id=SF_GCP_STAGE_ID,
                 ).dict()  # type: ignore
             },
-            envars=[
-                FlowEnvar(
-                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
-                    envar_value=CS.deployment_type_value(
+            job_variables={
+                "env": {
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
                         dev="braun", staging="staging", main="public"
-                    ),  # type: ignore
-                ),
-            ],
+                    )
+                },
+            },
+            tags=["daily-sla"],
         ),
         FlowDeployment(
-            deployment_name="curated_feed_exports_aurora",
-            schedule=CronSchedule(cron="0 * * * *"),
+            name="curated_feed_exports_aurora",
+            cron="0 * * * *",
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="curated_feed_exports_aurora",
@@ -489,82 +474,82 @@ FLOW_SPEC = FlowSpec(
                     },
                 ).dict()  # type: ignore
             },
-            envars=[
-                FlowEnvar(
-                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
-                    envar_value=CS.deployment_type_value(
+            job_variables={
+                "env": {
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
                         dev="braun", staging="staging", main="mysql"
-                    ),  # type: ignore
-                ),
-            ],
+                    )
+                },
+            },
+            tags=["hourly-sla"],
         ),
         FlowDeployment(
-            deployment_name="firefox_new_tab_impressions_daily",
-            schedule=CronSchedule(cron="0 6 * * *"),
+            name="firefox_new_tab_impressions_daily",
+            cron="0 6 * * *",
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="firefox_new_tab_impressions_daily"
                 ).dict()  # type: ignore
             },
-            envars=[
-                FlowEnvar(
-                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
-                    envar_value=CS.deployment_type_value(
+            job_variables={
+                "env": {
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
                         dev="braun", staging="staging", main="mozilla"
-                    ),  # type: ignore
-                ),
-            ],
+                    )
+                },
+            },
+            tags=["daily-sla"],
         ),
         FlowDeployment(
-            deployment_name="firefox_new_tab_impressions_hourly",
-            schedule=CronSchedule(cron="0 * * * *"),
+            name="firefox_new_tab_impressions_hourly",
+            cron="0 * * * *",
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="firefox_new_tab_impressions_hourly"
                 ).dict()  # type: ignore
             },
-            envars=[
-                FlowEnvar(
-                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
-                    envar_value=CS.deployment_type_value(
+            job_variables={
+                "env": {
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
                         dev="braun", staging="staging", main="mozilla"
-                    ),  # type: ignore
-                ),
-            ],
+                    )
+                },
+            },
+            tags=["hourly-sla"],
         ),
         FlowDeployment(
-            deployment_name="glean_firefox_new_tab_impressions_daily",
-            schedule=CronSchedule(cron="0 6 * * *"),
+            name="glean_firefox_new_tab_impressions_daily",
+            cron="0 6 * * *",
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="glean_firefox_new_tab_impressions_daily"
                 ).dict()  # type: ignore
             },
-            envars=[
-                FlowEnvar(
-                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
-                    envar_value=CS.deployment_type_value(
-                        dev="cbeck", staging="staging", main="mozilla"
-                    ),  # type: ignore
-                ),
-            ],
+            job_variables={
+                "env": {
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
+                        dev="braun", staging="staging", main="mozilla"
+                    )
+                },
+            },
+            tags=["daily-sla"],
         ),
         FlowDeployment(
-            deployment_name="glean_firefox_new_tab_impressions_hourly",
-            schedule=CronSchedule(cron="0 * * * *"),
+            name="glean_firefox_new_tab_impressions_hourly",
+            cron="0 * * * *",
             parameters={
                 "etl_input": SqlEtlJob(
                     sql_folder_name="glean_firefox_new_tab_impressions_hourly"
                 ).dict()  # type: ignore
             },
-            envars=[
-                FlowEnvar(
-                    envar_name="DF_CONFIG_SNOWFLAKE_SCHEMA",
-                    envar_value=CS.deployment_type_value(
-                        dev="cbeck", staging="staging", main="mozilla"
-                    ),  # type: ignore
-                ),
-            ],
+            job_variables={
+                "env": {
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
+                        dev="braun", staging="staging", main="mozilla"
+                    )
+                },
+            },
+            tags=["hourly-sla"],
         ),
     ],
 )
