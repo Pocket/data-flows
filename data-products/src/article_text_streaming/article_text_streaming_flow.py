@@ -390,7 +390,7 @@ async def etl(
 
 
 # running with dask runner with explicit settings for mutliprocessing
-@flow()  # type: ignore
+@flow(name="article-text-streaming.main")  # type: ignore
 async def main():
     logger = get_run_logger()
     # sinlge object to pass to aws functions

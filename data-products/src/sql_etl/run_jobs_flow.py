@@ -368,7 +368,10 @@ async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
             logger.info(persist_offset)
 
 
-@flow(description="Interval flow for query based extractions from Snowflake.")
+@flow(
+    description="Interval flow for query based extractions from Snowflake.",
+    name="sql-etl.main",
+)
 async def main(etl_input: SqlEtlJob):
     """Main flow for iterating through etl intervals.
 
