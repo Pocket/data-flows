@@ -9,6 +9,7 @@ class SqlalchemyCredSettings(NestedSettings):
     """
 
     url: str
+    read_url: str
 
 
 class SqlalchemySettings(SecretSettings):
@@ -33,4 +34,22 @@ class MozSqlalchemyCredentials(DatabaseCredentials):
         """
         settings = get_cached_settings(SqlalchemySettings)
         data["url"] = settings.sqlalchemy_credentials.url
+        super().__init__(**data)
+
+
+class MozSqlalchemyCredentialsRead(DatabaseCredentials):
+    """Mozilla version of the Sqlalchemy DatabaseCredentials provided
+    by Prefect-Sqlalchemy with settings already applied.
+    All other base model attributes can be set explicitly here.
+    Used for extracting to S3
+
+    See https://prefecthq.github.io/prefect-sqlalchemy/ for usage.
+    """
+
+    def __init__(self, **data):
+        """Set credentials and other settings on usage of
+        model.
+        """
+        settings = get_cached_settings(SqlalchemySettings)
+        data["url"] = settings.sqlalchemy_credentials.read_url
         super().__init__(**data)

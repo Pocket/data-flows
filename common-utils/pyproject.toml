@@ -66,5 +66,5 @@ env = [
     'DF_CONFIG_SNOWFLAKE_SCHEMA=test',
     'DF_CONFIG_SNOWFLAKE_WAREHOUSE=prefect_wh_test',
     'R:DF_CONFIG_SNOWFLAKE_GCP_STAGE_DATA={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED", "gcs_pocket_shared_location": "gs://test"}',
-    'R:DF_CONFIG_SQLALCHEMY_CREDENTIALS={"url": "mysql://scott:tiger@localhost:5432"}'
+    'R:DF_CONFIG_SQLALCHEMY_CREDENTIALS={"url": "mysql://scott:tiger@localhost:5432", "read_url": "mysql://scott:tiger@localhost:5432"}'
 ]
