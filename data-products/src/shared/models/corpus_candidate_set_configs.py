@@ -74,4 +74,10 @@ static_candidate_set_configs = [
         query_filename="recommended_by_recency.sql",
         query_params={"N_RECS_PER_TOPIC": 6, "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US"},
     ),
+    CorpusCandidateSetConfig(
+        id="0e0a8663-a2c1-430e-9b8c-3a5b6d9eda11",
+        name="en_us/new_tab_syndicated",
+        query_filename="scheduled_syndicated.sql",
+        query_params={"MAX_AGE_DAYS": -30, "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US"},
+    ),
 ]
