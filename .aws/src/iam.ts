@@ -282,7 +282,8 @@ export class DataFlowsIamRoles extends Construct {
       this.getFlowS3ObjectAccess(),
       this.putFeatureGroupRecordsAccess(),
       this.getDataProductsSqsWriteAccess(),
-      this.getSecrets()
+      this.getSecrets(),
+      this.updateSecrets()
     ];
 
     this.createFlowIamRole(
