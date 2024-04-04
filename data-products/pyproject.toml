@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.14.1"
+version = "0.14.2"
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -21,11 +21,11 @@ mysqlclient = "^2.2.0"
 pandas = "^2.0.3"
 db-dtypes = "^1.1.1"
 aioboto3 = "^11.2.0"
-prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-prs"}
 html2text = "^2020.1.16"
 oscrypto = {git = "https://github.com/wbond/oscrypto.git", rev = "d5f3437ed24257895ae1edd9e503cfb352e635a8"} # https://github.com/DataDog/datadog-agent/pull/19899/files
 common-utils = {path = "../common-utils", develop = true}
 scipy = "^1.12.0"
+prefect-aws = "^0.4.13"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -73,6 +73,6 @@ env = [
     'PREFECT_LOGGING_LEVEL=ERROR', # reduce verbosity of logging
     'DASK_DISTRIBUTED__LOGGING__DISTRIBUTED=ERROR', # reduce verbosity of logging
     'NEW_TAB_REC_DATASET=braun',
-    'R:DF_CONFIG_FREESTAR_CREDENTIALS={"api_key": "test"}',
+    # 'R:DF_CONFIG_FREESTAR_CREDENTIALS={"api_key": "test", "api_expiration_timestamp": 0, "username": "test@test.com", "password": "test"}',
     'R:DF_CONFIG_BRAZE_CREDENTIALS={"api_key":"test","rest_endpoint":"mock://test.com"}'
 ]

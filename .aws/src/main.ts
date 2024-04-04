@@ -67,14 +67,9 @@ class PrefectV2 extends TerraformStack {
       }
     );
 
-    // we need an agent per queue NOTE: this will be deprecated in favor of workers
     // worker per environment
-    // AWS dev will have the dev agent
-    // AWS production will have the staging and main agent
-    // we also need an s3 bucket per queue and set of iam roles
     // these map to github branch strategy of dev-v2, staging-v2, and main-v2
     if (config.isDev) {
-      this.getAgentService('dev');
       this.getWorkerService('dev');
       const devS3Bucket = this.createDataFlowsBucket('dev');
       new DataFlowsIamRoles(
@@ -87,7 +82,6 @@ class PrefectV2 extends TerraformStack {
         'dev'
       );
     } else {
-      this.getAgentService('staging');
       this.getWorkerService('staging');
       const stagingS3Bucket = this.createDataFlowsBucket('staging');
       new DataFlowsIamRoles(
@@ -99,7 +93,6 @@ class PrefectV2 extends TerraformStack {
         this.region,
         'staging'
       );
-      this.getAgentService('main');
       this.getWorkerService('main');
       const mainS3Bucket = this.createDataFlowsBucket('main');
       new DataFlowsIamRoles(
@@ -170,63 +163,6 @@ class PrefectV2 extends TerraformStack {
   }
 
   // create a task definition and service using private methods and params
-  private getAgentService(deploymentType: string) {
-    const prefix = `prefect-v2-agent-${deploymentType}`;
-    const DeploymentTypeProper =
-      deploymentType.charAt(0).toUpperCase() + deploymentType.slice(1);
-
-    const agentPolicies = new AgentIamPolicies(
-      this,
-      `agentPolicies${DeploymentTypeProper}`,
-      this.prefectV2Secret,
-      this.dockerSharedSecret,
-      prefix,
-      this.caller,
-      this.region
-    );
-
-    // create the ECS Service for the Prefect v2 agent
-    new PocketECSApplication(this, prefix, {
-      prefix: prefix,
-      shortName: `PFCTV2${deploymentType.toUpperCase()}`,
-      taskSize: {
-        cpu: config.agentCpu,
-        memory: config.agentMemory
-      },
-      containerConfigs: [
-        {
-          name: `prefect-v2-agent`,
-          containerImage: `${this.caller.accountId}.dkr.ecr.${this.region.name}.amazonaws.com/data-flows-prefect-v2-envs:prefect-agent-${config.imageTag}`,
-          command: [
-            'prefect',
-            'agent',
-            'start',
-            '-q',
-            `prefect-v2-queue-${deploymentType}`
-          ],
-          secretEnvVars: [
-            {
-              name: 'PREFECT_API_KEY',
-              valueFrom: `${this.prefectV2Secret.arn}:service_account_api_key::`
-            },
-            {
-              name: 'PREFECT_API_URL',
-              valueFrom: `${this.prefectV2Secret.arn}:account_workspace_url::`
-            }
-          ]
-        }
-      ],
-      ecsIamConfig: {
-        prefix: prefix,
-        taskExecutionRolePolicyStatements:
-          agentPolicies.agentExecutionPolicyStatements,
-        taskRolePolicyStatements: agentPolicies.agentTaskPolicyStatements,
-        taskExecutionDefaultAttachmentArn:
-          'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
-      }
-    });
-  }
-  // create a task definition and service using private methods and params
   private getWorkerService(deploymentType: string) {
     const prefix = `prefect-v2-worker-${deploymentType}`;
     const DeploymentTypeProper =
@@ -242,7 +178,7 @@ class PrefectV2 extends TerraformStack {
       this.region
     );
 
-    // create the ECS Service for the Prefect v2 agent
+    // create the ECS Service for the Prefect v2 worker
     new PocketECSApplication(this, prefix, {
       prefix: prefix,
       shortName: `PFCTWKR${deploymentType.toUpperCase()}`,

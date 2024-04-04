@@ -438,52 +438,6 @@ FLOW_SPEC = FlowSpec(
     docker_env="base",
     deployments=[
         FlowDeployment(
-            name="backend_events_for_mozilla",
-            cron="0 1 * * *",
-            timezone="America/Los_Angeles",
-            parameters={
-                "etl_input": SqlEtlJob(
-                    sql_folder_name="backend_events_for_mozilla",
-                    initial_last_offset="2023-06-18 23:59:59.999",
-                    kwargs={
-                        "database_name": "snowplow",
-                        "schema_name": "atomic",
-                        "table_name": "events",
-                    },
-                    with_external_state=True,
-                    snowflake_stage_id=SF_GCP_STAGE_ID,
-                ).dict()  # type: ignore
-            },
-            job_variables={
-                "env": {
-                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
-                        dev="braun", staging="staging", main="public"
-                    )
-                },
-            },
-            tags=["daily-sla"],
-        ),
-        FlowDeployment(
-            name="curated_feed_exports_aurora",
-            cron="0 * * * *",
-            parameters={
-                "etl_input": SqlEtlJob(
-                    sql_folder_name="curated_feed_exports_aurora",
-                    kwargs={
-                        "environment": CS.deployment_type,
-                    },
-                ).dict()  # type: ignore
-            },
-            job_variables={
-                "env": {
-                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
-                        dev="braun", staging="staging", main="mysql"
-                    )
-                },
-            },
-            tags=["hourly-sla"],
-        ),
-        FlowDeployment(
             name="firefox_new_tab_impressions_daily",
             cron="0 6 * * *",
             parameters={

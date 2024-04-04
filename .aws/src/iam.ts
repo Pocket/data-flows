@@ -282,7 +282,8 @@ export class DataFlowsIamRoles extends Construct {
       this.getFlowS3ObjectAccess(),
       this.putFeatureGroupRecordsAccess(),
       this.getDataProductsSqsWriteAccess(),
-      this.getSecrets()
+      this.getSecrets(),
+      this.updateSecrets()
     ];
 
     this.createFlowIamRole(
@@ -344,6 +345,16 @@ export class DataFlowsIamRoles extends Construct {
       resources: [
         `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:dpt/${this.deploymentType}/data_flows_prefect_*`,
         `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${this.deploymentType}/*`
+      ]
+    };
+  }
+  // Give access to update
+  private updateSecrets(): DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: ['secretsmanager:UpdateSecret'],
+      effect: 'Allow',
+      resources: [
+        `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${this.deploymentType}/freestar-credentials`
       ]
     };
   }

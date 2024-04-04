@@ -1,15 +1,21 @@
 import asyncio
 
+import boto3
 import pendulum
 import pytest
 import requests_mock
+from common.settings import CommonSettings
 from freestar_revenue_reporting.freestar_reporting_flow import (
     FlowDateInputs,
     freestar_report_flow,
 )
+from moto import mock_secretsmanager
 from prefect import task
 
+CS = CommonSettings()  # type: ignore
 
+
+@mock_secretsmanager()
 @pytest.mark.parametrize("test_config", ["base", "ndrprebid", "force_paging"])
 @pytest.mark.parametrize(
     "is_archived",
@@ -17,6 +23,13 @@ from prefect import task
 )
 def test_extract_freestar_data(test_config, is_archived, monkeypatch):
     """Paramatized test to get coverage and validate different scenarios."""
+
+    # initialize the secret
+    sm = boto3.client("secretsmanager")
+    sm.create_secret(
+        Name=f"data-flows/{CS.deployment_type}/freestar-credentials",
+        SecretString='{"api_key": "test", "api_expiration_timestamp": 0, "username": "test@test.com", "password": "test"}',  # noqa: E501
+    )
 
     def create_base_data():
         """
@@ -120,6 +133,11 @@ def test_extract_freestar_data(test_config, is_archived, monkeypatch):
         m.post(
             "https://analytics.pub.network/cubejs-api/v1/load",
             json=create_api_data,
+            headers={"test_config": test_config},
+        )
+        m.post(
+            "https://api.pub.network/api/v1/authorization/public/pubauth",
+            json={"access_token": "test"},
             headers={"test_config": test_config},
         )
         # run flow and assert
