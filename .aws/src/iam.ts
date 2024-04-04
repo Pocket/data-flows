@@ -347,6 +347,18 @@ export class DataFlowsIamRoles extends Construct {
       ]
     };
   }
+  // Give access to update 
+  private updateSecrets(): DataAwsIamPolicyDocumentStatement {
+    return {
+      actions: [
+        'secretsmanager:UpdateSecret'
+      ],
+      effect: 'Allow',
+      resources: [
+        `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${this.deploymentType}/freestar-credentials`
+      ]
+    };
+  }
   // build policy statement for S3 object access
   private getFlowAssumeRoleAccess(role_name: string): DataAwsIamPolicyDocument {
     return new DataAwsIamPolicyDocument(this, `${role_name}TrustPolicy`, {

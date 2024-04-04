@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import date, datetime, time
 from pathlib import Path
@@ -9,8 +10,10 @@ from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings, NestedSettings, SecretSettings
 from prefect import flow, get_run_logger, task
+from prefect_aws.credentials import AwsCredentials
+from prefect_aws.secrets_manager import update_secret
 from prefect_snowflake.database import snowflake_multiquery, snowflake_query_sync
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from shared.async_utils import process_parallel_subflows_task
 
 CS = CommonSettings()  # type: ignore
@@ -18,7 +21,10 @@ CS = CommonSettings()  # type: ignore
 
 # creating settings objects to leverage new secrets logic
 class FreestarCredentials(NestedSettings):
-    api_key: str
+    api_key: SecretStr
+    api_expiration_timestamp: int
+    username: SecretStr
+    password: SecretStr
 
 
 class FreestarSettings(SecretSettings):
@@ -62,15 +68,54 @@ common_dimensions = [
 unique_dimensions = ["size", "device_os", "browser", "integration_partner"]
 
 
+async def get_freestar_credentials() -> FreestarSettings:
+    logger = get_run_logger()
+    creds = FreestarSettings()  # type: ignore
+    if (
+        creds.freestar_credentials.api_expiration_timestamp
+        < pendulum.now(tz="UTC").subtract(days=28).int_timestamp
+    ):
+        logger.info("Access token will expire soon...")
+        logger.info("Getting a new access token...")
+        api_url = "https://api.pub.network/api/v1/authorization/public/pubauth"
+        headers = {
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "email": creds.freestar_credentials.username.get_secret_value(),
+            "password": creds.freestar_credentials.password.get_secret_value(),
+        }
+        response = requests.post(api_url, json=payload, headers=headers)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+
+        # Parse the JSON response
+        response_json = response.json()
+        new_secret_dict = {
+            "api_key": response_json["access_token"],
+            "api_expiration_timestamp": pendulum.now(tz="UTC").int_timestamp,
+            "username": creds.freestar_credentials.username.get_secret_value(),
+            "password": creds.freestar_credentials.password.get_secret_value(),
+        }
+        aws_creds = AwsCredentials()
+        await update_secret(
+            secret_name=f"data-flows/{CS.deployment_type}/freestar-credentials",
+            secret_value=json.dumps(new_secret_dict),
+            aws_credentials=aws_creds,
+        )
+        logger.info("New access token is saved and ready for use...")
+        creds = FreestarSettings()  # type: ignore
+    return creds
+
+
 @task(retries=5, retry_delay_seconds=5, task_run_name="extract-api-data-{report_date}")
 def extract_freestar_data(
-    report_date: str, api_key: str, record_limit: int, is_archived: bool = False
+    report_date: str, api_key: SecretStr, record_limit: int, is_archived: bool = False
 ):
     """Task for extracting data and loading to file.
 
     Args:
         report_date (str): Report date to run for.
-        api_key (str): API key from settings.
+        api_key (SecretStr): API key from settings.
         record_limit (int): Record limit to use.
         is_archived (bool): Whether the data is historical (archived)
     """
@@ -112,7 +157,7 @@ def extract_freestar_data(
     }
     # Set up the headers with the API token
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {api_key.get_secret_value()}",
         "Content-Type": "application/json",
     }
 
@@ -239,7 +284,7 @@ FILE_FORMAT = freestar.{SNOWFLAKE_TABLE}_format;
 async def ingest_freestar_data_subflow(
     report_date: str,
     sf_connector: MozSnowflakeConnector,
-    api_key: str,
+    api_key: SecretStr,
     record_limit: int,
     is_archived: bool = False,
 ):
@@ -248,7 +293,7 @@ async def ingest_freestar_data_subflow(
     Args:
         report_date (str): Report date to run for.
         sf_connector (MozSnowflakeConnector): Connector block to use for tasks.
-        api_key (str): API key from settings.
+        api_key (SecretStr): API key from settings.
         record_limit (int): Record limit to use.
     """
     tmp_table_name = f"{SNOWFLAKE_TABLE}_{report_date.replace('-', '')}_tmp"
@@ -427,7 +472,8 @@ async def freestar_report_flow(dates: FlowDateInputs = FlowDateInputs()):
     )
 
     # Fetch credentials
-    freestar_creds = FreestarSettings()  # type: ignore
+    freestar_creds = await get_freestar_credentials()
+    print(freestar_creds)
 
     # create and submit subflows
     jobs = [
@@ -465,4 +511,6 @@ FLOW_SPEC = FlowSpec(
 if __name__ == "__main__":
     from asyncio import run
 
-    run(freestar_report_flow())
+    dates = FlowDateInputs(start_date="2024-04-02")  # type: ignore
+
+    run(freestar_report_flow())  # type: ignore

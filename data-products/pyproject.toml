@@ -21,11 +21,11 @@ mysqlclient = "^2.2.0"
 pandas = "^2.0.3"
 db-dtypes = "^1.1.1"
 aioboto3 = "^11.2.0"
-prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-prs"}
 html2text = "^2020.1.16"
 oscrypto = {git = "https://github.com/wbond/oscrypto.git", rev = "d5f3437ed24257895ae1edd9e503cfb352e635a8"} # https://github.com/DataDog/datadog-agent/pull/19899/files
 common-utils = {path = "../common-utils", develop = true}
 scipy = "^1.12.0"
+prefect-aws = "^0.4.13"
 
 
 [tool.poetry.group.dev.dependencies]
