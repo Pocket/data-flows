@@ -473,7 +473,6 @@ async def freestar_report_flow(dates: FlowDateInputs = FlowDateInputs()):
 
     # Fetch credentials
     freestar_creds = await get_freestar_credentials()
-    print(freestar_creds)
 
     # create and submit subflows
     jobs = [
