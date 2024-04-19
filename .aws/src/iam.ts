@@ -351,7 +351,11 @@ export class DataFlowsIamRoles extends Construct {
   // Give access to update
   private updateSecrets(): DataAwsIamPolicyDocumentStatement {
     return {
-      actions: ['secretsmanager:UpdateSecret'],
+      actions: [
+        'secretsmanager:UpdateSecret',
+        'kms:GenerateDataKey',
+        'kms:Encrypt'
+      ],
       effect: 'Allow',
       resources: [
         `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${this.deploymentType}/freestar-credentials`
