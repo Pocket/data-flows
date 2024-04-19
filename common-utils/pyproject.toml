@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.8.2"
+version = "0.9.1"
 description = "Shared modules for prefect flow development and deployment"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -11,6 +11,7 @@ packages = [{include = "common", from = 'src'}]
 python = "^3.10"
 prefect = "^2.8.2"
 pydantic = "<2"
+prefect-aws = "^0.4.13"
 
 [tool.poetry.scripts]
 deploy-cli = 'common.deployment.cli:main'
@@ -22,7 +23,6 @@ black = "^23.1.0"
 pytest-cov = "^4.0.0"
 moto = {extras = ["sts"], version = "^4.1.3"}
 pytest-env = "^0.8.1"
-prefect-aws = {git = "https://github.com/Pocket/prefect-aws.git", rev = "test-prs"}
 prefect-snowflake = "^0.26.1"
 prefect-gcp = {extras = ["bigquery"], version = "^0.4.1"}
 pytest-asyncio = "^0.21.0"
@@ -66,5 +66,5 @@ env = [
     'DF_CONFIG_SNOWFLAKE_SCHEMA=test',
     'DF_CONFIG_SNOWFLAKE_WAREHOUSE=prefect_wh_test',
     'R:DF_CONFIG_SNOWFLAKE_GCP_STAGE_DATA={"default_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_DEV","default_location": "gs://test", "gcs_pocket_shared_name": "DEVELOPMENT.TEST.PREFECT_GCS_STAGE_PARQ_SHARED", "gcs_pocket_shared_location": "gs://test"}',
-    'R:DF_CONFIG_SQLALCHEMY_CREDENTIALS={"url": "mysql://scott:tiger@localhost:5432"}'
+    'R:DF_CONFIG_SQLALCHEMY_CREDENTIALS={"url": "mysql://scott:tiger@localhost:5432", "read_url": "mysql://scott:tiger@localhost:5432"}'
 ]

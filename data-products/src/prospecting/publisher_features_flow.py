@@ -81,6 +81,7 @@ FLOW_SPEC = FlowSpec(
     docker_env="base",
     deployments=[
         FlowDeployment(
+            tags=["daily-sla"],
             name="publisher_features",
             cron="0 7 * * *",
             timezone="America/Chicago",

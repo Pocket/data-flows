@@ -11,7 +11,6 @@ from shared.api_clients.sqs import (
 from snowflake.connector import DictCursor
 
 CURATED_LONGREADS_CANDIDATE_SET_ID_EN = "dacc55ea-db8d-4858-a51d-e1c78298337e"
-CURATED_LONGREADS_CANDIDATE_SET_ID_DE = "cff478b9-301e-47cb-accf-ef2fe84ef17a"
 
 CURATED_EN_US_CANDIDATE_SET_ID = "35018233-48cd-4ec4-bcfd-7b1b1ccf30de"
 CURATED_DE_DE_CANDIDATE_SET_ID = "c66a1485-6c87-4c68-b29e-e7e838465ff7"
@@ -104,12 +103,6 @@ SET_PARAM_CONFIG = {
                 "CANDIDATE_SET_ID": CURATED_LONGREADS_CANDIDATE_SET_ID_EN,
                 "SURFACE_ID": "NEW_TAB_EN_US",
                 "FEED_ID": int(NewTabFeedID.en_US),
-            },
-            {
-                "LANG": "DE",
-                "CANDIDATE_SET_ID": CURATED_LONGREADS_CANDIDATE_SET_ID_DE,
-                "SURFACE_ID": "NEW_TAB_DE_DE",
-                "FEED_ID": int(NewTabFeedID.de_DE),
             },
         ],
         "curated": True,
@@ -265,27 +258,34 @@ FLOW_SPEC = FlowSpec(
     docker_env="base",
     deployments=[
         FlowDeployment(
-            name="topics", cron="*/30 * * * *", parameters={"set_params_id": "topics"}
+            name="topics",
+            cron="*/30 * * * *",
+            parameters={"set_params_id": "topics"},
+            tags=["hourly-sla"],
         ),
         FlowDeployment(
             name="longreads",
             cron="*/180 * * * *",
             parameters={"set_params_id": "longreads"},
+            tags=["3-hour-sla"],
         ),
         FlowDeployment(
             name="shortreads",
             cron="*/180 * * * *",
             parameters={"set_params_id": "shortreads"},
+            tags=["3-hour-sla"],
         ),
         FlowDeployment(
             name="curated_feeds",
             cron="*/60 * * * *",
             parameters={"set_params_id": "curated_feeds"},
+            tags=["hourly-sla"],
         ),
         FlowDeployment(
             name="syndicated_feed",
             cron="*/60 * * * *",
             parameters={"set_params_id": "syndicated_feed"},
+            tags=["hourly-sla"],
         ),
     ],
 )

@@ -52,6 +52,10 @@ FLOW_SPEC = FlowSpec(
     flow=delete_deleted_account_data,
     docker_env="base",
     deployments=[
-        FlowDeployment(name="deployment", cron="0 0 15 * *"),
+        FlowDeployment(
+            name="deployment",
+            cron="0 0 15 * *",
+            tags=["monthly-sla"],
+        ),
     ],
 )

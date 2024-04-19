@@ -32,7 +32,11 @@ FLOW_SPEC = FlowSpec(
     flow=delete_old_dev_tables,
     docker_env="base",
     deployments=[
-        FlowDeployment(name="deployment", cron="0 0 * * *"),
+        FlowDeployment(
+            name="deployment",
+            cron="0 0 * * *",
+            tags=["daily-sla"],
+        ),
     ],
 )
 

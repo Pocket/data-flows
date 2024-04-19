@@ -133,6 +133,12 @@ async def test_create_all_candidate_set_configs(monkeypatch):
             },
         ),
         CorpusCandidateSetConfig(
+            id="0e0a8663-a2c1-430e-9b8c-3a5b6d9eda11",
+            name="en_us/new_tab_syndicated",
+            query_filename="scheduled_syndicated.sql",
+            query_params={"MAX_AGE_DAYS": -30, "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US"},
+        ),
+        CorpusCandidateSetConfig(
             id="dd57c71e-049e-4f3a-b003-9d44d693d8c4",
             name="en_us/business",
             query_filename="topic.sql",
@@ -243,4 +249,4 @@ async def test_corpus_candidate_sets(monkeypatch):
 
     await corpus_candidate_sets()
     assert state["sf_call_count"] == 1
-    assert state["load_call_count"] == 11
+    assert state["load_call_count"] == 12
