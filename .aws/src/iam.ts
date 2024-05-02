@@ -354,7 +354,7 @@ export class DataFlowsIamRoles extends Construct {
       actions: ['secretsmanager:UpdateSecret'],
       effect: 'Allow',
       resources: [
-        `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${this.deploymentType}/freestar-credentials`
+        `arn:aws:secretsmanager:${this.region.name}:${this.caller.accountId}:secret:data-flows/${this.deploymentType}/freestar-credentials*`
       ]
     };
   }
