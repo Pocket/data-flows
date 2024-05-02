@@ -353,6 +353,7 @@ export class DataFlowsIamRoles extends Construct {
     return {
       actions: [
         'secretsmanager:UpdateSecret',
+        'secretsmanager:PutSecretValue',
         'kms:GenerateDataKey',
         'kms:Encrypt'
       ],
