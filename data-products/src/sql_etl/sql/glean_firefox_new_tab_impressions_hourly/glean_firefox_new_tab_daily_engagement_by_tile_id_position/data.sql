@@ -44,7 +44,7 @@ SELECT
   DATE(submission_timestamp) AS happened_at,
   recommendation_id,
   tile_id,
-  position,
+  coalesce(safe_cast(position as int), -1) as position,
   SUM(CASE
       WHEN event_name = 'impression' THEN 1
     ELSE
