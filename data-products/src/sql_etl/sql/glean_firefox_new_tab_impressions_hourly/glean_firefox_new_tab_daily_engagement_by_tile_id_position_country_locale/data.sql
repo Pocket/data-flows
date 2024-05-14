@@ -46,8 +46,8 @@ SELECT
   DATE(submission_timestamp) AS happened_at,
   recommendation_id,
   tile_id,
-  position,
-  'CARDGRID' AS SOURCE,
+  coalesce(safe_cast(position as int), -1) as position,
+  'CARDGRID' AS source,
   locale,
   country,
   SUM(CASE
