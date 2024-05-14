@@ -174,6 +174,18 @@ async def test_create_all_candidate_set_configs(monkeypatch):
                 "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US",
             },
         ),
+        CorpusCandidateSetConfig(
+            id="5d8e03db-44a1-40c5-9ec8-ccbec80992f3",
+            name="en_us/collections_authors-faves",
+            query_filename="labeled_collection_stories.sql",
+            query_params={"COLLECTION_LABEL": "author-faves", "LANGUAGE": "EN"},
+        ),
+        CorpusCandidateSetConfig(
+            id="ce4553e1-608d-4bd1-b652-5beeecb72195",
+            name="en_us/collections_top-stories",
+            query_filename="labeled_collection_stories.sql",
+            query_params={"COLLECTION_LABEL": "top-stories", "LANGUAGE": "EN"},
+        ),
     ]
 
 
@@ -249,4 +261,4 @@ async def test_corpus_candidate_sets(monkeypatch):
 
     await corpus_candidate_sets()
     assert state["sf_call_count"] == 1
-    assert state["load_call_count"] == 12
+    assert state["load_call_count"] == 14
