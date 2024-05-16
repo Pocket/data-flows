@@ -139,6 +139,12 @@ async def test_create_all_candidate_set_configs(monkeypatch):
             query_params={"MAX_AGE_DAYS": -30, "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US"},
         ),
         CorpusCandidateSetConfig(
+            id="33cd5817-cbc4-4d01-b9be-7dbcf4e26d2e",
+            name="en_us/collections_pride",
+            query_filename="labeled_collection_stories.sql",
+            query_params={"COLLECTION_LABEL": "pride", "LANGUAGE": "EN"},
+        ),
+        CorpusCandidateSetConfig(
             id="dd57c71e-049e-4f3a-b003-9d44d693d8c4",
             name="en_us/business",
             query_filename="topic.sql",
@@ -173,18 +179,6 @@ async def test_create_all_candidate_set_configs(monkeypatch):
                 "CORPUS_TOPIC_ID": "EDUCATION",
                 "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US",
             },
-        ),
-        CorpusCandidateSetConfig(
-            id="5d8e03db-44a1-40c5-9ec8-ccbec80992f3",
-            name="en_us/collections_authors-faves",
-            query_filename="labeled_collection_stories.sql",
-            query_params={"COLLECTION_LABEL": "author-faves", "LANGUAGE": "EN"},
-        ),
-        CorpusCandidateSetConfig(
-            id="ce4553e1-608d-4bd1-b652-5beeecb72195",
-            name="en_us/collections_top-stories",
-            query_filename="labeled_collection_stories.sql",
-            query_params={"COLLECTION_LABEL": "top-stories", "LANGUAGE": "EN"},
         ),
     ]
 
@@ -261,4 +255,4 @@ async def test_corpus_candidate_sets(monkeypatch):
 
     await corpus_candidate_sets()
     assert state["sf_call_count"] == 1
-    assert state["load_call_count"] == 14
+    assert state["load_call_count"] == 13
