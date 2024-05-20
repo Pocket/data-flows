@@ -4,7 +4,7 @@
 import { Construct } from 'constructs';
 import { AwsProvider } from '@cdktf/provider-aws/lib/provider';
 import { config } from './config';
-import { App, TerraformStack, CloudBackend, NamedCloudWorkspace } from 'cdktf';
+import { App, TerraformStack, S3Backend } from 'cdktf';
 import { DataAwsRegion } from '@cdktf/provider-aws/lib/data-aws-region';
 import { DataAwsCallerIdentity } from '@cdktf/provider-aws/lib/data-aws-caller-identity';
 import { AgentIamPolicies, DataFlowsIamRoles, CircleCiOIDC } from './iam';
@@ -250,17 +250,22 @@ const app = new App();
 const prefectStack = new PrefectV2(app, 'prefect-v2');
 const prefectOidc = new PrefectOidc(app, 'prefect-oidc');
 
-new CloudBackend(prefectStack, {
-  hostname: 'app.terraform.io',
-  organization: 'Pocket',
-  workspaces: new NamedCloudWorkspace(`prefect-v2-${config.tags.environment}`)
+let tfEnv = 'dev';
+if (config.tags.environment.toLowerCase() == 'production') {
+  tfEnv = 'prod';
+}
+
+new S3Backend(prefectStack, {
+  bucket: `mozilla-content-team-${tfEnv}-terraform-state`,
+  dynamodbTable: `mozilla-content-team-${tfEnv}-terraform-state`,
+  key: `prefect-v2-${config.tags.environment.toLowerCase()}`,
+  region: 'us-east-1'
 });
-new CloudBackend(prefectOidc, {
-  hostname: 'app.terraform.io',
-  organization: 'Pocket',
-  workspaces: new NamedCloudWorkspace(
-    `prefect-v2-circleci-${config.tags.environment}`
-  )
+new S3Backend(prefectOidc, {
+  bucket: `mozilla-content-team-${tfEnv}-terraform-state`,
+  dynamodbTable: `mozilla-content-team-${tfEnv}-terraform-state`,
+  key: `prefect-v2-circleci-${config.tags.environment.toLowerCase()}`,
+  region: 'us-east-1'
 });
 
 app.synth();

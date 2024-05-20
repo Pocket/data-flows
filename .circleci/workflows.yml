@@ -192,6 +192,12 @@ jobs:
           - run:
               command: |
                 cd .aws/cdktf.out/stacks/<< parameters.stack_name >>
+                if [ ${NODE_ENV} == "development" ]
+                then
+                  export TF_WORKSPACE=Dev
+                else
+                  export TF_WORKSPACE=Prod
+                fi
                 terraform init
                 if [[ ${APPLY_STACK} == "false" ]]
                 then
