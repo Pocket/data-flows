@@ -74,7 +74,7 @@ async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
             "select foo from BigQuery",
             "select foo from Snowflake",
             join_column_name,
-            None
+            None,
         )
 
         assert len(result) == len(bigquery_data)
