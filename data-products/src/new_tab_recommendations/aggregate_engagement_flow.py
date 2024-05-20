@@ -1,6 +1,6 @@
 import os
 from asyncio import gather, run
-from typing import NamedTuple
+from typing import NamedTuple, Optional, List
 
 import pandas as pd
 from common.cloud.gcp_utils import MozGcpCredentialsV2 as MozGcp
@@ -10,8 +10,9 @@ from common.settings import CommonSettings
 from prefect import flow, get_run_logger
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_query
-from shared.feature_store import FeatureGroupSettings, dataframe_to_feature_group
 from snowflake.connector import DictCursor
+
+from shared.feature_store import FeatureGroupSettings, dataframe_to_feature_group
 
 CS = CommonSettings()  # type: ignore
 
@@ -54,19 +55,20 @@ EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL = """
         LIMIT 16384 -- Limit to Snowflake's max list size. There are a lot of old items that still get some impressions.
     """  # noqa: E501
 
-EXPORT_GLEAN_TELEMETRY_SQL = f"""
+UPDATE_POCKET_USER_EVENTS_BY_COUNTRY_SQL = f"""
 DECLARE max_ts timestamp;
 
 -- create dataset
 create schema if not exists `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}`;
 
 -- table if not exists
-create table if not exists `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events` as (
+create table if not exists `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country` as (
       SELECT
         document_id,
         submission_timestamp,
         event.name AS event_name,
         extra.value AS recommendation_id,
+        normalized_country_code,
         current_timestamp() AS _loaded_at
       FROM `moz-fx-data-shared-prod.firefox_desktop.newtab_live` AS e
       CROSS JOIN UNNEST(e.events) AS event
@@ -77,15 +79,16 @@ create table if not exists `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{N
 );
 -- get max submission timestamp from table
 SET max_ts = (select coalesce(max(submission_timestamp), TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)) as max_ts
-from `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`);
+from `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country`);
 
 -- insert new records
-insert into `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`
+insert into `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country`
       SELECT
         document_id,
         submission_timestamp,
         event.name AS event_name,
         extra.value AS recommendation_id,
+        normalized_country_code,
         current_timestamp() AS _loaded_at
       FROM `moz-fx-data-shared-prod.firefox_desktop.newtab_live` AS e
       CROSS JOIN UNNEST(e.events) AS event
@@ -95,40 +98,58 @@ insert into `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATA
         AND app_build >= '20231116134553' -- Fx 120 was the first build to emit recommendation_id
         AND event.category = 'pocket'
         AND event.name in ('click', 'impression');
--- get aggregations
-  SELECT
-      recommendation_id as CORPUS_RECOMMENDATION_ID,
-      FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
-      APPROX_COUNT_DISTINCT(IF(event_name = 'impression', document_id, NULL)) AS TRAILING_1_DAY_IMPRESSIONS,
-      APPROX_COUNT_DISTINCT(IF(event_name = 'click', document_id, NULL)) AS TRAILING_1_DAY_OPENS
-  FROM `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events`
-  where submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
-  GROUP BY recommendation_id
-  ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
-  LIMIT 16384; -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore."""  # noqa: E501
+"""
 
 
-EXPORT_CORPUS_ITEM_KEYS_SQL = """
-    SELECT DISTINCT 
-        {JOIN_COLUMN_NAME},
-        concat_ws(
-            -- corpus-engagement-v1 is keyed on the following three fields, separated by slashes.
-            '/', recommendation_surface_id, corpus_slate_configuration_id, corpus_item_id
-        ) as KEY,
-        RECOMMENDATION_SURFACE_ID,
-        CORPUS_SLATE_CONFIGURATION_ID,
-        CORPUS_ITEM_ID
-    FROM ANALYTICS.DBT_STAGING.STG_CORPUS_SLATE_RECOMMENDATIONS
-    WHERE {JOIN_COLUMN_NAME} in (%(ID_LIST)s)
-    -- Speed up query using clustered column. 28 day recommendation window was chosen arbitrarily to cover 1 day 
-    -- trailing telemetry. It executes in 35 seconds on XS.
-    AND recommended_at > DATEADD(DAY, -28, CURRENT_TIMESTAMP())
-"""  # noqa: E501
+def get_clean_telemetry_sql(country: bool = None):
+    return f"""
+    -- get aggregations
+      SELECT
+          recommendation_id as CORPUS_RECOMMENDATION_ID,
+          FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
+          APPROX_COUNT_DISTINCT(IF(event_name = 'impression', document_id, NULL)) AS TRAILING_1_DAY_IMPRESSIONS,
+          APPROX_COUNT_DISTINCT(IF(event_name = 'click', document_id, NULL)) AS TRAILING_1_DAY_OPENS
+      FROM `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country`
+      where submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+      {"and normalized_country_code = @country" if country else ""}
+      GROUP BY recommendation_id
+      ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
+      LIMIT 16384; -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore."""  # noqa: E501
+
+
+EXPORT_GLEAN_TELEMETRY_SQL = get_clean_telemetry_sql()
+EXPORT_GLEAN_COUNTRY_TELEMETRY_SQL = get_clean_telemetry_sql(country=True)
+
+
+def get_export_corpus_item_keys_sql(
+    join_column_name: str, country: Optional[str] = None
+):
+    # join_column_name and country are string literals defined in this file,
+    # so there's no risk of SQL injection by inserting it in the query below.
+    return f"""
+        SELECT DISTINCT 
+            {join_column_name},
+            concat_ws(
+                -- corpus-engagement-v1 is keyed on the following three fields, separated by slashes.
+                '/', recommendation_surface_id, corpus_slate_configuration_id, corpus_item_id
+                {f", '{country}'" if country else ""}
+            ) as KEY,
+            RECOMMENDATION_SURFACE_ID,
+            CORPUS_SLATE_CONFIGURATION_ID,
+            CORPUS_ITEM_ID
+        FROM ANALYTICS.DBT_STAGING.STG_CORPUS_SLATE_RECOMMENDATIONS
+        WHERE {join_column_name} in (%(ID_LIST)s)
+        -- Speed up query using clustered column. 28 day recommendation window was chosen arbitrarily to cover 1 day 
+        -- trailing telemetry. It executes in 35 seconds on XS.
+        AND recommended_at > DATEADD(DAY, -28, CURRENT_TIMESTAMP())
+    """  # noqa: E501
 
 
 class TelemetrySource(NamedTuple):
     export_telemetry_sql: str
+    export_corpus_item_keys_sql: str
     join_column_name: str
+    export_telemetry_params: Optional[List[tuple]] = None
 
 
 """
@@ -143,33 +164,45 @@ and enables experiments with rankers.
 """
 telemetry_sources: list[TelemetrySource] = [
     TelemetrySource(
-        EXPORT_GLEAN_TELEMETRY_SQL, "CORPUS_RECOMMENDATION_ID"
+        EXPORT_GLEAN_TELEMETRY_SQL,
+        get_export_corpus_item_keys_sql(join_column_name="CORPUS_RECOMMENDATION_ID"),
+        "CORPUS_RECOMMENDATION_ID",
     ),  # Glean is joined on recommendation UUID.
     TelemetrySource(
-        EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL, "TILE_ID"
+        EXPORT_GLEAN_COUNTRY_TELEMETRY_SQL,
+        get_export_corpus_item_keys_sql(
+            join_column_name="CORPUS_RECOMMENDATION_ID", country="CA"
+        ),
+        "CORPUS_RECOMMENDATION_ID",
+        [("country", "STRING", "CA")],
+    ),  # Glean is joined on recommendation UUID.
+    TelemetrySource(
+        EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL,
+        get_export_corpus_item_keys_sql(join_column_name="TILE_ID"),
+        "TILE_ID",
     ),  # Activity stream is joined on integer tile id.
 ]
 
 
 async def export_telemetry_by_corpus_item_id(
-    export_telemetry_sql: str, join_column_name: str
+    export_telemetry_sql: str,
+    export_corpus_item_keys_sql: str,
+    join_column_name: str,
+    export_telemetry_params: Optional[List[tuple]],
 ):
     """
     Exports `export_telemetry_sql` from BigQuery,
     joined with corpus metadata from Snowflake on `join_column_name`.
     :param export_telemetry_sql: BigQuery SQL to export open and impression counts.
     Must export `join_column_name`.
+    :param export_telemetry_params: BigQuery parameters for export_telemetry_sql
     :param join_column_name: Column in STG_CORPUS_SLATE_RECOMMENDATIONS to join on.
     :return: Telemetry aggregated by CORPUS_ITEM_ID
     """
-    # join_column_name is a string literal,
-    # so there's no risk of SQL injection by inserting it in the query below.
-    export_corpus_item_keys_sql = EXPORT_CORPUS_ITEM_KEYS_SQL.format(
-        JOIN_COLUMN_NAME=join_column_name
-    )
     df_telemetry = await bigquery_query(
         gcp_credentials=MozGcp(),
         query=export_telemetry_sql,
+        query_params=export_telemetry_params,
         to_dataframe=True,
     )
     corpus_item_keys_records = await snowflake_query(
@@ -189,16 +222,27 @@ async def export_telemetry_by_corpus_item_id(
 
 
 @flow(name="new-tab-recommendations.aggregate-engagement")
-async def aggregate_engagement():
+async def aggregate_engagement(region: str = None):
     """
     Ingests NewTab telemetry joined with Corpus metadata into a Sagemaker Feature Group.
     """
     logger = get_run_logger()
+
+    # Do an incremental update of the events table.
+    await bigquery_query(
+        gcp_credentials=MozGcp(), query=UPDATE_POCKET_USER_EVENTS_BY_COUNTRY_SQL
+    )
+
     # Export telemetry from Glean and Activity Stream aggregated by CORPUS_ITEM_ID.
     all_dataframes = await gather(
         *[
-            export_telemetry_by_corpus_item_id(export_sql, join_column)
-            for export_sql, join_column in telemetry_sources
+            export_telemetry_by_corpus_item_id(
+                export_telemetry_sql,
+                export_corpus_item_keys_sql,
+                join_column,
+                query_params,
+            )
+            for export_telemetry_sql, export_corpus_item_keys_sql, join_column, query_params in telemetry_sources
         ]
     )
     logger.info(f"Dataframe counts are: {[len(x) for x in all_dataframes]}...")

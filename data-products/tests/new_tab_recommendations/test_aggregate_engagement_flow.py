@@ -4,8 +4,9 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-import src.new_tab_recommendations.aggregate_engagement_flow as ntr
 from prefect.testing.utilities import prefect_test_harness
+
+import src.new_tab_recommendations.aggregate_engagement_flow as ntr
 from tests.utils import async_patch
 
 
@@ -70,7 +71,10 @@ async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
         patch(f"{MODULE}.MozGcp", return_value=MagicMock()),
     ):
         result = await ntr.export_telemetry_by_corpus_item_id(
-            "select foo from bar", join_column_name
+            "select foo from BigQuery",
+            "select foo from Snowflake",
+            join_column_name,
+            None
         )
 
         assert len(result) == len(bigquery_data)
@@ -97,6 +101,17 @@ async def test_aggregate_engagement():
                 "TRAILING_1_DAY_IMPRESSIONS": [100, 200],
                 "TRAILING_1_DAY_OPENS": [1, 2],
                 "KEY": ["1", "2"],
+                "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
+                "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
+                "CORPUS_ITEM_ID": ["foo1", "foo2"],
+            }
+        ),
+        pd.DataFrame(
+            {
+                "UPDATED_AT": ["4", "5"],
+                "TRAILING_1_DAY_IMPRESSIONS": [100, 200],
+                "TRAILING_1_DAY_OPENS": [1, 2],
+                "KEY": ["1/CA", "2/CA"],
                 "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
                 "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
                 "CORPUS_ITEM_ID": ["foo1", "foo2"],
@@ -134,21 +149,21 @@ async def test_aggregate_engagement():
             mock_dataframe_to_feature_group.call_args.kwargs["dataframe"],  # type: ignore  # noqa: E501
             pd.DataFrame(
                 {
-                    "UPDATED_AT": ["1", "2", "3"],
-                    "KEY": ["1", "2", "3"],
-                    "RECOMMENDATION_SURFACE_ID": ["r1", "r1", "r1"],
-                    "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1", "s1"],
-                    "CORPUS_ITEM_ID": ["foo1", "foo2", "foo3"],
-                    "TRAILING_1_DAY_IMPRESSIONS": [100, 500, 400],
-                    "TRAILING_1_DAY_OPENS": [1, 5, 4],
-                    "TRAILING_7_DAY_IMPRESSIONS": [0, 0, 0],
-                    "TRAILING_7_DAY_OPENS": [0, 0, 0],
-                    "TRAILING_14_DAY_IMPRESSIONS": [0, 0, 0],
-                    "TRAILING_14_DAY_OPENS": [0, 0, 0],
-                    "TRAILING_21_DAY_IMPRESSIONS": [0, 0, 0],
-                    "TRAILING_21_DAY_OPENS": [0, 0, 0],
-                    "TRAILING_28_DAY_IMPRESSIONS": [0, 0, 0],
-                    "TRAILING_28_DAY_OPENS": [0, 0, 0],
+                    "UPDATED_AT": ["1", "2", "3", "4", "5"],
+                    "KEY": ["1", "2", "3", "1/CA", "2/CA"],
+                    "RECOMMENDATION_SURFACE_ID": ["r1", "r1", "r1", "r1", "r1"],
+                    "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1", "s1", "s1", "s1"],
+                    "CORPUS_ITEM_ID": ["foo1", "foo2", "foo3", "foo1", "foo2"],
+                    "TRAILING_1_DAY_IMPRESSIONS": [100, 500, 400, 100, 200],
+                    "TRAILING_1_DAY_OPENS": [1, 5, 4, 1, 2],
+                    "TRAILING_7_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
+                    "TRAILING_7_DAY_OPENS": [0, 0, 0, 0, 0],
+                    "TRAILING_14_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
+                    "TRAILING_14_DAY_OPENS": [0, 0, 0, 0, 0],
+                    "TRAILING_21_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
+                    "TRAILING_21_DAY_OPENS": [0, 0, 0, 0, 0],
+                    "TRAILING_28_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
+                    "TRAILING_28_DAY_OPENS": [0, 0, 0, 0, 0],
                 }
             ),
         )
