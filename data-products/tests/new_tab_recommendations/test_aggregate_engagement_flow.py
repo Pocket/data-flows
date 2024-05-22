@@ -70,7 +70,10 @@ async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
         patch(f"{MODULE}.MozGcp", return_value=MagicMock()),
     ):
         result = await ntr.export_telemetry_by_corpus_item_id(
-            "select foo from bar", join_column_name
+            "select foo from BigQuery",
+            "select foo from Snowflake",
+            join_column_name,
+            None,
         )
 
         assert len(result) == len(bigquery_data)
@@ -88,70 +91,92 @@ async def test_export_telemetry_by_corpus_item_id(mock_bigquery_snowflake_data):
 
 
 @pytest.mark.asyncio
-async def test_aggregate_engagement():
-    # Mock data returned by export_telemetry_by_corpus_item_id
-    return_values = [
-        pd.DataFrame(
-            {
-                "UPDATED_AT": ["1", "2"],
-                "TRAILING_1_DAY_IMPRESSIONS": [100, 200],
-                "TRAILING_1_DAY_OPENS": [1, 2],
-                "KEY": ["1", "2"],
-                "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
-                "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
-                "CORPUS_ITEM_ID": ["foo1", "foo2"],
-            }
-        ),
-        pd.DataFrame(
-            {
-                "UPDATED_AT": ["2", "3"],
-                "TRAILING_1_DAY_IMPRESSIONS": [300, 400],
-                "TRAILING_1_DAY_OPENS": [3, 4],
-                "KEY": ["2", "3"],
-                "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
-                "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
-                "CORPUS_ITEM_ID": ["foo2", "foo3"],
-            }
-        ),
-    ]
+@pytest.mark.parametrize(
+    "mock_bigquery_snowflake_data", ["activity_stream", "glean"], indirect=True
+)
+async def test_aggregate_engagement(mock_bigquery_snowflake_data):
+    join_column_name, bigquery_data, snowflake_data = mock_bigquery_snowflake_data
 
     with (
-        prefect_test_harness(),
-        async_patch(
-            f"{MODULE}.export_telemetry_by_corpus_item_id", side_effect=return_values
-        ) as mock_export,
-        async_patch(
-            f"{MODULE}.dataframe_to_feature_group"
-        ) as mock_dataframe_to_feature_group,
+        async_patch(f"{MODULE}.bigquery_query", return_value=bigquery_data),
+        async_patch(f"{MODULE}.snowflake_query", return_value=snowflake_data),
+        patch(f"{MODULE}.MozGcp", return_value=MagicMock()),
     ):
-        # Call the aggregate_engagement function
-        await ntr.aggregate_engagement()  # type: ignore
-
-        # Assert that dataframe_to_feature_group is called with the expected DataFrame
-        assert mock_dataframe_to_feature_group.call_count == 1  # type: ignore
-
-        pd.testing.assert_frame_equal(
-            mock_dataframe_to_feature_group.call_args.kwargs["dataframe"],  # type: ignore  # noqa: E501
+        # Mock data returned by export_telemetry_by_corpus_item_id
+        return_values = [
             pd.DataFrame(
                 {
-                    "UPDATED_AT": ["1", "2", "3"],
-                    "KEY": ["1", "2", "3"],
-                    "RECOMMENDATION_SURFACE_ID": ["r1", "r1", "r1"],
-                    "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1", "s1"],
-                    "CORPUS_ITEM_ID": ["foo1", "foo2", "foo3"],
-                    "TRAILING_1_DAY_IMPRESSIONS": [100, 500, 400],
-                    "TRAILING_1_DAY_OPENS": [1, 5, 4],
-                    "TRAILING_7_DAY_IMPRESSIONS": [0, 0, 0],
-                    "TRAILING_7_DAY_OPENS": [0, 0, 0],
-                    "TRAILING_14_DAY_IMPRESSIONS": [0, 0, 0],
-                    "TRAILING_14_DAY_OPENS": [0, 0, 0],
-                    "TRAILING_21_DAY_IMPRESSIONS": [0, 0, 0],
-                    "TRAILING_21_DAY_OPENS": [0, 0, 0],
-                    "TRAILING_28_DAY_IMPRESSIONS": [0, 0, 0],
-                    "TRAILING_28_DAY_OPENS": [0, 0, 0],
+                    "UPDATED_AT": ["1", "2"],
+                    "TRAILING_1_DAY_IMPRESSIONS": [100, 200],
+                    "TRAILING_1_DAY_OPENS": [1, 2],
+                    "KEY": ["1", "2"],
+                    "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
+                    "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
+                    "CORPUS_ITEM_ID": ["foo1", "foo2"],
                 }
             ),
-        )
+            pd.DataFrame(
+                {
+                    "UPDATED_AT": ["4", "5"],
+                    "TRAILING_1_DAY_IMPRESSIONS": [100, 200],
+                    "TRAILING_1_DAY_OPENS": [1, 2],
+                    "KEY": ["1/CA", "2/CA"],
+                    "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
+                    "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
+                    "CORPUS_ITEM_ID": ["foo1", "foo2"],
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "UPDATED_AT": ["2", "3"],
+                    "TRAILING_1_DAY_IMPRESSIONS": [300, 400],
+                    "TRAILING_1_DAY_OPENS": [3, 4],
+                    "KEY": ["2", "3"],
+                    "RECOMMENDATION_SURFACE_ID": ["r1", "r1"],
+                    "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1"],
+                    "CORPUS_ITEM_ID": ["foo2", "foo3"],
+                }
+            ),
+        ]
+
+        with (
+            prefect_test_harness(),
+            async_patch(
+                f"{MODULE}.export_telemetry_by_corpus_item_id",
+                side_effect=return_values,
+            ) as mock_export,
+            async_patch(
+                f"{MODULE}.dataframe_to_feature_group"
+            ) as mock_dataframe_to_feature_group,
+        ):
+            # Call the aggregate_engagement function
+            await ntr.aggregate_engagement()  # type: ignore
+
+            # Assert that dataframe_to_feature_group is called with the expected DataFrame
+            assert mock_dataframe_to_feature_group.call_count == 1  # type: ignore
+
+            pd.testing.assert_frame_equal(
+                mock_dataframe_to_feature_group.call_args.kwargs["dataframe"],  # type: ignore  # noqa: E501
+                pd.DataFrame(
+                    {
+                        "UPDATED_AT": ["1", "2", "3", "4", "5"],
+                        "KEY": ["1", "2", "3", "1/CA", "2/CA"],
+                        "RECOMMENDATION_SURFACE_ID": ["r1", "r1", "r1", "r1", "r1"],
+                        "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1", "s1", "s1", "s1"],
+                        "CORPUS_ITEM_ID": ["foo1", "foo2", "foo3", "foo1", "foo2"],
+                        "TRAILING_1_DAY_IMPRESSIONS": [100, 500, 400, 100, 200],
+                        "TRAILING_1_DAY_OPENS": [1, 5, 4, 1, 2],
+                        "TRAILING_7_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
+                        "TRAILING_7_DAY_OPENS": [0, 0, 0, 0, 0],
+                        "TRAILING_14_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
+                        "TRAILING_14_DAY_OPENS": [0, 0, 0, 0, 0],
+                        "TRAILING_21_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
+                        "TRAILING_21_DAY_OPENS": [0, 0, 0, 0, 0],
+                        "TRAILING_28_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
+                        "TRAILING_28_DAY_OPENS": [0, 0, 0, 0, 0],
+                    }
+                ),
+            )
 
 
 @pytest.mark.parametrize("deployment_type", ["dev", "staging", "main"])
