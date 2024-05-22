@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 import src.new_tab_recommendations.aggregate_engagement_flow as ntr
 from prefect.testing.utilities import prefect_test_harness
+from tests.utils import async_patch
 
 
 @pytest.fixture
