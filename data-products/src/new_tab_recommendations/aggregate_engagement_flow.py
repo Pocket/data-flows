@@ -222,7 +222,7 @@ async def export_telemetry_by_corpus_item_id(
 
 
 @flow(name="new-tab-recommendations.aggregate-engagement")
-async def aggregate_engagement(region: str = None):
+async def aggregate_engagement():
     """
     Ingests NewTab telemetry joined with Corpus metadata into a Sagemaker Feature Group.
     """
