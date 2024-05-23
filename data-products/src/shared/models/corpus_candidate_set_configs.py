@@ -80,4 +80,16 @@ static_candidate_set_configs = [
         query_filename="scheduled_syndicated.sql",
         query_params={"MAX_AGE_DAYS": -30, "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US"},
     ),
+    CorpusCandidateSetConfig(
+        id="33cd5817-cbc4-4d01-b9be-7dbcf4e26d2e",
+        name="en_us/collections_pride",
+        query_filename="labeled_collection_stories.sql",
+        query_params={"COLLECTION_LABEL": "pride", "LANGUAGE": "EN"},
+    ),
+    CorpusCandidateSetConfig(
+        id="8c4f7d7e-f0e0-4c99-9ebb-c889b78dfd66",
+        name="de_de/collections_pride",
+        query_filename="labeled_collection_stories.sql",
+        query_params={"COLLECTION_LABEL": "pride", "LANGUAGE": "DE"},
+    ),
 ]
