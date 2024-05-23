@@ -145,6 +145,12 @@ async def test_create_all_candidate_set_configs(monkeypatch):
             query_params={"COLLECTION_LABEL": "pride", "LANGUAGE": "EN"},
         ),
         CorpusCandidateSetConfig(
+            id="8c4f7d7e-f0e0-4c99-9ebb-c889b78dfd66",
+            name="de_de/collections_pride",
+            query_filename="labeled_collection_stories.sql",
+            query_params={"COLLECTION_LABEL": "pride", "LANGUAGE": "DE"},
+        ),
+        CorpusCandidateSetConfig(
             id="dd57c71e-049e-4f3a-b003-9d44d693d8c4",
             name="en_us/business",
             query_filename="topic.sql",
@@ -255,4 +261,4 @@ async def test_corpus_candidate_sets(monkeypatch):
 
     await corpus_candidate_sets()
     assert state["sf_call_count"] == 1
-    assert state["load_call_count"] == 13
+    assert state["load_call_count"] == 14

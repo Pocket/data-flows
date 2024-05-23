@@ -86,4 +86,10 @@ static_candidate_set_configs = [
         query_filename="labeled_collection_stories.sql",
         query_params={"COLLECTION_LABEL": "pride", "LANGUAGE": "EN"},
     ),
+    CorpusCandidateSetConfig(
+        id="8c4f7d7e-f0e0-4c99-9ebb-c889b78dfd66",
+        name="de_de/collections_pride",
+        query_filename="labeled_collection_stories.sql",
+        query_params={"COLLECTION_LABEL": "pride", "LANGUAGE": "DE"},
+    ),
 ]
