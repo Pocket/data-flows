@@ -62,40 +62,40 @@ DECLARE max_ts timestamp;
 create schema if not exists `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}`;
 
 -- table if not exists
-create table if not exists `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country` as (
+create table if not exists `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country_v2` as (
       SELECT
         document_id,
         submission_timestamp,
         event.name AS event_name,
-        extra.value AS recommendation_id,
+        extra.value AS tile_id,
         normalized_country_code,
         current_timestamp() AS _loaded_at
       FROM `moz-fx-data-shared-prod.firefox_desktop.newtab_live` AS e
       CROSS JOIN UNNEST(e.events) AS event
-      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
+      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'tile_id'
       WHERE
         submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
         AND 1 = 2
 );
 -- get max submission timestamp from table
 SET max_ts = (select coalesce(max(submission_timestamp), TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)) as max_ts
-from `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country`);
+from `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country_v2`);
 
 -- insert new records
-insert into `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country`
+insert into `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country_v2`
       SELECT
         document_id,
         submission_timestamp,
         event.name AS event_name,
-        extra.value AS recommendation_id,
+        extra.value AS tile_id,
         normalized_country_code,
         current_timestamp() AS _loaded_at
       FROM `moz-fx-data-shared-prod.firefox_desktop.newtab_live` AS e
       CROSS JOIN UNNEST(e.events) AS event
-      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'recommendation_id'
+      CROSS JOIN UNNEST(event.extra) AS extra ON extra.key = 'tile_id'
       WHERE
         submission_timestamp > max_ts
-        AND app_build >= '20231116134553' -- Fx 120 was the first build to emit recommendation_id
+        AND app_build >= '20231116134553' -- Fx 120 was the first build to emit tile_id
         AND event.category = 'pocket'
         AND event.name in ('click', 'impression');
 """
@@ -105,14 +105,14 @@ def get_clean_telemetry_sql(country: bool = None):
     return f"""
     -- get aggregations
       SELECT
-          recommendation_id as CORPUS_RECOMMENDATION_ID,
+          tile_id as TILE_ID,
           FORMAT_DATETIME("%Y-%m-%dT%H:%M:%SZ", MAX(submission_timestamp)) as UPDATED_AT,  -- Feature Store requires ISO 8601 time format
           APPROX_COUNT_DISTINCT(IF(event_name = 'impression', document_id, NULL)) AS TRAILING_1_DAY_IMPRESSIONS,
           APPROX_COUNT_DISTINCT(IF(event_name = 'click', document_id, NULL)) AS TRAILING_1_DAY_OPENS
-      FROM `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country`
+      FROM `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country_v2`
       where submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
       {"and normalized_country_code = @country" if country else ""}
-      GROUP BY recommendation_id
+      GROUP BY tile_id
       ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
       LIMIT 16384; -- Limit to Snowflake's max list size. Can be removed once we don't join across BQ/Snowflake anymore."""  # noqa: E501
 
@@ -154,10 +154,17 @@ class TelemetrySource(NamedTuple):
 
 """
 Glean events have a 'recommendation id' (a.k.a. 'corpus recommendation id'), 
-which is distinct for each server-side
-event when content is recommended. Activity Stream uses the older 'tile id', 
-which is distinct for each time content is
+which is distinct for each server-side event when content is recommended, as
+well as a 'tile_id'.
+Activity Stream uses the older 'tile id', which is distinct for each time content is
 scheduled, and cannot be traced back to a single server-side recommendation event.
+
+Glean can be joined on TILE_ID or CORPUS_RECOMMENDATION_ID.
+On 2024-05-28 we switched the join column back to TILE_ID because
+too many CORPUS_RECOMMENDATION_ID values were generated each day
+to join the tables in memory using a single WHERE IN query.
+TILE_ID is unique by the content and scheduled date, and has far
+fewer distinct values each day.
 
 The ability to trace back to server-side events improves observability 
 and enables experiments with rankers.
@@ -165,17 +172,15 @@ and enables experiments with rankers.
 telemetry_sources: list[TelemetrySource] = [
     TelemetrySource(
         EXPORT_GLEAN_TELEMETRY_SQL,
-        get_export_corpus_item_keys_sql(join_column_name="CORPUS_RECOMMENDATION_ID"),
-        "CORPUS_RECOMMENDATION_ID",
-    ),  # Glean is joined on recommendation UUID.
+        get_export_corpus_item_keys_sql(join_column_name="TILE_ID"),
+        "TILE_ID",
+    ),
     TelemetrySource(
         EXPORT_GLEAN_COUNTRY_TELEMETRY_SQL,
-        get_export_corpus_item_keys_sql(
-            join_column_name="CORPUS_RECOMMENDATION_ID", country="CA"
-        ),
-        "CORPUS_RECOMMENDATION_ID",
+        get_export_corpus_item_keys_sql(join_column_name="TILE_ID", country="CA"),
+        "TILE_ID",
         [("country", "STRING", "CA")],
-    ),  # Glean is joined on recommendation UUID.
+    ),
     TelemetrySource(
         EXPORT_ACTIVITY_STREAM_TELEMETRY_SQL,
         get_export_corpus_item_keys_sql(join_column_name="TILE_ID"),
@@ -205,6 +210,8 @@ async def export_telemetry_by_corpus_item_id(
         query_params=export_telemetry_params,
         to_dataframe=True,
     )
+    df_telemetry[join_column_name] = df_telemetry[join_column_name].astype(str)
+
     corpus_item_keys_records = await snowflake_query(
         snowflake_connector=MozSnowflakeConnector(),
         query=export_corpus_item_keys_sql,
@@ -213,11 +220,14 @@ async def export_telemetry_by_corpus_item_id(
     )
 
     df_corpus_item_keys = pd.DataFrame(corpus_item_keys_records)
+    df_corpus_item_keys[join_column_name] = df_corpus_item_keys[
+        join_column_name
+    ].astype(str)
+
     # Combine the BigQuery and Snowflake results on TILE_ID.
     df_telemetry = pd.merge(df_telemetry, df_corpus_item_keys)
 
-    # Drop TILE_ID or CORPUS_RECOMMENDATION_ID after merging,
-    # to match the dataframe columns with the feature group.
+    # Drop TILE_ID after merging, to match the dataframe columns with the feature group.
     return df_telemetry.drop(columns=[join_column_name])
 
 
@@ -251,14 +261,19 @@ async def aggregate_engagement():
         pd.concat(all_dataframes)
         .groupby(
             [
-                "UPDATED_AT",
                 "KEY",
                 "RECOMMENDATION_SURFACE_ID",
                 "CORPUS_SLATE_CONFIGURATION_ID",
                 "CORPUS_ITEM_ID",
             ]
         )
-        .sum()
+        .agg(
+            {
+                "UPDATED_AT": "max",
+                "TRAILING_1_DAY_IMPRESSIONS": "sum",
+                "TRAILING_1_DAY_OPENS": "sum",
+            }
+        )
         .reset_index()
     )
 
