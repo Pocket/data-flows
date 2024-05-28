@@ -250,7 +250,7 @@ jobs:
                 condition: << parameters.use_deploy_cli >>
                 steps:
                   - setup_remote_docker:
-                      version: 20.10.18
+                      version: docker24
                   - when:
                       condition: << parameters.validate_build_only >>
                       steps:
@@ -282,7 +282,7 @@ jobs:
           steps:
             - git_checkout
             - setup_remote_docker:
-                version: 20.10.18
+                version: docker24
             - run:
                 command: |
                   docker build --platform linux/amd64 -t prefect-agent -f agent/Dockerfile .
