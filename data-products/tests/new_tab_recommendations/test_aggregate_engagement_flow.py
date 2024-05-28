@@ -18,7 +18,7 @@ def mock_bigquery_snowflake_data(request):
         join_column_name = "TILE_ID"
         ids = [4139552719614857, 2352534083175407, 3984239929814862]
     elif data_type == "glean":
-        join_column_name = "CORPUS_RECOMMENDATION_ID"
+        join_column_name = "TILE_ID"
         ids = [
             "f7c76d5f-6df4-4588-9028-22a88ce6927c",
             "9a1dfb60-072d-49e2-83b1-4c99f59fb0dc",
@@ -128,7 +128,7 @@ async def test_aggregate_engagement(mock_bigquery_snowflake_data):
             ),
             pd.DataFrame(
                 {
-                    "UPDATED_AT": ["2", "3"],
+                    "UPDATED_AT": ["3", "3"],
                     "TRAILING_1_DAY_IMPRESSIONS": [300, 400],
                     "TRAILING_1_DAY_OPENS": [3, 4],
                     "KEY": ["2", "3"],
@@ -155,17 +155,19 @@ async def test_aggregate_engagement(mock_bigquery_snowflake_data):
             # Assert that dataframe_to_feature_group is called with the expected DataFrame
             assert mock_dataframe_to_feature_group.call_count == 1  # type: ignore
 
+            df_result = mock_dataframe_to_feature_group.call_args.kwargs["dataframe"]
+
             pd.testing.assert_frame_equal(
-                mock_dataframe_to_feature_group.call_args.kwargs["dataframe"],  # type: ignore  # noqa: E501
+                df_result,  # type: ignore  # noqa: E501
                 pd.DataFrame(
                     {
-                        "UPDATED_AT": ["1", "2", "3", "4", "5"],
-                        "KEY": ["1", "2", "3", "1/CA", "2/CA"],
+                        "KEY": ["1", "1/CA", "2", "2/CA", "3"],
                         "RECOMMENDATION_SURFACE_ID": ["r1", "r1", "r1", "r1", "r1"],
                         "CORPUS_SLATE_CONFIGURATION_ID": ["s1", "s1", "s1", "s1", "s1"],
-                        "CORPUS_ITEM_ID": ["foo1", "foo2", "foo3", "foo1", "foo2"],
-                        "TRAILING_1_DAY_IMPRESSIONS": [100, 500, 400, 100, 200],
-                        "TRAILING_1_DAY_OPENS": [1, 5, 4, 1, 2],
+                        "CORPUS_ITEM_ID": ["foo1", "foo1", "foo2", "foo2", "foo3"],
+                        "UPDATED_AT": ["1", "4", "3", "5", "3"],
+                        "TRAILING_1_DAY_IMPRESSIONS": [100, 100, 500, 200, 400],
+                        "TRAILING_1_DAY_OPENS": [1, 1, 5, 2, 4],
                         "TRAILING_7_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
                         "TRAILING_7_DAY_OPENS": [0, 0, 0, 0, 0],
                         "TRAILING_14_DAY_IMPRESSIONS": [0, 0, 0, 0, 0],
