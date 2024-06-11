@@ -71,6 +71,7 @@ SELECT
     ) AS dismiss_count
 FROM
   flattened_pocket_events
+WHERE CAST(tile_id AS STRING) not like '18408385020159%'
 GROUP BY
   1,
   2,
