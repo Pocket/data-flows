@@ -10,7 +10,12 @@
 WITH
   deduplicated_pings AS (
   SELECT
-    *
+    submission_timestamp,
+    document_id,
+    normalized_country_code,
+    client_info,
+    events,
+    metrics
   FROM
     `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
   WHERE
@@ -21,6 +26,7 @@ WITH
       submission_timestamp DESC) = 1 ),
   flattened_pocket_events AS (
   SELECT
+    document_id,
     DATE(submission_timestamp) AS happened_at,
     CASE
       WHEN ( normalized_country_code IN ('US', 'CA') AND metrics.string.newtab_locale IN ('en-CA', 'en-GB', 'en-US') ) THEN 'NEW_TAB_EN_US'
@@ -48,7 +54,8 @@ WITH
         'is_sponsored') AS boolean) AS is_sponsored,
     metrics.boolean.pocket_enabled = TRUE AS pocket_enabled,
     metrics.boolean.pocket_sponsored_stories_enabled = TRUE AS pocket_sponsored_stories_enabled,
-    client_info.client_id AS client_id
+    client_info.client_id AS client_id,
+    COUNT(1) OVER (PARTITION BY document_id, e.name) as user_event_count
   FROM
     deduplicated_pings,
     UNNEST(events) AS e
@@ -119,6 +126,7 @@ SELECT
     ) AS users_clicking_spocs_count,
 FROM
   flattened_pocket_events
+WHERE NOT (user_event_count > 50 AND event_name = 'click')
 GROUP BY
   1,
   2

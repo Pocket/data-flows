@@ -7,7 +7,11 @@
 WITH
   deduplicated_pings AS (
   SELECT
-    *
+    submission_timestamp,
+    document_id,
+    normalized_country_code,
+    client_info,
+    events
   FROM
     `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` {{helpers.legacy_rolling_24_hours_filter()}} QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
       document_id
@@ -15,6 +19,7 @@ WITH
       submission_timestamp DESC) = 1 ),
   flattened_pocket_events AS (
   SELECT
+    document_id,
     submission_timestamp,
     e.name AS event_name,
     mozfun.map.get_key(e.extra,
@@ -22,7 +27,8 @@ WITH
     mozfun.map.get_key(e.extra,
       'tile_id') AS tile_id,
     mozfun.map.get_key(e.extra,
-      'position') AS position
+      'position') AS position,
+  COUNT(1) OVER (PARTITION BY document_id, e.name) as user_event_count
   FROM
     deduplicated_pings,
     UNNEST(events) AS e
@@ -72,6 +78,8 @@ SELECT
 FROM
   flattened_pocket_events
 WHERE CAST(tile_id AS STRING) not like '18408385020159%'
+-- Exclude suspicious activity
+AND NOT (user_event_count > 50 AND event_name = 'click')
 GROUP BY
   1,
   2,
