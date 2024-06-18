@@ -113,7 +113,11 @@ copy into {DB}.{SCHEMA}.ARTICLE_CONTENT_V2
 (resolved_id, html, text, text_md5)
 from %(uri)s
 storage_integration = {STORAGE_INTEGRATION}
-file_format = (type = 'CSV', skip_header=1, FIELD_OPTIONALLY_ENCLOSED_BY='"')
+file_format = (type = 'CSV', 
+skip_header=1, 
+FIELD_OPTIONALLY_ENCLOSED_BY='"', 
+FIELD_DELIMITER = '|', 
+ESCAPE = '\\\\')
 on_error=ABORT_STATEMENT;
 """
 
@@ -279,7 +283,7 @@ def create_chunks(dfs: list[pd.DataFrame]) -> list[tuple]:
     def prep_object_data(df: pd.DataFrame) -> BytesIO:
         csv_buffer = BytesIO()
         with gzip.GzipFile(mode="w", fileobj=csv_buffer, compresslevel=1) as gz_file:
-            df.to_csv(gz_file, index=False)  # type: ignore
+            df.to_csv(gz_file, index=False, sep="|", escapechar="\\")  # type: ignore
 
         return csv_buffer
 
