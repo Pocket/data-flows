@@ -13,6 +13,7 @@ WITH
     submission_timestamp,
     document_id,
     normalized_country_code,
+    normalized_channel,
     client_info,
     events,
     metrics
