@@ -9,7 +9,11 @@ WITH
   SELECT
     *
   FROM
-    `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` 
+    {% if with_stable %}
+    `moz-fx-data-shared-prod.firefox_desktop_stable.newtab_v1`
+  {% else %}
+  `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
+  {% endif %}
     {% if for_backfill %}
     WHERE submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
     AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }}
