@@ -1,7 +1,3 @@
-{% macro parse_iso8601(datetime) %}
-'{{ datetime|parse_timestamp }}'
-{% endmacro %}
-
 {% macro sf_merge(table_def, merge_key)%}
 
     create temporary table {{ table_name }}_tmp (
