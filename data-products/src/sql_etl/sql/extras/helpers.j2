@@ -1,5 +1,5 @@
 {% macro parse_iso8601(datetime) %}
-    PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E*SZ', '{{ datetime }}')
+'{{ datetime|parse_timestamp }}'
 {% endmacro %}
 
 {% macro sf_merge(table_def, merge_key)%}

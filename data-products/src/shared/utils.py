@@ -320,6 +320,7 @@ class SqlJob(BaseModel):
         render_kwargs.update(extra_kwargs)
         environment = Environment()
         j2_env = environment
+        j2_env.filters["parse_timestamp"] = pdm.parser.parse
         template = j2_env.from_string(sql_string)
         return self.render_from_template(template, render_kwargs)
 
@@ -341,6 +342,7 @@ class SqlJob(BaseModel):
             loader=FileSystemLoader([self.job_file_path, self.extras_file_path]),
         )
         j2_env = environment
+        j2_env.filters["parse_timestamp"] = pdm.parser.parse
         template = j2_env.get_template(sql_file)
         return self.render_from_template(template, render_kwargs)
 

@@ -1,5 +1,8 @@
 {% set sql_engine = "bigquery" %}
 {% import 'helpers.j2' as helpers with context %}
+{% if for_new_offset %}
+    select current_timestamp()
+{% else %}
 
 --replicates logic of current Prefect query using Glean data
 --https://github.com/Pocket/data-flows/blob/main-v2/data-products/src/sql_etl/sql/firefox_new_tab_impressions_hourly/firefox_new_tab_daily_engagement_by_tile_id_position_country_locale/data.sql
@@ -99,3 +102,4 @@ GROUP BY
   5,
   6,
   7
+{% endif %}
