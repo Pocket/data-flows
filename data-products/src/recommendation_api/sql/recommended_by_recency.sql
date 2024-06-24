@@ -11,7 +11,9 @@ WITH recently_updated_items as (
         approved_corpus_item_external_id as "ID",
         topic as "TOPIC",
         publisher as "PUBLISHER",
-        reviewed_corpus_item_updated_at as "REVIEW_TIME"
+        reviewed_corpus_item_updated_at as "REVIEW_TIME",
+        -- prefer scheduled items over approved items
+        2 as "RELEVANCE"
     FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS"
     WHERE CORPUS_REVIEW_STATUS = 'recommendation'
     -- only pull corpus items that were reviewed before the max_timestamp
@@ -27,7 +29,9 @@ recently_scheduled_items as (
         approved_corpus_item_external_id as "ID",
         topic as "TOPIC",
         publisher as "PUBLISHER",
-        scheduled_corpus_item_scheduled_at as "REVIEW_TIME"
+        scheduled_corpus_item_scheduled_at as "REVIEW_TIME",
+        -- prefer scheduled items over approved items
+        1 as "RELEVANCE"
     FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
     -- only pull scheduled items that are scheduled before the max_timestamp
     WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < $max_timestamp
@@ -54,4 +58,4 @@ SELECT
     TOPIC,
     PUBLISHER
 FROM deduped
-QUALIFY row_number() OVER (PARTITION BY TOPIC ORDER BY REVIEW_TIME DESC) <= %(N_RECS_PER_TOPIC)s;
+QUALIFY row_number() OVER (PARTITION BY TOPIC ORDER BY RELEVANCE, REVIEW_TIME DESC) <= %(N_RECS_PER_TOPIC)s;
