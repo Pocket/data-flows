@@ -18,8 +18,8 @@ WITH
   `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
   {% endif %}
     {% if for_backfill %}
-    WHERE submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
-    AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }}
+    WHERE submission_timestamp >= '{{ batch_start }}'
+    AND submission_timestamp < '{{ batch_end }}'
   {% else %}
   {{ helpers.legacy_rolling_24_hours_filter() }} 
   {% endif %}
