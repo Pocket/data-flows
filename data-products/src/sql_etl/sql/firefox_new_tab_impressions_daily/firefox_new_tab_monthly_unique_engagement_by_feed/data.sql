@@ -16,8 +16,8 @@ WITH
     {% else %}
       `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`  
     {% endif %}
-    WHERE submission_timestamp >= CAST(DATE_SUB(CAST({{ helpers.parse_iso8601(batch_start) }} as DATE), INTERVAL 1 MONTH) as TIMESTAMP)
-    AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }}
+    WHERE submission_timestamp >= CAST(DATE_SUB(CAST('{{ batch_start }}' as DATE), INTERVAL 1 MONTH) as TIMESTAMP)
+    AND submission_timestamp < '{{ batch_end }}'
     QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
     document_id
     ORDER BY

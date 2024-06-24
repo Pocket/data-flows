@@ -13,14 +13,19 @@ WITH
     submission_timestamp,
     document_id,
     normalized_country_code,
+    normalized_channel,
     client_info,
     events,
     metrics
   FROM
-    `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
+  {% if with_stable %}
+    `moz-fx-data-shared-prod.firefox_desktop_stable.newtab_v1`
+  {% else %}
+  `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
+  {% endif %}
   WHERE
-    submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
-    AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }} QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
+    submission_timestamp >= '{{ batch_start }}'
+    AND submission_timestamp < '{{ batch_end }}' QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
       document_id
     ORDER BY
       submission_timestamp DESC) = 1 ),

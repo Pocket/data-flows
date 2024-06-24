@@ -1,5 +1,8 @@
 {% set sql_engine = "bigquery" %}
 {% import 'helpers.j2' as helpers with context %}
+{% if for_new_offset %}
+    select current_timestamp()
+{% else %}
 
 --replicates logic of current Prefect query using Glean data
 --https://github.com/Pocket/data-flows/blob/main-v2/data-products/src/sql_etl/sql/firefox_new_tab_impressions_hourly/firefox_new_tab_daily_engagement_by_tile_id_position_country_locale/data.sql
@@ -9,7 +12,18 @@ WITH
   SELECT
     *
   FROM
-    `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` {{helpers.legacy_rolling_24_hours_filter()}} QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
+    {% if with_stable %}
+    `moz-fx-data-shared-prod.firefox_desktop_stable.newtab_v1`
+  {% else %}
+  `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
+  {% endif %}
+    {% if for_backfill %}
+    WHERE submission_timestamp >= '{{ batch_start }}'
+    AND submission_timestamp < '{{ batch_end }}'
+  {% else %}
+  {{ helpers.legacy_rolling_24_hours_filter() }} 
+  {% endif %}
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
       document_id
     ORDER BY
       submission_timestamp DESC) = 1 ),
@@ -88,3 +102,4 @@ GROUP BY
   5,
   6,
   7
+{% endif %}
