@@ -1,3 +1,11 @@
+-- this script is only called for NEW_TAB_EN_US, so we can hard-code the timezone and offset below
+
+-- get the current timestamp in EST
+SET max_timestamp = CONVERT_TIMEZONE('UTC', 'America/New_York', current_timestamp());
+
+-- adjust for 3am offset for en-US new tab content rollover
+SET max_timestamp = dateadd(hour, -3, $max_timestamp);
+
 WITH recently_updated_items as (
     SELECT
         approved_corpus_item_external_id as "ID",
@@ -6,6 +14,8 @@ WITH recently_updated_items as (
         reviewed_corpus_item_updated_at as "REVIEW_TIME"
     FROM "ANALYTICS"."DBT"."APPROVED_CORPUS_ITEMS"
     WHERE CORPUS_REVIEW_STATUS = 'recommendation'
+    -- only pull corpus items that were reviewed before the max_timestamp
+    AND REVIEWED_CORPUS_ITEM_CREATED_AT < $max_timestamp
     AND SCHEDULED_SURFACE_ID = %(SCHEDULED_SURFACE_ID)s
     AND NOT is_syndicated
     AND NOT is_collection
@@ -19,8 +29,8 @@ recently_scheduled_items as (
         publisher as "PUBLISHER",
         scheduled_corpus_item_scheduled_at as "REVIEW_TIME"
     FROM "ANALYTICS"."DBT"."SCHEDULED_CORPUS_ITEMS"
-    WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < current_timestamp()
-    AND CORPUS_ITEM_LOADED_FROM = 'MANUAL'  -- should this be removed?
+    -- only pull scheduled items that are scheduled before the max_timestamp
+    WHERE SCHEDULED_CORPUS_ITEM_SCHEDULED_AT < $max_timestamp
     AND SCHEDULED_SURFACE_ID = %(SCHEDULED_SURFACE_ID)s
     AND NOT is_syndicated
     AND NOT is_collection
