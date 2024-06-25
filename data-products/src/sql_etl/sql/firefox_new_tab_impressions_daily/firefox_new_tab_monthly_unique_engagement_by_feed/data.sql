@@ -3,9 +3,6 @@
 {% if for_new_offset %}
     select current_timestamp()
 {% else %}
-{% macro parse_iso8601(datetime) %}
-    PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E*SZ', '{{ datetime }}')
-{% endmacro %}
 WITH
   deduplicated AS (
     SELECT
@@ -152,7 +149,7 @@ SELECT
       WHEN a.clicks > 0 AND a.user_prefs & 4 = 4 AND a.user_prefs & 32 = 32 AND t.type = 'spoc' THEN a.client_id
   END
     ) AS users_clicking_spocs_count,
-  CAST({{ helpers.parse_iso8601(batch_start) }} as DATE) as aggregation_date
+  CAST('{{ batch_start }}' as DATE) as aggregation_date
 FROM
   flattened_impression_data AS a
 LEFT JOIN

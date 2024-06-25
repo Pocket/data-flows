@@ -14,8 +14,8 @@ WITH
   FROM
     `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1`
   WHERE
-    submission_timestamp >= {{ helpers.parse_iso8601(batch_start) }}
-    AND submission_timestamp < {{ helpers.parse_iso8601(batch_end) }} QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
+    submission_timestamp >= '{{ batch_start }}'
+    AND submission_timestamp < '{{ batch_end }}' QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(submission_timestamp),
       document_id
     ORDER BY
       submission_timestamp DESC) = 1 ),
