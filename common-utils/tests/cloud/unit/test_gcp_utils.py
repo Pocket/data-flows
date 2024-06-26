@@ -22,6 +22,11 @@ def test_moz_gcp(creds_type):
         "block_type_slug": "gcp-credentials",
     }
     assert isinstance(x, creds_type)
+    if isinstance(x, gcpu.MozGcpCredentials):
+        env_map = {"dev": "dev", "production": "prod"}
+        assert (
+            x.staging_bucket == f"pocket-prefect-stage-{env_map[gcpu.CS.dev_or_production]}"
+        )
 
 
 @pytest.mark.parametrize(
