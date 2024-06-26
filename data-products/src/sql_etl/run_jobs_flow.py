@@ -507,9 +507,9 @@ if __name__ == "__main__":
     from asyncio import run
 
     t = SqlEtlJob(
-        sql_folder_name="glean_firefox_new_tab_impressions_hourly/glean_firefox_new_tab_daily_engagement_by_tile_id_position_country_locale",
+        sql_folder_name="firefox_new_tab_impressions_daily",
         kwargs={"for_backfill": True, "with_stable": True},
-        override_last_offset="2023-07-01 23:59:59.999999",
-        override_batch_end="2023-07-10",
+        override_last_offset="2024-05-01 23:59:59.999999",
+        override_batch_end="2024-05-05",
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore
