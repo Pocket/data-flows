@@ -289,8 +289,10 @@ class SqlEtlJob(SqlJob):
         return self.render_sql_file(load_sql_file_name, extra_kwargs)
 
 
-@flow(description="Interval flow for query based extractions from Snowflake.",
-      flow_run_name="interval-{interval_input.batch_start}")
+@flow(
+    description="Interval flow for query based extractions from Snowflake.",
+    flow_run_name="interval-{interval_input.batch_start}",
+)
 async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
     """Subflow for executing etl tasks for a single interval.
     Each query call will leverage run_query_task helper function
