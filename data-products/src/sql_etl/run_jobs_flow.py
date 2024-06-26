@@ -19,6 +19,7 @@ from shared.utils import (
     SqlJob,
     SqlStmt,
     get_files_for_cleanup,
+    remove_gcs_files,
 )
 
 CS = CommonSettings()  # type: ignore
@@ -288,7 +289,8 @@ class SqlEtlJob(SqlJob):
         return self.render_sql_file(load_sql_file_name, extra_kwargs)
 
 
-@flow(description="Interval flow for query based extractions from Snowflake.")
+@flow(description="Interval flow for query based extractions from Snowflake.",
+      flow_run_name="interval-{interval_input.batch_start}")
 async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
     """Subflow for executing etl tasks for a single interval.
     Each query call will leverage run_query_task helper function
@@ -307,7 +309,7 @@ async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
     if etl_input.is_incremental:
         offset_stmt = etl_input.get_new_offset_sql(interval_input)
         new_offset = await offset_stmt.run_query_task("get-new-offset")
-        logger.info(f"New offset will be: {new_offset[0][0]}...")
+        logger.info(f"New offset will be: {new_offset[0][0]} if used...")
         # if new offset is None, that means no rows for this interval
         if new_offset[0][0] is None or new_offset[0][0] == "None":
             message = "No rows to process..."
@@ -320,28 +322,18 @@ async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
         # take the LIST statement results and provide clean deduplicated list
         clean_up_list = get_files_for_cleanup(existing_files, interval_input)
         # remove all the object paths identified
+        remove_task = await remove_gcs_files(etl_input.sql_folder_name, clean_up_list)
 
-        async def remove_file(file_path: str):
-            """internal function to wrap remove logic to be
-            used for collection of async calls.
-
-            Args:
-                file_path (str): Snowflake stage path string.
-            """
-            sql_stmt = etl_input.get_file_remove_sql(file_path)
-            await sql_stmt.run_query_task("clean-up-files")
-
-        remove_files = [await remove_file(i) for i in clean_up_list]
     else:
         logger.info("Non-incremental run...")
         logger.info("No offsets...")
         # need a remove_file for downstream continuation
-        remove_files = []
+        remove_task = await remove_gcs_files(etl_input.sql_folder_name)
     # Run extraction
     logger.info("Running extraction...")
     extract_stmt = etl_input.get_extraction_sql(interval_input)
     extract = await extract_stmt.run_query_task(
-        "run-extraction", **{"wait_for": [remove_files]}
+        "run-extraction", **{"wait_for": [remove_task]}
     )
     # run a post extraction load sql if it exists
     if etl_input.has_load_sql:
@@ -514,7 +506,8 @@ if __name__ == "__main__":
 
     t = SqlEtlJob(
         sql_folder_name="glean_firefox_new_tab_impressions_hourly/glean_firefox_new_tab_daily_engagement_by_tile_id_position_country_locale",
-        kwargs={"for_backfill": False},
-        # override_last_offset="2023-12-04 23:59:59.999999",
+        kwargs={"for_backfill": True, "with_stable": True},
+        override_last_offset="2023-07-01 23:59:59.999999",
+        override_batch_end="2023-07-10",
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore

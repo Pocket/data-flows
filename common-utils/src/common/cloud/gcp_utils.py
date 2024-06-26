@@ -2,14 +2,9 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from common.settings import CS, NestedSettings, SecretSettings, get_cached_settings
 from prefect.blocks.fields import SecretDict
 from prefect_gcp import GcpCredentials
-
-from common.settings import (
-    NestedSettings,
-    SecretSettings,
-    get_cached_settings,
-)
 
 
 class GcpCredSettings(NestedSettings):
@@ -62,6 +57,11 @@ class MozGcpCredentials(GcpCredentials):
                 elif xs := x.service_account_file:
                     data["service_account_file"] = xs
         super().__init__(**data)
+
+    @property
+    def staging_bucket(self) -> str:
+        env_map = {"dev": "dev", "production": "prod"}
+        return f"pocket-prefect-stage-{env_map[CS.dev_or_production]}"
 
 
 class MozGcpCredentialsV2(GcpCredentials):
