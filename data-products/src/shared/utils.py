@@ -506,6 +506,12 @@ def get_files_for_cleanup(
 
 @task()
 async def remove_gcs_files(folder_name: str, files: list[str] = []) -> None:
+    """Helper task to remove old extraction files via GCP SDK.
+
+    Args:
+        folder_name (str): folder name for sql job that maps to bucket path prefix.
+        files (list[str], optional): List of object suffixes to remove. Defaults to [].
+    """
     logger = get_run_logger()
     if files:
         # remove all the object paths identified

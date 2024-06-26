@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from copy import deepcopy
 from pathlib import Path
@@ -9,7 +10,13 @@ from pendulum import now
 from prefect import flow, task
 from prefect_snowflake import SnowflakeCredentials
 from pydantic import SecretStr
-from shared.utils import QUERY_ENGINE_MAPPING, SqlJob, SqlStmt, get_files_for_cleanup
+from shared.utils import (
+    QUERY_ENGINE_MAPPING,
+    SqlJob,
+    SqlStmt,
+    get_files_for_cleanup,
+    remove_gcs_files,
+)
 
 # create a fake list of files existing in a Snowflake stage
 FAKE_FILE_LIST = [
@@ -589,3 +596,21 @@ def test_no_sql_engine():
         "and must be one of "
         "dict_keys(['snowflake', 'bigquery', 'postgres', 'mysql'])"
     ) in str(e.value)
+
+
+@pytest.mark.asyncio
+async def test_remove_gcs_files():
+    with patch("shared.utils.MozGcpCredentials") as p:
+        with patch("shared.utils.get_run_logger", logging.getLogger):
+            await remove_gcs_files.fn("test", ["test"])
+            print(p.mock_calls)
+            assert p.call_count == 1
+            assert len(p.mock_calls) == 5
+
+
+@pytest.mark.asyncio
+async def test_remove_gcs_files_none():
+    with patch("shared.utils.MozGcpCredentials") as p:
+        with patch("shared.utils.get_run_logger", logging.getLogger):
+            await remove_gcs_files.fn("test", [])
+            assert p.call_count == 0
