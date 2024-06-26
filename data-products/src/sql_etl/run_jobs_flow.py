@@ -507,7 +507,7 @@ if __name__ == "__main__":
     from asyncio import run
 
     t = SqlEtlJob(
-        sql_folder_name="firefox_new_tab_impressions_daily",
+        sql_folder_name="firefox_new_tab_impressions_daily/firefox_new_tab_monthly_unique_engagement_by_feed",
         kwargs={"for_backfill": True, "with_stable": True},
         override_last_offset="2024-05-01 23:59:59.999999",
         override_batch_end="2024-05-05",
