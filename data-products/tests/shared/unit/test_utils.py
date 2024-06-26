@@ -3,7 +3,7 @@ import logging
 import os
 from copy import deepcopy
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 from pendulum import now
@@ -602,10 +602,13 @@ def test_no_sql_engine():
 async def test_remove_gcs_files():
     with patch("shared.utils.MozGcpCredentials") as p:
         with patch("shared.utils.get_run_logger", logging.getLogger):
+            mock_blob = MagicMock()
+            p.return_value.get_cloud_storage_client.return_value.bucket.return_value.list_blobs = Mock(  # noqa: E501
+                return_value=[mock_blob, mock_blob]
+            )
             await remove_gcs_files.fn("test", ["test"])
-            print(p.mock_calls)
-            assert p.call_count == 1
-            assert len(p.mock_calls) == 5
+            assert len(p.mock_calls) == 4
+            assert len(mock_blob.mock_calls) == 2
 
 
 @pytest.mark.asyncio
