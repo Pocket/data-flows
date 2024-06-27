@@ -61,7 +61,7 @@ WITH
 SELECT
   DATE(submission_timestamp) AS happened_at,
   recommendation_id,
-  tile_id,
+  coalesce(safe_cast(tile_id as int), -1) as tile_id,
   coalesce(safe_cast(position as int), -1) as position,
   'CARDGRID' AS source,
   locale,
@@ -92,8 +92,7 @@ SELECT
     ) AS dismiss_count
 FROM
   flattened_pocket_events
-WHERE CAST(tile_id AS STRING) not like '18408385020159%'
-AND NOT (user_event_count > 50 AND event_name = 'click')
+WHERE NOT (user_event_count > 50 AND event_name = 'click')
 GROUP BY
   1,
   2,
