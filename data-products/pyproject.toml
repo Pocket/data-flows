@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "data-products"
-version = "0.14.13"
+version = "0.14.14"
 description = "Main project folder for data products prefect flows"
 authors = ["Braun <breyes@mozilla.com>"]
 license = "Apache-2.0"
@@ -26,6 +26,7 @@ oscrypto = {git = "https://github.com/wbond/oscrypto.git", rev = "d5f3437ed24257
 common-utils = {path = "../common-utils", develop = true}
 scipy = "^1.12.0"
 prefect-aws = "^0.4.13"
+numpy = "<2"
 
 
 [tool.poetry.group.dev.dependencies]

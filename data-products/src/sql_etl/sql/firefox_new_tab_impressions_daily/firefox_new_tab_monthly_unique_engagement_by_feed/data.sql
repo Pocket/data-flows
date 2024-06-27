@@ -3,9 +3,6 @@
 {% if for_new_offset %}
     select current_timestamp()
 {% else %}
-{% macro parse_iso8601(datetime) %}
-    PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E*SZ', '{{ datetime }}')
-{% endmacro %}
 WITH
   deduplicated AS (
     SELECT
@@ -16,7 +13,7 @@ WITH
     {% else %}
       `moz-fx-data-shared-prod.activity_stream_live.impression_stats_v1`  
     {% endif %}
-    WHERE submission_timestamp >= CAST(DATE_SUB(CAST('{{ batch_start }}' as DATE), INTERVAL 1 MONTH) as TIMESTAMP)
+    WHERE submission_timestamp >= TIMESTAMP(DATETIME_SUB(DATETIME(TIMESTAMP('{{ batch_start }}')), INTERVAL 1 MONTH))
     AND submission_timestamp < '{{ batch_end }}'
     QUALIFY row_number() over (PARTITION BY DATE(submission_timestamp),
     document_id
@@ -152,7 +149,7 @@ SELECT
       WHEN a.clicks > 0 AND a.user_prefs & 4 = 4 AND a.user_prefs & 32 = 32 AND t.type = 'spoc' THEN a.client_id
   END
     ) AS users_clicking_spocs_count,
-  CAST({{ helpers.parse_iso8601(batch_start) }} as DATE) as aggregation_date
+  DATE(DATETIME(TIMESTAMP('{{ batch_start }}'))) as aggregation_date
 FROM
   flattened_impression_data AS a
 LEFT JOIN
