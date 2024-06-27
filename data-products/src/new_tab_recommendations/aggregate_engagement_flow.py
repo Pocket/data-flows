@@ -111,6 +111,7 @@ def get_clean_telemetry_sql(country: bool = None):
           APPROX_COUNT_DISTINCT(IF(event_name = 'click', document_id, NULL)) AS TRAILING_1_DAY_OPENS
       FROM `moz-fx-mozsocial-dw-{NEW_TAB_REC_GCP_PROJECT_ENV}.{NEW_TAB_REC_DATASET}.pocket_user_events_by_country_v2`
       where submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+      and safe_cast(tile_id as int) is not null
       {"and normalized_country_code = @country" if country else ""}
       GROUP BY tile_id
       ORDER BY TRAILING_1_DAY_IMPRESSIONS DESC
