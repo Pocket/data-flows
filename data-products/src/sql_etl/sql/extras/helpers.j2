@@ -23,7 +23,7 @@
     
     begin;
     delete from {{ table_name }} 
-    where {{ merge_key }} >= $merge_key;
+    where {{ merge_key }} = $merge_key;
     insert into {{ table_name }} 
     select * from {{ table_name }}_tmp;
     commit;
