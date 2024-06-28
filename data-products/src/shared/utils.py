@@ -12,7 +12,7 @@ from jinja2 import Environment, FileSystemLoader, Template
 from pendulum import from_format
 from pendulum.datetime import DateTime
 from pendulum.parser import parse
-from prefect import get_run_logger, task
+from prefect import task
 from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_multiquery, snowflake_query
 from prefect_sqlalchemy.database import sqlalchemy_execute
@@ -502,27 +502,3 @@ def get_files_for_cleanup(
                     break
                 clean_up_list.append(datetime_folder_str)
     return list(set(clean_up_list))
-
-
-@task()
-async def remove_gcs_files(folder_name: str, files: list[str] = []) -> None:
-    """Helper task to remove old extraction files via GCP SDK.
-
-    Args:
-        folder_name (str): folder name for sql job that maps to bucket path prefix.
-        files (list[str], optional): List of object suffixes to remove. Defaults to [].
-    """
-    logger = get_run_logger()
-    if files:
-        # remove all the object paths identified
-        gcp = MozGcpCredentials()
-        bucket_client = gcp.get_cloud_storage_client()
-        bucket = bucket_client.bucket(gcp.staging_bucket)
-        for i in files:
-            files_path = os.path.join(folder_name, i)
-            blobs = bucket.list_blobs(prefix=files_path)
-            logger.info(f"Deleting files at bucket path {files_path}...")
-            for blob in blobs:
-                blob.delete()
-    else:
-        logger.info("No files to remove...")

@@ -265,6 +265,7 @@ async def test_interval_with_cleanup():
             [],
             ["success!"],
             ["success!"],
+            ["success!"],
         ],
         "call_count": 0,
     }
@@ -275,17 +276,6 @@ async def test_interval_with_cleanup():
         mock_state["call_count"] += 1
         return result
 
-    @task
-    async def fake_cleanup_task(*args, **kwargs):
-        assert args == (
-            "test",
-            [
-                (
-                    "gcs://fake-stage/backend_events_for_mozilla/date=2023-06-17/time=22-00-00-000/data_0_0_0.snappy.parquet",
-                )
-            ],
-        )
-
     with patch("shared.utils.SqlStmt") as s:
         s.return_value.run_query_task = fake_task
         with patch("sql_etl.run_jobs_flow.get_files_for_cleanup") as c:
@@ -294,9 +284,7 @@ async def test_interval_with_cleanup():
                     "gcs://fake-stage/backend_events_for_mozilla/date=2023-06-17/time=22-00-00-000/data_0_0_0.snappy.parquet",
                 )
             ]
-            with patch("sql_etl.run_jobs_flow.remove_gcs_files", fake_cleanup_task):
-                await interval(t, interval_input)
-
+            await interval(t, interval_input)
     assert mock_state["call_count"] == len(mock_state["result_mocks"])
 
 
