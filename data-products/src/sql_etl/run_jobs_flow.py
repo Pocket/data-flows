@@ -19,7 +19,6 @@ from shared.utils import (
     SqlJob,
     SqlStmt,
     get_files_for_cleanup,
-    remove_gcs_files,
 )
 
 CS = CommonSettings()  # type: ignore
@@ -323,19 +322,29 @@ async def interval(etl_input: SqlEtlJob, interval_input: IntervalSet):
         existing_files = await existing_files_stmt.run_query_task("get-existing-files")
         # take the LIST statement results and provide clean deduplicated list
         clean_up_list = get_files_for_cleanup(existing_files, interval_input)
-        # remove all the object paths identified
-        remove_task = await remove_gcs_files(etl_input.sql_folder_name, clean_up_list)
 
+        # remove all the object paths identified
+        async def remove_file(file_path: str):
+            """internal function to wrap remove logic to be
+            used for collection of async calls.
+
+            Args:
+                file_path (str): Snowflake stage path string.
+            """
+            sql_stmt = etl_input.get_file_remove_sql(file_path)
+            await sql_stmt.run_query_task("clean-up-files")
+
+        remove_files = [await remove_file(i) for i in clean_up_list]
     else:
         logger.info("Non-incremental run...")
         logger.info("No offsets...")
         # need a remove_file for downstream continuation
-        remove_task = await remove_gcs_files(etl_input.sql_folder_name)
+        remove_files = []
     # Run extraction
     logger.info("Running extraction...")
     extract_stmt = etl_input.get_extraction_sql(interval_input)
     extract = await extract_stmt.run_query_task(
-        "run-extraction", **{"wait_for": [remove_task]}
+        "run-extraction", **{"wait_for": [remove_files]}
     )
     # run a post extraction load sql if it exists
     if etl_input.has_load_sql:
@@ -507,6 +516,7 @@ if __name__ == "__main__":
     from asyncio import run
 
     t = SqlEtlJob(
-        sql_folder_name="glean_firefox_new_tab_impressions_hourly"
+        sql_folder_name="glean_firefox_new_tab_impressions_hourly",
+        override_last_offset="2024-06-19 23:59:59.999999",
     )  # type: ignore
     run(main(etl_input=t))  # type: ignore

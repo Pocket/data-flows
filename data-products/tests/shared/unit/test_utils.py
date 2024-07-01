@@ -1,22 +1,15 @@
 import json
-import logging
 import os
 from copy import deepcopy
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 from pendulum import now
 from prefect import flow, task
 from prefect_snowflake import SnowflakeCredentials
 from pydantic import SecretStr
-from shared.utils import (
-    QUERY_ENGINE_MAPPING,
-    SqlJob,
-    SqlStmt,
-    get_files_for_cleanup,
-    remove_gcs_files,
-)
+from shared.utils import QUERY_ENGINE_MAPPING, SqlJob, SqlStmt, get_files_for_cleanup
 
 # create a fake list of files existing in a Snowflake stage
 FAKE_FILE_LIST = [
@@ -596,24 +589,3 @@ def test_no_sql_engine():
         "and must be one of "
         "dict_keys(['snowflake', 'bigquery', 'postgres', 'mysql'])"
     ) in str(e.value)
-
-
-@pytest.mark.asyncio
-async def test_remove_gcs_files():
-    with patch("shared.utils.MozGcpCredentials") as p:
-        with patch("shared.utils.get_run_logger", logging.getLogger):
-            mock_blob = MagicMock()
-            p.return_value.get_cloud_storage_client.return_value.bucket.return_value.list_blobs = Mock(  # noqa: E501
-                return_value=[mock_blob, mock_blob]
-            )
-            await remove_gcs_files.fn("test", ["test"])
-            assert len(p.mock_calls) == 4
-            assert len(mock_blob.mock_calls) == 2
-
-
-@pytest.mark.asyncio
-async def test_remove_gcs_files_none():
-    with patch("shared.utils.MozGcpCredentials") as p:
-        with patch("shared.utils.get_run_logger", logging.getLogger):
-            await remove_gcs_files.fn("test", [])
-            assert p.call_count == 0
