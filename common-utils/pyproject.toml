@@ -14,7 +14,6 @@ pydantic = "<2"
 prefect-aws = "^0.4.13"
 
 [tool.poetry.scripts]
-deploy-cli = 'common.deployment.cli:main'
 df-cli = 'common.deployment.worker.cli:app'
 
 [tool.poetry.group.dev.dependencies]
