@@ -9,7 +9,7 @@ from common.databases.snowflake_utils import CS, MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from prefect import flow, get_run_logger, task
 from prefect_dask import DaskTaskRunner
-from prefect_snowflake.database import snowflake_query
+from prefect_snowflake.database import snowflake_query, snowflake_multiquery
 from shared.async_utils import process_parallel_subflows_task
 from shared.feature_store import dataframe_to_feature_group
 from shared.models.corpus_candidate_set_configs import (
@@ -56,23 +56,23 @@ async def create_all_candidate_set_configs(
     static_candidate_set_configs: list[CorpusCandidateSetConfig],
     snowflake_connector: MozSnowflakeConnector,
 ):
-    topic_candidate_set_config_data = await snowflake_query(
-        query=GET_TOPICS_SQL,
-        snowflake_connector=snowflake_connector,
-        cursor_type=DictCursor,  # type: ignore
-    )
+    # topic_candidate_set_config_data = await snowflake_query(
+    #     query=GET_TOPICS_SQL,
+    #     snowflake_connector=snowflake_connector,
+    #     cursor_type=DictCursor,  # type: ignore
+    # )
 
     topic_candidate_set_configs = [
-        CorpusCandidateSetConfig(
-            id=t["CORPUS_CANDIDATE_SET_ID"],  # type: ignore
-            name=t["NAME"],  # type: ignore
-            query_filename="topic.sql",
-            query_params={
-                "CORPUS_TOPIC_ID": t["CORPUS_TOPIC_ID"],  # type: ignore
-                "SCHEDULED_SURFACE_ID": t["SCHEDULED_SURFACE_ID"],  # type: ignore
-            },
-        )
-        for t in topic_candidate_set_config_data
+        # CorpusCandidateSetConfig(
+        #     id=t["CORPUS_CANDIDATE_SET_ID"],  # type: ignore
+        #     name=t["NAME"],  # type: ignore
+        #     query_filename="topic.sql",
+        #     query_params={
+        #         "CORPUS_TOPIC_ID": t["CORPUS_TOPIC_ID"],  # type: ignore
+        #         "SCHEDULED_SURFACE_ID": t["SCHEDULED_SURFACE_ID"],  # type: ignore
+        #     },
+        # )
+        # for t in topic_candidate_set_config_data
     ]
 
     return static_candidate_set_configs + topic_candidate_set_configs
@@ -93,12 +93,23 @@ async def load_corpus_candidate_set_records(
     )
     sql_query = Path(sql_path).read_text()
 
-    corpus_items = await snowflake_query(
-        query=sql_query,
-        snowflake_connector=snowflake_connector,
-        params=candidate_set_config.query_params,  # type: ignore
-        cursor_type=DictCursor,  # type: ignore
-    )
+    if candidate_set_config.is_multiquery:
+        # if multiquery we need to use different function
+        sql_split = sql_query.split(";")
+        results = await snowflake_multiquery(
+            queries=sql_split[:-1],  # omit last item which will be blank
+            snowflake_connector=snowflake_connector,
+            params=candidate_set_config.query_params,  # type: ignore
+            cursor_type=DictCursor,  # type: ignore
+        )
+        corpus_items = results[-1::][0]  # only need the last set of results
+    else:
+        corpus_items = await snowflake_query(
+            query=sql_query,
+            snowflake_connector=snowflake_connector,
+            params=candidate_set_config.query_params,  # type: ignore
+            cursor_type=DictCursor,  # type: ignore
+        )
 
     validate = validate_corpus_items(
         corpus_items,  # type: ignore
