@@ -56,23 +56,23 @@ async def create_all_candidate_set_configs(
     static_candidate_set_configs: list[CorpusCandidateSetConfig],
     snowflake_connector: MozSnowflakeConnector,
 ):
-    # topic_candidate_set_config_data = await snowflake_query(
-    #     query=GET_TOPICS_SQL,
-    #     snowflake_connector=snowflake_connector,
-    #     cursor_type=DictCursor,  # type: ignore
-    # )
+    topic_candidate_set_config_data = await snowflake_query(
+        query=GET_TOPICS_SQL,
+        snowflake_connector=snowflake_connector,
+        cursor_type=DictCursor,  # type: ignore
+    )
 
     topic_candidate_set_configs = [
-        # CorpusCandidateSetConfig(
-        #     id=t["CORPUS_CANDIDATE_SET_ID"],  # type: ignore
-        #     name=t["NAME"],  # type: ignore
-        #     query_filename="topic.sql",
-        #     query_params={
-        #         "CORPUS_TOPIC_ID": t["CORPUS_TOPIC_ID"],  # type: ignore
-        #         "SCHEDULED_SURFACE_ID": t["SCHEDULED_SURFACE_ID"],  # type: ignore
-        #     },
-        # )
-        # for t in topic_candidate_set_config_data
+        CorpusCandidateSetConfig(
+            id=t["CORPUS_CANDIDATE_SET_ID"],  # type: ignore
+            name=t["NAME"],  # type: ignore
+            query_filename="topic.sql",
+            query_params={
+                "CORPUS_TOPIC_ID": t["CORPUS_TOPIC_ID"],  # type: ignore
+                "SCHEDULED_SURFACE_ID": t["SCHEDULED_SURFACE_ID"],  # type: ignore
+            },
+        )
+        for t in topic_candidate_set_config_data
     ]
 
     return static_candidate_set_configs + topic_candidate_set_configs
