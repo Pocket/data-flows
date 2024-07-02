@@ -39,6 +39,8 @@ WITH
     mozfun.map.get_key(e.extra,
       'recommendation_id') AS recommendation_id,
     mozfun.map.get_key(e.extra,
+      'scheduled_corpus_item_id') AS scheduled_corpus_item_id,
+    mozfun.map.get_key(e.extra,
       'tile_id') AS tile_id,
     mozfun.map.get_key(e.extra,
       'position') AS position,
@@ -58,11 +60,14 @@ WITH
         'recommendation_id') IS NOT NULL
       OR mozfun.map.get_key(e.extra,
         'tile_id') IS NOT NULL)
+      OR mozfun.map.get_key(e.extra,
+        'scheduled_corpus_item_id')
     --include only data from Firefox 121+
     AND SAFE_CAST(SPLIT(client_info.app_display_version, '.')[0] AS int64) >= 121 )
 SELECT
   DATE(submission_timestamp) AS happened_at,
   recommendation_id,
+  scheduled_corpus_item_id,
   coalesce(safe_cast(tile_id as int), -1) as tile_id,
   coalesce(safe_cast(position as int), -1) as position,
   SUM(CASE
