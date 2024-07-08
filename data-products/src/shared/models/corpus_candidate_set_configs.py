@@ -13,6 +13,7 @@ class CorpusCandidateSetConfig(BaseModel):
     query_params: Optional[Dict] = Field(
         description="Optional Snowflake query parameters"
     )
+    is_multiquery: bool = False
 
 
 static_candidate_set_configs = [
@@ -73,6 +74,7 @@ static_candidate_set_configs = [
         name="en_us/recommended_by_recency",
         query_filename="recommended_by_recency.sql",
         query_params={"N_RECS_PER_TOPIC": 6, "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US"},
+        is_multiquery=True,
     ),
     CorpusCandidateSetConfig(
         id="0e0a8663-a2c1-430e-9b8c-3a5b6d9eda11",
