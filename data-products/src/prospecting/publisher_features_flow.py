@@ -48,7 +48,7 @@ def transform_publisher_features(input_df: pd.DataFrame) -> pd.DataFrame:
     return input_df
 
 
-@flow()
+@flow(name="data-products.publisher-features")
 async def publisher_features():
     sfc = MozSnowflakeConnector()
 

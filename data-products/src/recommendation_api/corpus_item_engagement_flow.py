@@ -28,7 +28,7 @@ FROM ANALYTICS.DBT_FACTS.CORPUS_RECOMMENDATION_ENGAGEMENT_TRAILING_DAYS_BY_ITEM
 """
 
 
-@flow()
+@flow(name="data-products.corpus-item-engagement")
 async def corpus_item_engagement():
     sfc = MozSnowflakeConnector()
 

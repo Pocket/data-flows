@@ -369,7 +369,7 @@ def get_event_properties_for_user_delta(
         return {}
 
 
-@flow(task_runner=DaskTaskRunner())
+@flow(task_runner=DaskTaskRunner(), name="data-products.update-braze")
 async def update_braze(
     is_backfill: bool = False, max_operations_per_task_run: int = 100000
 ):

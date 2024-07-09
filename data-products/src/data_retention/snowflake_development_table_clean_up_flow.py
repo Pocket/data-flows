@@ -18,7 +18,7 @@ AND table_catalog = 'DEVELOPMENT';
 """
 
 
-@flow()
+@flow(name="data-products.delete-old-dev-tables")
 async def delete_old_dev_tables():
     sfc = MozSnowflakeConnector()
 

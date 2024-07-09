@@ -232,7 +232,7 @@ async def export_telemetry_by_corpus_item_id(
     return df_telemetry.drop(columns=[join_column_name])
 
 
-@flow(name="new-tab-recommendations.aggregate-engagement")
+@flow(name="data-products.new-tab-recommendations.aggregate-engagement")
 async def aggregate_engagement():
     """
     Ingests NewTab telemetry joined with Corpus metadata into a Sagemaker Feature Group.

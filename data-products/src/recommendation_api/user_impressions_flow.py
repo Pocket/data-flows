@@ -36,7 +36,7 @@ GROUP BY 1,2
 """
 
 
-@flow()
+@flow(name="data-products.user-impressions")
 async def user_impressions(max_impr_age: int = 14, max_impr_count: int = 9):
     sfc = MozSnowflakeConnector(
         warehouse=f"PREFECT_WH_{CS.dev_or_production.upper()}_XLARGE"
