@@ -14,16 +14,19 @@
                 $1:{{ column_def[0] }}::{{ column_def[1] }},
             {% endfor %}
             {{ metadata_values }}
-        from {{ snowflake_stage_uri }}
+        from @{{ snowflake_stage_uri }}
     );
 
     create table if not exists {{ table_name }}  like {{ table_name }}_tmp;
 
-    set merge_key = (select min({{merge_key}}) from {{ table_name }}_tmp);
+    set min_key = (select min({{merge_key}}) from {{ table_name }}_tmp);
+    set max_key = (select max({{merge_key}}) from {{ table_name }}_tmp);
     
     begin;
     delete from {{ table_name }} 
-    where {{ merge_key }} = $merge_key;
+    where {{ merge_key }} >= $min_key
+    and {{ merge_key }} <= $max_key;
+    
     insert into {{ table_name }} 
     select * from {{ table_name }}_tmp;
     commit;

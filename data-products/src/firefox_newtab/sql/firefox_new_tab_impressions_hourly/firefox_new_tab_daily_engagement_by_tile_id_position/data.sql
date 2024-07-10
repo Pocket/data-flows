@@ -1,5 +1,3 @@
-{% set sql_engine = "bigquery" %}
-{% import 'helpers.j2' as helpers with context %}
 WITH
   deduplicated AS (
     SELECT

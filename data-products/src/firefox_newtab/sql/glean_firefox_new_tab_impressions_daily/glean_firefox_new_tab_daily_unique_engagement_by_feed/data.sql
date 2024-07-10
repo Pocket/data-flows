@@ -1,9 +1,3 @@
-{% set sql_engine = "bigquery" %}
-{% import 'helpers.j2' as helpers with context %}
-{% if for_new_offset %}
-    select current_timestamp()
-{% else %}
-
 --replicates logic of current Prefect query using Glean data
 --https://github.com/Pocket/data-flows/blob/main-v2/data-products/src/sql_etl/sql/firefox_new_tab_impressions_daily/firefox_new_tab_daily_unique_engagement_by_feed/data.sql
 

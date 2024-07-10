@@ -1,5 +1,3 @@
-{% set sql_engine = "snowflake" %}
-{% set is_multi_statement = True %}
 {% import 'helpers.j2' as helpers with context %}
 
 {% macro table_def() %}

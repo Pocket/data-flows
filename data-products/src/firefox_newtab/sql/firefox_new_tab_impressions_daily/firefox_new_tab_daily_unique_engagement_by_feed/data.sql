@@ -1,8 +1,3 @@
-{% set sql_engine = "bigquery" %}
-{% import 'helpers.j2' as helpers with context %}
-{% if for_new_offset %}
-    select current_timestamp()
-{% else %}
 WITH
   deduplicated AS (
     SELECT
