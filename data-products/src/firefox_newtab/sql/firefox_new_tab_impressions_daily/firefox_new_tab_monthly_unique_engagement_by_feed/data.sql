@@ -159,4 +159,3 @@ GROUP BY
 ORDER BY
   1,
   2;
-{% endif %}

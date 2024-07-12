@@ -1,10 +1,5 @@
-{% set sql_engine = "bigquery" %}
 SELECT
-{% if for_new_offset %}
-    max(updated_at) as new_offset
-{% else %}
     *   
-{% endif %}
 FROM 
 {% if for_backfill %}
 from {{ source_table_name }}_stable
