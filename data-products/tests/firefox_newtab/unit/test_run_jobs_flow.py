@@ -61,7 +61,6 @@ def test_get_intervals():
 
 @pytest.mark.asyncio
 async def test_interval(monkeypatch):
-
     load_inputs = []
     extract_inputs = []
 
@@ -113,7 +112,7 @@ async def test_main(monkeypatch):
     @flow()
     async def fake_flow(*args, **kwargs):
         mock_results["call_count"] += 1
-    
+
     monkeypatch.setattr("firefox_newtab.run_jobs_flow.SQL_LOCATION", TEST_SQL_LOCATION)
     monkeypatch.setattr("firefox_newtab.run_jobs_flow.interval", fake_flow)
     await main("test")

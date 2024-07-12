@@ -13,7 +13,7 @@ from common.deployment.worker import (
     PrefectProject,
     get_ecs_image_name,
     get_ecs_task_arn,
-    get_ecs_task_name, 
+    get_ecs_task_name,
     get_image_name,
     get_pyproject_metadata,
     run_command,
