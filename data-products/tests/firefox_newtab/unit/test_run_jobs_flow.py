@@ -1,10 +1,8 @@
 import os
-from unittest.mock import AsyncMock, AsyncMagicMixin
 
 import pytest
 from common import get_script_path
 from firefox_newtab.run_jobs_flow import (
-    SQL_LOCATION,
     MozGcpCredentials,
     MozSnowflakeConnector,
     SnowflakeGcsStageSettings,
@@ -15,7 +13,7 @@ from firefox_newtab.run_jobs_flow import (
     main,
 )
 from pendulum import now as pd_now
-from prefect import task, flow
+from prefect import flow, task
 
 SQL_JOB_TEST_DATETIME = pd_now(tz="utc").start_of("day")
 
@@ -76,6 +74,7 @@ async def test_interval(monkeypatch):
 
     monkeypatch.setattr("firefox_newtab.run_jobs_flow.bigquery_query", fake_bq)
     monkeypatch.setattr("firefox_newtab.run_jobs_flow.snowflake_multiquery", fake_sf)
+    monkeypatch.setattr("firefox_newtab.run_jobs_flow.SQL_LOCATION", TEST_SQL_LOCATION)
 
     gcp_creds = MozGcpCredentials()
     sf_creds = MozSnowflakeConnector()
@@ -92,15 +91,15 @@ async def test_interval(monkeypatch):
     )  # type: ignore
 
     assert (
-        "EXPORT DATA OPTIONS(\n          uri='gs:///Users/mozilla/projects/data-flows/data-products/tests/firefox_newtab/unit/sql/test/2024-07-01"
+        f"EXPORT DATA OPTIONS(\n          uri='gs://{gcp_creds.staging_bucket}/test/2024-07-01"
         in extract_inputs[0][0]
     )
     assert (
-        "SELECT\n    *   \nFROM \n\nfrom _stable\n\nwhere updated_at >= '2024-07-01 00:00:00'\nand updated_at < '2024-07-02 00:00:00'"
+        "SELECT\n    *   \nFROM \n\nfrom _stable\n\nwhere updated_at >= '2024-07-01 00:00:00'\nand updated_at < '2024-07-02 00:00:00'"  # noqa: E501
         in extract_inputs[0][0]
     )
     assert (
-        "copy into  (\n              batch_id,\n              updated_at,\n              data,\n              _gs_file_name,\n            _gs_file_row_number,\n            _gs_file_date,\n            _gs_file_time,\n            _loaded_at\n            )\n        from (\n            select\n                ,\n                $1:updated_at as updated_at,\n                $1 as data,\n                metadata$filename,\n            metadata$file_row_number,\n            split_part(metadata$filename,'/', -3),\n            split_part(metadata$filename,'/', -2),\n            sysdate()\n            from /Users/mozilla/projects/data-flows/data-products/tests/firefox_newtab/unit/sql/test"
+        f"copy into  (\n              batch_id,\n              updated_at,\n              data,\n              _gs_file_name,\n            _gs_file_row_number,\n            _gs_file_date,\n            _gs_file_time,\n            _loaded_at\n            )\n        from (\n            select\n                ,\n                $1:updated_at as updated_at,\n                $1 as data,\n                metadata$filename,\n            metadata$file_row_number,\n            split_part(metadata$filename,'/', -3),\n            split_part(metadata$filename,'/', -2),\n            sysdate()\n            from {sf_stage.stage_name}"  # noqa: E501
         in load_inputs[0]["queries"][0]
     )
 

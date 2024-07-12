@@ -308,7 +308,6 @@ async def main(
         jobs = []
         # for each interval get each job folder
         search_folder = os.path.join(SQL_LOCATION, sql_folder)
-        print(search_folder)
         for g in glob(f"{search_folder}/**/data.sql", recursive=True):
             p = Path(g)
             sql_path = str(p.parent)
