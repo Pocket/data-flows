@@ -13,7 +13,7 @@ from common.deployment.worker import (
     PrefectProject,
     get_ecs_image_name,
     get_ecs_task_arn,
-    get_ecs_task_name,
+    get_ecs_task_name, 
     get_image_name,
     get_pyproject_metadata,
     run_command,
@@ -318,7 +318,7 @@ def test_flow_specs_exception(mock_loader, mock_cmd):
 @patch("common.deployment.worker.run_command")
 def test_flow_spec_elements(mock_cmd):
     # check FlowSpec directly
-    @flow(name="name_directly")
+    @flow(name="common-utils.name_directly")
     def test_flow():
         return "hello world"
 
