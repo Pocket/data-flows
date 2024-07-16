@@ -392,7 +392,7 @@ class FlowDateInputs(BaseModel):
 
 
 # Define the Prefect flow
-@flow(name="freestar-revenue-reporting.freestar-report-flow")
+@flow(name="data-products.freestar-revenue-reporting.freestar-report-flow")
 async def freestar_report_flow(dates: FlowDateInputs = FlowDateInputs()):
     """Main flow that will bootstrap Snowflake objects as needed.
     This will also do the necessary evaluation of dates to determine

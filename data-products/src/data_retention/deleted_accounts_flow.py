@@ -14,7 +14,7 @@ def read_sql_file(file_name: str) -> str:
     return p.read_text()
 
 
-@flow()
+@flow(name="data-products.delete-deleted-account-data")
 async def delete_deleted_account_data():
     sfc = MozSnowflakeConnector(warehouse="USER_DATA_DELETION_WH")
 

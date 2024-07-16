@@ -207,7 +207,7 @@ def transform_to_candidates(
         ]
 
 
-@flow()
+@flow(name="data-products.create-legacy-candidate-set")
 async def create_legacy_candidate_set(set_params_id: str):
     sfc = MozSnowflakeConnector()
 

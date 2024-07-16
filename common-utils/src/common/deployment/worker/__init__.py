@@ -580,7 +580,6 @@ class FlowSpec(BaseModel):
         Also make sure the docker environment is in the pyproject.toml."""
         super().__init__(**data)
         pm = get_pyproject_metadata()
-        self.flow.name = f"{pm.project_name}.{self.flow.name}"
         if self.docker_env not in pm.docker_env_keys:
             raise ValueError(
                 f"Docker env '{self.docker_env}' does not exist in pyproject.toml.  "

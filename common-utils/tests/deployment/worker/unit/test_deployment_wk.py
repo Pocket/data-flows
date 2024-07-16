@@ -318,7 +318,7 @@ def test_flow_specs_exception(mock_loader, mock_cmd):
 @patch("common.deployment.worker.run_command")
 def test_flow_spec_elements(mock_cmd):
     # check FlowSpec directly
-    @flow(name="name_directly")
+    @flow(name="common-utils.name_directly")
     def test_flow():
         return "hello world"
 
@@ -352,4 +352,4 @@ def test_flow_spec_elements(mock_cmd):
         docker_env="base_v2",
         deployments=[FlowDeployment(name="base")],
     )
-    assert test_flow_2.name == "common-utils.test-flow-2"
+    assert test_flow_2.name == "test-flow-2"

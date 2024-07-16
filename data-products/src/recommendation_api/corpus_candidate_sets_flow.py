@@ -129,7 +129,7 @@ async def load_corpus_candidate_set_records(
     )(dataframe=df_prep, feature_group_name=feature_group)
 
 
-@flow()
+@flow(name="data-products.corpus-candidate-sets")
 async def corpus_candidate_sets():
     sfc = MozSnowflakeConnector()
 
