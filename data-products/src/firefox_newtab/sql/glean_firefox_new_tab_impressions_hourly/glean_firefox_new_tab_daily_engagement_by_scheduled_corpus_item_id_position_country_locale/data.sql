@@ -10,10 +10,8 @@ WITH
     events,
     metrics.string.newtab_locale AS locale
   FROM
-    {%
-  IF
-    with_stable %} `moz-fx-data-shared-prod.firefox_desktop_stable.newtab_v1` {%
-      ELSE %} `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` {% endif %}
+    {% if with_stable %} `moz-fx-data-shared-prod.firefox_desktop_stable.newtab_v1`
+      {% else %} `moz-fx-data-shared-prod.firefox_desktop_live.newtab_v1` {% endif %}
   WHERE
     submission_timestamp >= '{{ batch_start }}'
     AND submission_timestamp < '{{ batch_end }}'
@@ -31,7 +29,7 @@ WITH
       'scheduled_corpus_item_id') AS scheduled_corpus_item_id,
     mozfun.map.get_key(e.extra,
       'position') AS position,
-    metrics.string.newtab_locale AS locale,
+    locale,
     normalized_country_code AS country,
     COUNT(1) OVER (PARTITION BY document_id, e.name) AS user_event_count
   FROM
