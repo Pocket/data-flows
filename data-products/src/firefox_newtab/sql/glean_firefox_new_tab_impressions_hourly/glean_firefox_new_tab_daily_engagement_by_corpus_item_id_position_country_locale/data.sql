@@ -1,5 +1,5 @@
-  --replicates logic of current Prefect query using Glean data
-  --https://github.com/Pocket/data-flows/blob/main-v2/data-products/src/sql_etl/sql/firefox_new_tab_impressions_hourly/firefox_new_tab_daily_engagement_by_tile_id_position_country_locale/data.sql
+  --replicates logic of current Prefect query using Glean data and scheduled_corpus_item_id
+  --https://github.com/Pocket/data-flows/blob/main-v2/data-products/src/firefox_newtab/sql/glean_firefox_new_tab_impressions_hourly/glean_firefox_new_tab_daily_engagement_by_tile_id_position_country_locale/data.sql
 WITH
   deduplicated_pings AS (
   SELECT
