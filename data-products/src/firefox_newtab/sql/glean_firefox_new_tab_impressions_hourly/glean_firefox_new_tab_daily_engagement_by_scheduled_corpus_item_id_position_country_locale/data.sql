@@ -42,7 +42,7 @@ WITH
       'click',
       'save',
       'dismiss')
-    --keep only data with a non-null recommendation ID or tile ID
+    --keep only data with a non-null scheduled corpus item ID
     AND (mozfun.map.get_key(e.extra,
         'scheduled_corpus_item_id') IS NOT NULL
       --include only data from Firefox 121+
