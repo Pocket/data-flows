@@ -98,6 +98,87 @@ async def test_create_all_candidate_set_configs(monkeypatch):
             name="en_us/life_hacks",
             query_filename="life_hacks.sql",
             query_params={
+                "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_US",
+                "MAX_AGE_DAYS": 30,
+                "CORPUS_TOPIC_LIST": [
+                    "SELF_IMPROVEMENT",
+                    "CAREER",
+                    "HEALTH_FITNESS",
+                    "PERSONAL_FINANCE",
+                ],
+            },
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="1b086a7e-7f49-416b-8fd6-254d84001f7c",
+            name="de_de/life_hacks",
+            query_filename="life_hacks.sql",
+            query_params={
+                "SCHEDULED_SURFACE_ID": "NEW_TAB_DE_DE",
+                "MAX_AGE_DAYS": 30,
+                "CORPUS_TOPIC_LIST": [
+                    "SELF_IMPROVEMENT",
+                    "CAREER",
+                    "HEALTH_FITNESS",
+                    "PERSONAL_FINANCE",
+                ],
+            },
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="b5179696-4516-4d2f-b42b-b0424e3e4d18",
+            name="en_gb/life_hacks",
+            query_filename="life_hacks.sql",
+            query_params={
+                "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_GB",
+                "MAX_AGE_DAYS": 30,
+                "CORPUS_TOPIC_LIST": [
+                    "SELF_IMPROVEMENT",
+                    "CAREER",
+                    "HEALTH_FITNESS",
+                    "PERSONAL_FINANCE",
+                ],
+            },
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="c082fb1f-bec9-45e5-b119-e658cc29366c",
+            name="fr_fr/life_hacks",
+            query_filename="life_hacks.sql",
+            query_params={
+                "SCHEDULED_SURFACE_ID": "NEW_TAB_FR_FR",
+                "MAX_AGE_DAYS": 30,
+                "CORPUS_TOPIC_LIST": [
+                    "SELF_IMPROVEMENT",
+                    "CAREER",
+                    "HEALTH_FITNESS",
+                    "PERSONAL_FINANCE",
+                ],
+            },
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="22312367-36a5-4ceb-bce6-7fea7e83759b",
+            name="it_it/life_hacks",
+            query_filename="life_hacks.sql",
+            query_params={
+                "SCHEDULED_SURFACE_ID": "NEW_TAB_IT_IT",
+                "MAX_AGE_DAYS": 30,
+                "CORPUS_TOPIC_LIST": [
+                    "SELF_IMPROVEMENT",
+                    "CAREER",
+                    "HEALTH_FITNESS",
+                    "PERSONAL_FINANCE",
+                ],
+            },
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="c62e86b4-8d88-4036-80e3-00394323946f",
+            name="es_es/life_hacks",
+            query_filename="life_hacks.sql",
+            query_params={
+                "SCHEDULED_SURFACE_ID": "NEW_TAB_ES_ES",
                 "MAX_AGE_DAYS": 30,
                 "CORPUS_TOPIC_LIST": [
                     "SELF_IMPROVEMENT",
@@ -127,6 +208,34 @@ async def test_create_all_candidate_set_configs(monkeypatch):
             name="de_de/new_tab_not_syndicated_or_collection",
             query_filename="scheduled_not_syndicated_or_collection.sql",
             query_params={"MAX_AGE_DAYS": -3, "SCHEDULED_SURFACE_ID": "NEW_TAB_DE_DE"},
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="43637b16-1572-4f9b-ba5b-cb686d665633",
+            name="en_gb/new_tab_not_syndicated_or_collection",
+            query_filename="scheduled_not_syndicated_or_collection.sql",
+            query_params={"MAX_AGE_DAYS": -3, "SCHEDULED_SURFACE_ID": "NEW_TAB_EN_GB"},
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="70c4dffe-dd0b-4d97-ba76-69778b921b21",
+            name="fr_fr/new_tab_not_syndicated_or_collection",
+            query_filename="scheduled_not_syndicated_or_collection.sql",
+            query_params={"MAX_AGE_DAYS": -3, "SCHEDULED_SURFACE_ID": "NEW_TAB_FR_FR"},
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="bbf0dccb-d1a2-45bd-a0fd-7d8b8f61bb7a",
+            name="it_it/new_tab_not_syndicated_or_collection",
+            query_filename="scheduled_not_syndicated_or_collection.sql",
+            query_params={"MAX_AGE_DAYS": -3, "SCHEDULED_SURFACE_ID": "NEW_TAB_IT_IT"},
+            is_multiquery=False,
+        ),
+        CorpusCandidateSetConfig(
+            id="62b47b84-c32b-4798-8599-e75d61f8c21b",
+            name="es_es/new_tab_not_syndicated_or_collection",
+            query_filename="scheduled_not_syndicated_or_collection.sql",
+            query_params={"MAX_AGE_DAYS": -3, "SCHEDULED_SURFACE_ID": "NEW_TAB_ES_ES"},
             is_multiquery=False,
         ),
         CorpusCandidateSetConfig(
@@ -301,4 +410,4 @@ async def test_corpus_candidate_sets(monkeypatch):
 
     await corpus_candidate_sets()
     assert state["sf_call_count"] == 1
-    assert state["load_call_count"] == 14
+    assert state["load_call_count"] == 23

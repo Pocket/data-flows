@@ -35,6 +35,42 @@ SELECT
     corpus_topic_id as "CORPUS_TOPIC_ID",
     'NEW_TAB_DE_DE' as "SCHEDULED_SURFACE_ID"
 FROM analytics.dbt.static_corpus_candidate_set_topics
+
+UNION ALL
+
+SELECT
+    en_gb_curated_corpus_candidate_set_id as "CORPUS_CANDIDATE_SET_ID",
+    concat('en_gb/', LOWER(corpus_topic_id)) as "NAME",
+    corpus_topic_id as "CORPUS_TOPIC_ID",
+    'NEW_TAB_EN_GB' as "SCHEDULED_SURFACE_ID"
+FROM analytics.dbt.static_corpus_candidate_set_topics
+
+UNION ALL
+
+SELECT
+    fr_fr_curated_corpus_candidate_set_id as "CORPUS_CANDIDATE_SET_ID",
+    concat('fr_fr/', LOWER(corpus_topic_id)) as "NAME",
+    corpus_topic_id as "CORPUS_TOPIC_ID",
+    'NEW_TAB_FR_FR' as "SCHEDULED_SURFACE_ID"
+FROM analytics.dbt.static_corpus_candidate_set_topics
+
+UNION ALL
+
+SELECT
+    it_it_curated_corpus_candidate_set_id as "CORPUS_CANDIDATE_SET_ID",
+    concat('it_it/', LOWER(corpus_topic_id)) as "NAME",
+    corpus_topic_id as "CORPUS_TOPIC_ID",
+    'NEW_TAB_IT_IT' as "SCHEDULED_SURFACE_ID"
+FROM analytics.dbt.static_corpus_candidate_set_topics
+
+UNION ALL
+
+SELECT
+    es_es_curated_corpus_candidate_set_id as "CORPUS_CANDIDATE_SET_ID",
+    concat('es_es/', LOWER(corpus_topic_id)) as "NAME",
+    corpus_topic_id as "CORPUS_TOPIC_ID",
+    'NEW_TAB_ES_ES' as "SCHEDULED_SURFACE_ID"
+FROM analytics.dbt.static_corpus_candidate_set_topics
 """
 
 
