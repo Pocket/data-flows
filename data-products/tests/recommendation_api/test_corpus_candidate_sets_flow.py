@@ -235,7 +235,7 @@ async def test_create_all_candidate_set_configs(monkeypatch):
             id="62b47b84-c32b-4798-8599-e75d61f8c21b",
             name="es_es/new_tab_not_syndicated_or_collection",
             query_filename="scheduled_not_syndicated_or_collection.sql",
-            query_params={"MAX_AGE_DAYS": -3, "SCHEDULED_SURFACE_ID": "NEW_TAB_IT_IT"},
+            query_params={"MAX_AGE_DAYS": -3, "SCHEDULED_SURFACE_ID": "NEW_TAB_ES_ES"},
             is_multiquery=False,
         ),
         CorpusCandidateSetConfig(
