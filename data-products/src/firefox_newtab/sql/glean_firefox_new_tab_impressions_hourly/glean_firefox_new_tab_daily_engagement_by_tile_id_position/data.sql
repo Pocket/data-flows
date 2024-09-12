@@ -48,6 +48,9 @@ WITH
         'recommendation_id') IS NOT NULL
       OR mozfun.map.get_key(e.extra,
         'tile_id') IS NOT NULL)
+    --filter out records where scheduled corpus item ID is populated to prevent double count
+    AND mozfun.map.get_key(e.extra,
+        'scheduled_corpus_item_id') IS NULL
     --include only data from Firefox 121+
     AND SAFE_CAST(SPLIT(client_info.app_display_version, '.')[0] AS int64) >= 121 )
 SELECT
