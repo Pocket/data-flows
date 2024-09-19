@@ -13,7 +13,11 @@ WITH recent_collections AS (
   AND a.CORPUS_REVIEW_STATUS = 'recommendation'
   AND a.LANGUAGE = %(LANGUAGE)s
   AND recency between DATEADD("day", %(MAX_AGE_DAYS)s, current_timestamp()) and current_timestamp()
-  AND a.approved_corpus_item_external_id <> 'c931d2f5-0205-48f1-a773-dd0e682977b1'  -- See #incidents on 2023-03-21
+  AND a.approved_corpus_item_external_id not in (
+    'c931d2f5-0205-48f1-a773-dd0e682977b1',  -- See #incidents on 2023-03-21
+    'd5edaef4-fa6c-4293-934e-33d4db207ddd' -- And again on 2024-09-19
+  )
+
   QUALIFY row_number() OVER (PARTITION BY a.APPROVED_CORPUS_ITEM_EXTERNAL_ID ORDER BY recency DESC) = 1
 )
 
