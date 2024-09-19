@@ -34,7 +34,10 @@ FROM
      UNION ALL
      SELECT * FROM recently_updated_items)
 WHERE TOPIC IN (%(CORPUS_TOPIC_LIST)s)
-AND id <> 'c931d2f5-0205-48f1-a773-dd0e682977b1'  -- See #incidents on 2023-03-21
+AND id not in (
+    'c931d2f5-0205-48f1-a773-dd0e682977b1',  -- See #incidents on 2023-03-21
+    'd5edaef4-fa6c-4293-934e-33d4db207ddd' -- And again on 2024-09-19
+)
 AND REVIEW_TIME >= current_date() - %(MAX_AGE_DAYS)s
 QUALIFY row_number() OVER (PARTITION BY ID ORDER BY REVIEW_TIME DESC) = 1
 ORDER BY REVIEW_TIME DESC

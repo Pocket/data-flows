@@ -21,7 +21,10 @@ WITH recently_updated_items as (
     AND SCHEDULED_SURFACE_ID = %(SCHEDULED_SURFACE_ID)s
     AND NOT is_syndicated
     AND NOT is_collection
-    AND approved_corpus_item_external_id <> 'c931d2f5-0205-48f1-a773-dd0e682977b1'  -- See #incidents on 2023-03-21
+    AND approved_corpus_item_external_id not in (
+        'c931d2f5-0205-48f1-a773-dd0e682977b1',  -- See #incidents on 2023-03-21
+        'd5edaef4-fa6c-4293-934e-33d4db207ddd' -- And again on 2024-09-19
+    )
 ),
 
 recently_scheduled_items as (
