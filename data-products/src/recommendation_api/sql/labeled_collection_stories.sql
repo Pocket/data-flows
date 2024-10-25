@@ -23,3 +23,4 @@ where aci.approved_corpus_item_external_id not in (
     )
 
 and TOPIC is not null and PUBLISHER is not null -- Recommendations need to always have a topic and publisher
+limit 200
