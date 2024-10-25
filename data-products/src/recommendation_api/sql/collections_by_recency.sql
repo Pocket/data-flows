@@ -27,3 +27,4 @@ SELECT
     publisher as "PUBLISHER"
 FROM recent_collections
 ORDER BY recency DESC
+LIMIT 200
