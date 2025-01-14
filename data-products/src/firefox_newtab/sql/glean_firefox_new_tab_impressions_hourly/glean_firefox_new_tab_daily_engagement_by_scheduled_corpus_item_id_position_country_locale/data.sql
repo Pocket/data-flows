@@ -42,10 +42,10 @@ WITH
       'click',
       'save',
       'dismiss')
-    --keep only data with a non-null scheduled corpus item ID
+    -- keep only data with a non-null scheduled corpus item ID
     AND (mozfun.map.get_key(e.extra,
         'scheduled_corpus_item_id') IS NOT NULL
-      --include only data from Firefox 121+
+      -- include only data from Firefox 121+
       AND SAFE_CAST(SPLIT(client_info.app_display_version, '.')[0] AS int64) >= 121 ))
 SELECT
   DATE(submission_timestamp) AS happened_at,
