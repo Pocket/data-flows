@@ -16,7 +16,6 @@ from common.databases.snowflake_utils import (
 )
 from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings, get_cached_settings
-from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
 from pendulum.parser import parse as pdm_parse
 from prefect import flow, get_run_logger, task
@@ -24,7 +23,6 @@ from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_multiquery
 from shared.async_utils import process_parallel_subflows
 
-load_dotenv
 CS = CommonSettings()  # type: ignore
 
 # location of sql is relative to where the flow code is
