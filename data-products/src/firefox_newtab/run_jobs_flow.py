@@ -16,6 +16,7 @@ from common.databases.snowflake_utils import (
 )
 from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings, get_cached_settings
+from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
 from pendulum.parser import parse as pdm_parse
 from prefect import flow, get_run_logger, task
@@ -23,6 +24,7 @@ from prefect_gcp.bigquery import bigquery_query
 from prefect_snowflake.database import snowflake_multiquery
 from shared.async_utils import process_parallel_subflows
 
+load_dotenv
 CS = CommonSettings()  # type: ignore
 
 # location of sql is relative to where the flow code is
@@ -390,8 +392,30 @@ FLOW_SPEC = FlowSpec(
             },
             tags=["hourly-sla"],
         ),
+        FlowDeployment(
+            name="ads_impressions_hourly",
+            cron="0 * * * *",
+            parameters={
+                "sql_folder": "ads_impressions_hourly",
+                "include_now": True,
+            },
+            job_variables={
+                "env": {
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
+                        dev="cbeck", staging="staging", main="mozilla"
+                    )
+                },
+            },
+            tags=["hourly-sla"],
+        ),
     ],
 )
 
 if __name__ == "__main__":
-    run(main("firefox_new_tab_impressions_hourly", include_now=True))  # type: ignore  # noqa: E501
+    # Set start date to 7 days ago
+    start_date = pdm.now(tz="UTC").subtract(days=7).to_date_string()
+    # Set end date to today
+    end_date = pdm.now(tz="UTC").to_date_string()
+
+    # Run the main flow with backfill for the last 7 days
+    run(main("ads_impressions_hourly", start_date=start_date, end_date=end_date))  # type: ignore  # noqa: E501
