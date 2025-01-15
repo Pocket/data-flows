@@ -5,7 +5,7 @@
 {% macro table_def() %}
     happened_at date not null,
     recommendation_id string, 
-    tile_id number,
+    ad_id number,
     position number not null,
     impression_count number not null,
     click_count number not null,

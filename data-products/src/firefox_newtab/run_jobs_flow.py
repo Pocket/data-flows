@@ -391,10 +391,10 @@ FLOW_SPEC = FlowSpec(
             tags=["hourly-sla"],
         ),
         FlowDeployment(
-            name="ads_impressions_hourly",
+            name="uapi_interactions_hourly",
             cron="0 * * * *",
             parameters={
-                "sql_folder": "ads_impressions_hourly",
+                "sql_folder": "uapi_interactions_hourly",
                 "include_now": True,
             },
             job_variables={
@@ -416,4 +416,4 @@ if __name__ == "__main__":
     end_date = pdm.now(tz="UTC").to_date_string()
 
     # Run the main flow with backfill for the last 7 days
-    run(main("ads_impressions_hourly", start_date=start_date, end_date=end_date))  # type: ignore  # noqa: E501
+    run(main("uapi_interactions_hourly", start_date=start_date, end_date=end_date))  # type: ignore  # noqa: E501
