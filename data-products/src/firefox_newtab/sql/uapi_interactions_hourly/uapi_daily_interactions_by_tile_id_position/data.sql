@@ -1,6 +1,6 @@
 SELECT
   DATE(submission_hour) AS happened_at,
-  NULL AS recommendation_id,
+  CAST(NULL AS STRING) AS recommendation_id,
   ad_id,
   position,
   COUNTIF(interaction_type = 'impression') AS impression_count,
