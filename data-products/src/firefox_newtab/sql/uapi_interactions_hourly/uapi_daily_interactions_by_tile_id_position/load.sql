@@ -6,7 +6,7 @@
     happened_at date not null,
     recommendation_id string, 
     ad_id number,
-    position number not null,
+    position number,
     impression_count number not null,
     click_count number not null,
     save_count number not null,
