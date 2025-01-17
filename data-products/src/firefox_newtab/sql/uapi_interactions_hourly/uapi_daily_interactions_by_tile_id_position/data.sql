@@ -3,8 +3,8 @@ SELECT
   CAST(NULL AS STRING) AS recommendation_id,
   ad_id,
   position,
-  COUNTIF(interaction_type = 'impression') AS impression_count,
-  COUNTIF(interaction_type = 'click') AS click_count,
+  SUM(CASE WHEN interaction_type = 'impression' THEN interaction_count ELSE 0 END) AS impression_count,
+  SUM(CASE WHEN interaction_type = 'click' THEN interaction_count ELSE 0 END) AS click_count,
   0 AS save_count,
   0 AS dismiss_count,
 FROM
