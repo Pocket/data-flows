@@ -390,8 +390,30 @@ FLOW_SPEC = FlowSpec(
             },
             tags=["hourly-sla"],
         ),
+        FlowDeployment(
+            name="uapi_interactions_hourly",
+            cron="0 * * * *",
+            parameters={
+                "sql_folder": "uapi_interactions_hourly",
+                "include_now": True,
+            },
+            job_variables={
+                "env": {
+                    "DF_CONFIG_SNOWFLAKE_SCHEMA": CS.deployment_type_value(
+                        dev="cbeck", staging="staging", main="mozilla"
+                    )
+                },
+            },
+            tags=["hourly-sla"],
+        ),
     ],
 )
 
 if __name__ == "__main__":
-    run(main("firefox_new_tab_impressions_hourly", include_now=True))  # type: ignore  # noqa: E501
+    # Set start date to 7 days ago
+    start_date = pdm.now(tz="UTC").subtract(days=7).to_date_string()
+    # Set end date to today
+    end_date = pdm.now(tz="UTC").to_date_string()
+
+    # Run the main flow with backfill for the last 7 days
+    run(main("uapi_interactions_hourly", start_date=start_date, end_date=end_date))  # type: ignore  # noqa: E501
