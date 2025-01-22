@@ -1,3 +1,4 @@
+-- Pull the data from UAPI telemetry for the relevant period
 SELECT
   DATE(submission_hour) AS happened_at,
   CAST(NULL AS STRING) AS recommendation_id,
