@@ -360,8 +360,8 @@ workflows:
           context: pocket-oidc-dev
           push_image: true
           name: prefect agent docker push
-          requires:
-            - terraform apply oidc dev
+          # requires:
+          #   - terraform apply oidc dev
       # - aws_changes_build:
       #     <<: *only_dev_v2
       #     context: pocket
@@ -387,8 +387,8 @@ workflows:
           context: pocket-oidc-prod
           push_image: true
           name: prefect agent docker push
-          requires:
-            - terraform apply oidc production
+          # requires:
+          #   - terraform apply oidc production
       # - aws_changes_build:
       #     <<: *only_main_v2
       #     context: pocket
@@ -411,7 +411,7 @@ workflows:
           deployment_type: main
           validate_build_only: false
           requires:
-            - terraform apply prefect production
+            # - terraform apply prefect production
             - common_utils_changes_build
   staging_workflow:
     jobs:
