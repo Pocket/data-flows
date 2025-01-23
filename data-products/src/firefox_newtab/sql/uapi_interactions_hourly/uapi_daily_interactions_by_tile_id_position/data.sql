@@ -1,3 +1,4 @@
+-- Collect aggregate interactions from UAPI data
 SELECT
   DATE(submission_hour) AS happened_at,
   CAST(NULL AS STRING) AS recommendation_id,
