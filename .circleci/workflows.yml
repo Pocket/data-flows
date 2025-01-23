@@ -299,41 +299,41 @@ jobs:
 workflows:
   pr_workflow:
     jobs: 
-      - aws_changes_build:
-          <<: *not_dev_main_stg_v2
-          context: pocket
-          node_env: development
-          runner_resource_class: pocket/default-dev
-          stack_name: prefect-oidc
-          name: terraform plan oidc dev
-      - aws_changes_build:
-          <<: *not_dev_main_stg_v2
-          context: pocket
-          node_env: production
-          runner_resource_class: pocket/default-prod
-          stack_name: prefect-oidc
-          name: terraform plan oidc production
+      # - aws_changes_build:
+      #     <<: *not_dev_main_stg_v2
+      #     context: pocket
+      #     node_env: development
+      #     runner_resource_class: pocket/default-dev
+      #     stack_name: prefect-oidc
+      #     name: terraform plan oidc dev
+      # - aws_changes_build:
+      #     <<: *not_dev_main_stg_v2
+      #     context: pocket
+      #     node_env: production
+      #     runner_resource_class: pocket/default-prod
+      #     stack_name: prefect-oidc
+      #     name: terraform plan oidc production
       - prefect_agent_docker:
           <<: *not_dev_main_stg_v2
           name: prefect agent docker build
-      - aws_changes_build:
-          <<: *not_dev_main_stg_v2
-          context: pocket
-          node_env: development
-          runner_resource_class: pocket/default-dev
-          stack_name: prefect-v2
-          name: terraform plan prefect dev
-          requires:
-            - terraform plan oidc dev
-      - aws_changes_build:
-          <<: *not_dev_main_stg_v2
-          context: pocket
-          node_env: production
-          runner_resource_class: pocket/default-prod
-          stack_name: prefect-v2
-          name: terraform plan prefect production
-          requires:
-            - terraform plan oidc production
+      # - aws_changes_build:
+      #     <<: *not_dev_main_stg_v2
+      #     context: pocket
+      #     node_env: development
+      #     runner_resource_class: pocket/default-dev
+      #     stack_name: prefect-v2
+      #     name: terraform plan prefect dev
+      #     requires:
+      #       - terraform plan oidc dev
+      # - aws_changes_build:
+      #     <<: *not_dev_main_stg_v2
+      #     context: pocket
+      #     node_env: production
+      #     runner_resource_class: pocket/default-prod
+      #     stack_name: prefect-v2
+      #     name: terraform plan prefect production
+      #     requires:
+      #       - terraform plan oidc production
       - common_utils_changes_build:
           <<: *not_dev_main_stg_v2
       - prefect_project_changes:
@@ -347,14 +347,14 @@ workflows:
             - common_utils_changes_build
   dev_workflow:
     jobs: 
-      - aws_changes_build:
-          <<: *only_dev_v2
-          context: pocket
-          node_env: development
-          runner_resource_class: pocket/default-dev
-          stack_name: prefect-oidc
-          apply_stack: true
-          name: terraform apply oidc dev
+      # - aws_changes_build:
+      #     <<: *only_dev_v2
+      #     context: pocket
+      #     node_env: development
+      #     runner_resource_class: pocket/default-dev
+      #     stack_name: prefect-oidc
+      #     apply_stack: true
+      #     name: terraform apply oidc dev
       - prefect_agent_docker:
           <<: *only_dev_v2
           context: pocket-oidc-dev
@@ -362,26 +362,26 @@ workflows:
           name: prefect agent docker push
           requires:
             - terraform apply oidc dev
-      - aws_changes_build:
-          <<: *only_dev_v2
-          context: pocket
-          node_env: development
-          runner_resource_class: pocket/default-dev
-          stack_name: prefect-v2
-          apply_stack: true
-          name: terraform apply prefect dev
-          requires:
-            - prefect agent docker push
+      # - aws_changes_build:
+      #     <<: *only_dev_v2
+      #     context: pocket
+      #     node_env: development
+      #     runner_resource_class: pocket/default-dev
+      #     stack_name: prefect-v2
+      #     apply_stack: true
+      #     name: terraform apply prefect dev
+      #     requires:
+      #       - prefect agent docker push
   main_workflow:
     jobs: 
-      - aws_changes_build:
-          <<: *only_main_v2
-          context: pocket
-          node_env: production
-          runner_resource_class: pocket/default-prod
-          stack_name: prefect-oidc
-          apply_stack: true
-          name: terraform apply oidc production
+      # - aws_changes_build:
+      #     <<: *only_main_v2
+      #     context: pocket
+      #     node_env: production
+      #     runner_resource_class: pocket/default-prod
+      #     stack_name: prefect-oidc
+      #     apply_stack: true
+      #     name: terraform apply oidc production
       - prefect_agent_docker:
           <<: *only_main_v2
           context: pocket-oidc-prod
@@ -389,16 +389,16 @@ workflows:
           name: prefect agent docker push
           requires:
             - terraform apply oidc production
-      - aws_changes_build:
-          <<: *only_main_v2
-          context: pocket
-          node_env: production
-          runner_resource_class: pocket/default-prod
-          stack_name: prefect-v2
-          apply_stack: true
-          name: terraform apply prefect production
-          requires:
-            - prefect agent docker push
+      # - aws_changes_build:
+      #     <<: *only_main_v2
+      #     context: pocket
+      #     node_env: production
+      #     runner_resource_class: pocket/default-prod
+      #     stack_name: prefect-v2
+      #     apply_stack: true
+      #     name: terraform apply prefect production
+      #     requires:
+      #       - prefect agent docker push
       - common_utils_changes_build:
           <<: *only_main_v2
       - prefect_project_changes:
