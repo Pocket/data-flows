@@ -14,7 +14,7 @@ WHERE
   submission_hour >= '{{ batch_start }}'
   AND submission_hour < '{{ batch_end }}'
   AND form_factor = 'desktop'
-  AND placement = 'newtab_spocs'
+  AND placement IN ('newtab_spocs', 'newtab_rectangle')
 GROUP BY
   happened_at,
   ad_id,
