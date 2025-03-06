@@ -213,7 +213,7 @@ def transform(
     - Adds the transformed text data as a new field to the Dataframe
 
     Args:
-        contents_future (str): s3 object to process
+        contents (str): s3 object to process
         failure_store (list): shared list to track text conversion failures
         key (str): s3 key for contents being processed
         batch_id (int): batch_id for etl run
@@ -250,9 +250,19 @@ def transform(
 
     fileobj = BytesIO(contents)
     with gzip.GzipFile(fileobj=fileobj) as gzipfile:
-        contents_str = gzipfile.read()
-    dicts = [json.loads(c) for c in contents_str.splitlines()]
-    df = pd.DataFrame.from_records(dicts)
+        contents_str = gzipfile.read().decode("utf-8")
+
+    records = []
+    for line in contents_str.splitlines():
+        if not line.strip():
+            continue  # Ignore empty lines. On 2025/02/26 a file mysteriously had an empty line between records.
+        try:
+            record = json.loads(line)
+            records.append(record)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Invalid JSON in blob {key}: {line[:100]}... Error: {e}")
+
+    df = pd.DataFrame.from_records(records)
     df.rename(columns={"article": "html"}, inplace=True)
     df["text"] = [
         handle_html2text(html, key, resolved_id)

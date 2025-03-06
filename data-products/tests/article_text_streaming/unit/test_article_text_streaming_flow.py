@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, Mock
 
 import boto3
 import pytest
+
 from article_text_streaming.article_text_streaming_flow import (
     FAILURES_FILE_PATH,
     S3_BUCKET,
@@ -18,11 +19,13 @@ from article_text_streaming.article_text_streaming_flow import (
     create_chunks,
     etl,
     main,
+    transform,
 )
 from common import get_script_path
 from common.settings import CommonSettings
 from moto import mock_s3
 from prefect import flow, get_run_logger, task
+from prefect.logging import disable_run_logger
 from prefect_aws import AwsCredentials
 
 CS = CommonSettings()  # type: ignore
@@ -195,6 +198,81 @@ def test_main(monkeypatch, range_end):
             run(main())
             test_text = FAILURES_FILE_PATH.read_text()
             assert len(test_text.splitlines()) == range_end - 1
+
+
+def test_transform_ignores_invalid_json(tmp_path, monkeypatch, caplog):
+    """Test that invalid JSON is logged as a warning and that the task continues processing."""
+    # Create a valid JSON record
+    valid_record = {"resolved_id": "1466307989", "article": "<!--VIDEO_1-->"}
+    # Create an invalid JSON record that contains an unexpected newline
+    invalid_record = '{"resolved_id":"1946438721","article":"<!--IMG_1--><div>\nInvalid newline</div>"}'
+
+    # Combine them (order: valid then invalid)
+    combined = json.dumps(valid_record) + "\n" + invalid_record
+    gz_fileobj = write_gzip_data(combined)
+    gzipped_content = gz_fileobj.getvalue()
+
+    # Patch get_text_from_html to simply return the HTML unchanged.
+    monkeypatch.setattr(
+        "article_text_streaming.article_text_streaming_flow.get_text_from_html",
+        lambda html: html,
+    )
+
+    # Use a temporary file for the failures store
+    failures_file = tmp_path / "failures.json"
+
+    # Disable the Prefect run logger context to avoid MissingContextError.
+    with disable_run_logger():
+        # Call the transform function (since it's a Prefect task, use .fn to call synchronously)
+        df = transform.fn(gzipped_content, "dummy_key", 0, failures_file)
+
+    # Check that the resulting dataframe only has the valid record.
+    # (Since our combined blob had 2 lines, one valid and one invalid)
+    assert len(df) == 1
+    assert df["resolved_id"].iloc[0] == "1466307989"
+
+    # Verify that a warning about invalid JSON was logged.
+    # caplog captures logs; we check that a warning message appears.
+    assert any(
+        "Invalid JSON in blob dummy_key" in record.message for record in caplog.records
+    )
+
+
+def test_transform_with_empty_lines_between_records(tmp_path, monkeypatch, caplog):
+    """
+    Test that extra empty lines between records are ignored, which occurred in
+    article/streaming-html/2025/02/26/01/KDS-S3-56bBp-4-2025-02-26-01-56-30-2725e0de-621a-4d3a-a45a-dfcd5991b782.gz
+    """
+    # Create two valid JSON records.
+    record1 = {"resolved_id": "100", "article": "<!--VIDEO_1-->"}
+    record2 = {"resolved_id": "101", "article": "<!--VIDEO_2-->"}
+
+    combined = json.dumps(record1) + "\n" + "\n" + json.dumps(record2)
+    gz_fileobj = write_gzip_data(combined)
+    gzipped_content = gz_fileobj.getvalue()
+
+    # Patch get_text_from_html to simply return the HTML unchanged.
+    monkeypatch.setattr(
+        "article_text_streaming.article_text_streaming_flow.get_text_from_html",
+        lambda html: html,
+    )
+
+    # Use a temporary file for the failures store.
+    failures_file = tmp_path / "failures.json"
+
+    # Disable the Prefect run logger context to avoid MissingContextError.
+    with disable_run_logger():
+        df = transform.fn(gzipped_content, "dummy_key", 0, failures_file)
+
+    # Verify that the resulting DataFrame has both records.
+    assert len(df) == 2
+    assert df["resolved_id"].iloc[0] == "100"
+    assert df["resolved_id"].iloc[1] == "101"
+
+    # Confirm that no warning about invalid JSON was logged.
+    assert not any(
+        "Invalid JSON in blob dummy_key" in record.message for record in caplog.records
+    )
 
 
 def test_create_chunks_exception():
