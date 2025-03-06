@@ -215,7 +215,7 @@ def test_transform_ignores_invalid_json(tmp_path, monkeypatch, caplog):
     # Patch get_text_from_html to simply return the HTML unchanged.
     monkeypatch.setattr(
         "article_text_streaming.article_text_streaming_flow.get_text_from_html",
-        lambda html: html
+        lambda html: html,
     )
 
     # Use a temporary file for the failures store
@@ -233,7 +233,9 @@ def test_transform_ignores_invalid_json(tmp_path, monkeypatch, caplog):
 
     # Verify that a warning about invalid JSON was logged.
     # caplog captures logs; we check that a warning message appears.
-    assert any("Invalid JSON in blob dummy_key" in record.message for record in caplog.records)
+    assert any(
+        "Invalid JSON in blob dummy_key" in record.message for record in caplog.records
+    )
 
 
 def test_transform_with_empty_lines_between_records(tmp_path, monkeypatch, caplog):
@@ -252,7 +254,7 @@ def test_transform_with_empty_lines_between_records(tmp_path, monkeypatch, caplo
     # Patch get_text_from_html to simply return the HTML unchanged.
     monkeypatch.setattr(
         "article_text_streaming.article_text_streaming_flow.get_text_from_html",
-        lambda html: html
+        lambda html: html,
     )
 
     # Use a temporary file for the failures store.
@@ -268,7 +270,9 @@ def test_transform_with_empty_lines_between_records(tmp_path, monkeypatch, caplo
     assert df["resolved_id"].iloc[1] == "101"
 
     # Confirm that no warning about invalid JSON was logged.
-    assert not any("Invalid JSON in blob dummy_key" in record.message for record in caplog.records)
+    assert not any(
+        "Invalid JSON in blob dummy_key" in record.message for record in caplog.records
+    )
 
 
 def test_create_chunks_exception():
