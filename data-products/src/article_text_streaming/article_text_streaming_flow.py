@@ -490,7 +490,7 @@ FLOW_SPEC = FlowSpec(
             job_variables={
                 "ephemeralStorage": {"sizeInGiB": 200},
                 "cpu": 4096,
-                "memory": 8192,
+                "memory": 30720,
                 "env": {
                     "ARTICLE_DB": CS.deployment_type_value(
                         dev="development", staging="development", main="raw"
