@@ -31,6 +31,7 @@ from typing import Any
 
 import pandas as pd
 import pendulum as pdm
+import botocore.exceptions
 from common.databases.snowflake_utils import MozSnowflakeConnector
 from common.deployment.worker import FlowDeployment, FlowSpec
 from common.settings import CommonSettings
@@ -311,7 +312,10 @@ def cleanup(key: str, aws_creds: AwsCredentials):
     logger = get_run_logger()
     logger.info(f"deleting file: {key}")
     s3_client = aws_creds.get_s3_client()
-    s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+    try:
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+    except botocore.exceptions.ClientError as e:
+        logger.warning(f"Failed to delete key {key}. Skipping file. {e}")
 
 
 @flow(task_runner=DaskTaskRunner())
@@ -334,7 +338,13 @@ async def etl(
             )
         )
     # collect downloaded fileobjs
-    extract_results = [(await job.result(), key) for job, key in extract_jobs]
+    extract_results = []
+    for job, key in extract_jobs:
+        try:
+            result = await job.result()
+            extract_results.append((result, key))
+        except botocore.exceptions.ClientError as e:
+            logger.warning(f"Failed to download key {key}. Skipping file. {e}")
     # init list for collecting task results
     transform_jobs = []
     # submit transform for each fileobj
