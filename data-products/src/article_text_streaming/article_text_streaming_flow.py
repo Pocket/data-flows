@@ -315,7 +315,10 @@ def cleanup(key: str, aws_creds: AwsCredentials):
     try:
         s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
     except botocore.exceptions.ClientError as e:
-        logger.warning(f"Failed to delete key {key}. Skipping file. {e}")
+        if e.response.get("Error", {}).get("Code") == "404":
+            logger.warning(f"File not found during cleanup: {key}. Skipping deletion.")
+        else:
+            raise
 
 
 @flow(task_runner=DaskTaskRunner())
@@ -344,7 +347,10 @@ async def etl(
             result = await job.result()
             extract_results.append((result, key))
         except botocore.exceptions.ClientError as e:
-            logger.warning(f"Failed to download key {key}. Skipping file. {e}")
+            if e.response.get("Error", {}).get("Code") == "404":
+                logger.warning(f"File not found for key {key}. Skipping file.")
+            else:
+                raise
     # init list for collecting task results
     transform_jobs = []
     # submit transform for each fileobj
