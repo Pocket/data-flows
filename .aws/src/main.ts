@@ -24,10 +24,10 @@ import { DataAwsS3Bucket } from '@cdktf/provider-aws/lib/data-aws-s3-bucket';
 // main Terraform Stack object for Prefect V2 infrastructure
 class PrefectV2 extends TerraformStack {
   // these will enable access to variables in private methods
-  private readonly region: DataAwsRegion;
-  private readonly caller: DataAwsCallerIdentity;
-  private readonly prefectV2Secret: DataAwsSecretsmanagerSecret;
-  private readonly dockerSharedSecret: DataAwsSecretsmanagerSecret;
+  //private readonly region: DataAwsRegion;
+  //private readonly caller: DataAwsCallerIdentity;
+  //private readonly prefectV2Secret: DataAwsSecretsmanagerSecret;
+  //private readonly dockerSharedSecret: DataAwsSecretsmanagerSecret;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
@@ -40,36 +40,39 @@ class PrefectV2 extends TerraformStack {
     });
 
     // boiler plate for access to region and account id from iam creds
-    this.region = new DataAwsRegion(this, 'region');
-    this.caller = new DataAwsCallerIdentity(this, 'caller');
+    //this.region = new DataAwsRegion(this, 'region');
+    //this.caller = new DataAwsCallerIdentity(this, 'caller');
+
     // need this for the Prefect v2 API credentials
-    this.prefectV2Secret = new DataAwsSecretsmanagerSecret(
+    /* this.prefectV2Secret = new DataAwsSecretsmanagerSecret(
       this,
       'prefectV2Secret',
       {
         name: `dpt/${config.tags.environment}/prefect_v2`
       }
-    );
+    ); */
+
     // need this for docker hub pull
-    this.dockerSharedSecret = new DataAwsSecretsmanagerSecret(
+    /* this.dockerSharedSecret = new DataAwsSecretsmanagerSecret(
       this,
       'dockerSharedSecret',
       {
         name: 'Shared/DockerHub'
       }
-    );
+    ); */
+
     // need this to support article text flow
-    const pocketDataItemBucket = new DataAwsS3Bucket(
+    /* const pocketDataItemBucket = new DataAwsS3Bucket(
       this,
       `pocketDataItemBucket`,
       {
         bucket: `${config.pocketDataItemsBucket}`
       }
-    );
+    ); */
 
     // worker per environment
     // these map to github branch strategy of dev-v2, staging-v2, and main-v2
-    if (config.isDev) {
+    /* if (config.isDev) {
       this.getWorkerService('dev');
       const devS3Bucket = this.createDataFlowsBucket('dev');
       new DataFlowsIamRoles(
@@ -104,33 +107,33 @@ class PrefectV2 extends TerraformStack {
         this.region,
         'main'
       );
-    }
-    // create data-flows task security group
+    } */
 
-    const vpcId = new DataAwsVpc(this, 'vpcId', {
+    // create data-flows task security group
+    /* const vpcId = new DataAwsVpc(this, 'vpcId', {
       tags: {
         Name: config.vpcName
       }
-    });
+    }); */
 
-    const baseDataFlowsSg = new SecurityGroup(this, 'BaseDataFlowsSg', {
+    /* const baseDataFlowsSg = new SecurityGroup(this, 'BaseDataFlowsSg', {
       name: 'data-flows-prefect-base',
       vpcId: vpcId.id
-    });
+    }); */
 
-    new SecurityGroupRule(this, 'BaseDataFlowsSgEgress', {
+    /* new SecurityGroupRule(this, 'BaseDataFlowsSgEgress', {
       type: 'egress',
       fromPort: 0,
       toPort: 0,
       protocol: '-1',
       cidrBlocks: ['0.0.0.0/0'],
       securityGroupId: baseDataFlowsSg.id
-    });
+    }); */
   }
 
   // create new data-flows-prefect-filesystem S3 buckets
   // this is used for flow artifacts and staging as needed
-  private createDataFlowsBucket(deploymentType: string): S3Bucket {
+  /* private createDataFlowsBucket(deploymentType: string): S3Bucket {
     const artifactsBucket = new S3Bucket(
       this,
       `dataFlowsPrefectFs${deploymentType}`,
@@ -160,10 +163,10 @@ class PrefectV2 extends TerraformStack {
       }
     );
     return artifactsBucket;
-  }
+  } */
 
   // create a task definition and service using private methods and params
-  private getWorkerService(deploymentType: string) {
+  /* private getWorkerService(deploymentType: string) {
     const prefix = `prefect-v2-worker-${deploymentType}`;
     const DeploymentTypeProper =
       deploymentType.charAt(0).toUpperCase() + deploymentType.slice(1);
@@ -217,7 +220,7 @@ class PrefectV2 extends TerraformStack {
           'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
       }
     });
-  }
+  } */
 }
 
 class PrefectOidc extends TerraformStack {
@@ -232,16 +235,16 @@ class PrefectOidc extends TerraformStack {
     });
 
     // boiler plate for access to region and account id from iam creds
-    const region = new DataAwsRegion(this, 'region');
-    const caller = new DataAwsCallerIdentity(this, 'caller');
+    //const region = new DataAwsRegion(this, 'region');
+    //const caller = new DataAwsCallerIdentity(this, 'caller');
 
     // create new data-flows-prefect-v2-envs ECR Repo
-    new ApplicationECR(this, 'data-flows-prefect-v2-envs-ecr', {
+    /* new ApplicationECR(this, 'data-flows-prefect-v2-envs-ecr', {
       name: 'data-flows-prefect-v2-envs'
-    });
+    }); */
 
     // create the CircleCI OpenId Role for Image Upload
-    new CircleCiOIDC(this, 'CircleCiOIDC', region, caller);
+    //new CircleCiOIDC(this, 'CircleCiOIDC', region, caller);
   }
 }
 
